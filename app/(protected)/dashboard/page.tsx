@@ -1,5 +1,5 @@
-// Enhanced Dashboard with full relationship integration
-// Replace your existing dashboard/page.tsx with this version
+// COMPLETE DASHBOARD PAGE WITH DYNAMIC CONNECTION SCORE
+// Replace your entire app/dashboard/page.tsx with this:
 
 'use client'
 
@@ -12,16 +12,31 @@ import RecentActivity from '@/components/RecentActivity'
 
 export default function DashboardPage() {
   // State management
-  const [connectionScore] = useState(78)
+  const [connectionScore, setConnectionScore] = useState<number>(50)
+  const [scoreLoading, setScoreLoading] = useState(true)
+  const [scoreData, setScoreData] = useState<any>({
+    currentScore: 50,
+    trend: 0,
+    lastWeekAvg: 50,
+    totalCheckins: 0,
+    daysActive: 0,
+    components: null
+  })
+  
   const [user, setUser] = useState<any>(null)
   const [insights, setInsights] = useState<any[]>([])
   const [loadingInsights, setLoadingInsights] = useState(false)
   const [generatingInsights, setGeneratingInsights] = useState(false)
+  const [message, setMessage] = useState('')
   
   // Relationship state
   const [relationships, setRelationships] = useState<any[]>([])
   const [activeRelationship, setActiveRelationship] = useState<any>(null)
   const [showSharedInsights, setShowSharedInsights] = useState(false)
+  
+  // Score feedback state
+  const [showScoreFeedback, setShowScoreFeedback] = useState(false)
+  const [scoreFeedback, setScoreFeedback] = useState<'too_high' | 'too_low' | 'just_right' | null>(null)
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,12 +69,200 @@ export default function DashboardPage() {
 
         await Promise.all([
           loadInsights(user.id),
-          loadRelationships(user.id)
+          loadRelationships(user.id),
+          calculateConnectionScore(user.id)
         ])
       }
     }
     getUser()
   }, [])
+
+  // Calculate dynamic connection score
+  const calculateConnectionScore = async (userId: string) => {
+    setScoreLoading(true)
+    
+    try {
+      // Get last 30 days of check-ins
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      
+      const { data: checkins, error } = await supabase
+        .from('daily_checkins')
+        .select('connection_score, mood_score, created_at, gratitude_note, challenge_note')
+        .eq('user_id', userId)
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (!checkins || checkins.length === 0) {
+        // New user - set default encouraging score
+        const defaultData = {
+          currentScore: 65,
+          trend: 0,
+          lastWeekAvg: 65,
+          totalCheckins: 0,
+          daysActive: 0,
+          message: 'Complete your first check-in to get your personalized score!',
+          components: null
+        }
+        setConnectionScore(65)
+        setScoreData(defaultData)
+        setScoreLoading(false)
+        return
+      }
+
+      // Calculate base score from recent check-ins
+      const recentCheckins = checkins.slice(0, 7) // Last 7 check-ins
+      const baseConnectionScore = recentCheckins.length > 0 
+        ? Math.round(recentCheckins.reduce((sum, checkin) => sum + checkin.connection_score, 0) / recentCheckins.length)
+        : 50
+
+      const baseMoodScore = recentCheckins.length > 0
+        ? Math.round(recentCheckins.reduce((sum, checkin) => sum + checkin.mood_score, 0) / recentCheckins.length)
+        : 50
+
+      // Calculate consistency bonus (0-15 points)
+      const daysActive = new Set(checkins.map(c => c.created_at.split('T')[0])).size
+      const consistencyBonus = Math.min(Math.floor(daysActive / 2), 15)
+
+      // Calculate gratitude bonus (0-10 points)
+      const gratitudeCount = checkins.filter(c => c.gratitude_note?.trim()).length
+      const gratitudeBonus = Math.min(Math.floor(gratitudeCount / 2), 10)
+
+      // Calculate trend (comparing recent week to previous week)
+      const recentWeek = checkins.slice(0, 7)
+      const previousWeek = checkins.slice(7, 14)
+      
+      const recentAvg = recentWeek.length > 0 
+        ? recentWeek.reduce((sum, c) => sum + c.connection_score, 0) / recentWeek.length 
+        : baseConnectionScore
+        
+      const previousAvg = previousWeek.length > 0 
+        ? previousWeek.reduce((sum, c) => sum + c.connection_score, 0) / previousWeek.length 
+        : recentAvg
+
+      const trend = recentAvg - previousAvg
+
+      // Calculate final score (weighted algorithm)
+      const finalScore = Math.round(
+        (baseConnectionScore * 0.6) +  // 60% from connection scores
+        (baseMoodScore * 0.2) +        // 20% from mood
+        consistencyBonus +             // Consistency bonus
+        gratitudeBonus                 // Gratitude bonus
+      )
+
+      // Ensure score is between 1-100
+      const clampedScore = Math.max(1, Math.min(100, finalScore))
+
+      // Store detailed analytics
+      const scoreComponents = {
+        baseConnectionScore,
+        baseMoodScore,
+        consistencyBonus,
+        gratitudeBonus,
+        totalCheckins: checkins.length,
+        daysActive,
+        trend: Math.round(trend * 10) / 10,
+        algorithm_version: '1.0',
+        weights: {
+          connection: 0.6,
+          mood: 0.2,
+          consistency: consistencyBonus,
+          gratitude: gratitudeBonus
+        }
+      }
+
+      // Save analytics to database
+      await supabase
+        .from('score_analytics')
+        .insert([{
+          user_id: userId,
+          score_value: clampedScore,
+          score_components: scoreComponents
+        }])
+
+      setConnectionScore(clampedScore)
+      setScoreData({
+        currentScore: clampedScore,
+        trend: Math.round(trend * 10) / 10,
+        lastWeekAvg: Math.round(recentAvg * 10) / 10,
+        totalCheckins: checkins.length,
+        daysActive: daysActive,
+        consistencyBonus,
+        gratitudeBonus,
+        baseConnection: baseConnectionScore,
+        baseMood: baseMoodScore,
+        components: scoreComponents
+      })
+
+    } catch (error) {
+      console.error('Error calculating connection score:', error)
+      // Fallback to default
+      setConnectionScore(50)
+    } finally {
+      setScoreLoading(false)
+    }
+  }
+
+  // Track user engagement after seeing score
+  const trackEngagementAfterScore = async (action: string) => {
+    try {
+      // Get the most recent score
+      const { data: recentScore } = await supabase
+        .from('score_analytics')
+        .select('id, engagement_after')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (recentScore) {
+        const currentEngagement = recentScore.engagement_after || {}
+        const updatedEngagement = {
+          ...currentEngagement,
+          [action]: (currentEngagement[action] || 0) + 1,
+          last_action: action,
+          last_action_at: new Date().toISOString()
+        }
+
+        await supabase
+          .from('score_analytics')
+          .update({ engagement_after: updatedEngagement })
+          .eq('id', recentScore.id)
+      }
+    } catch (error) {
+      console.error('Error tracking engagement:', error)
+    }
+  }
+
+  // Handle score feedback
+  const submitScoreFeedback = async (feedback: 'too_high' | 'too_low' | 'just_right') => {
+    try {
+      // Update the most recent score analytics entry
+      const { data: recentScore } = await supabase
+        .from('score_analytics')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (recentScore) {
+        await supabase
+          .from('score_analytics')
+          .update({ user_perception: feedback })
+          .eq('id', recentScore.id)
+      }
+
+      setScoreFeedback(feedback)
+      setShowScoreFeedback(false)
+      setMessage('Thanks for your feedback! This helps us improve the scoring.')
+      setTimeout(() => setMessage(''), 3000)
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+    }
+  }
 
   // Load user's relationships
   const loadRelationships = async (userId: string) => {
@@ -136,8 +339,8 @@ export default function DashboardPage() {
       const result = await response.json()
       
       if (result.success) {
-        // Reload insights to show new ones
         await loadInsights(user.id)
+        trackEngagementAfterScore('clicked_generate_insights')
       } else {
         alert('Error generating insights. Please try again.')
       }
@@ -149,16 +352,46 @@ export default function DashboardPage() {
     }
   }
 
+  // Refresh connection score
+  const refreshScore = async () => {
+    if (user) {
+      await calculateConnectionScore(user.id)
+    }
+  }
+
+  // Score display helpers
+  const getScoreMessage = (score: number, data: any) => {
+    if (data.totalCheckins === 0) {
+      return "Welcome! Complete your first check-in to see your personalized connection score."
+    }
+    
+    if (score >= 85) {
+      return `Excellent! Your relationship is thriving. You've been consistent with check-ins and maintaining a positive connection.`
+    } else if (score >= 70) {
+      return `Great job! Your relationship health is strong. ${data.trend > 0 ? 'Your scores are trending upward!' : 'Keep up the good work!'}`
+    } else if (score >= 55) {
+      return `You're doing well. ${data.trend > 0 ? 'Your connection is improving!' : 'Consider focusing on more quality time and communication.'}`
+    } else if (score >= 40) {
+      return `There's room for improvement. ${data.daysActive < 7 ? 'Try checking in more regularly. ' : ''}Focus on gratitude and open communication.`
+    } else {
+      return `Your relationship could use some attention. Regular check-ins and focusing on positive interactions can help improve your connection.`
+    }
+  }
+
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-mint-600'
-    if (score >= 60) return 'text-calm-600'
-    return 'text-yellow-600'
+    if (score >= 80) return 'text-green-600'
+    if (score >= 70) return 'text-mint-600'
+    if (score >= 55) return 'text-calm-600'
+    if (score >= 40) return 'text-yellow-600'
+    return 'text-orange-600'
   }
 
   const getScoreBg = (score: number) => {
-    if (score >= 80) return 'bg-mint-50 border-mint-200'
-    if (score >= 60) return 'bg-calm-50 border-calm-200'
-    return 'bg-yellow-50 border-yellow-200'
+    if (score >= 80) return 'bg-green-50 border-green-200'
+    if (score >= 70) return 'bg-mint-50 border-mint-200'
+    if (score >= 55) return 'bg-calm-50 border-calm-200'
+    if (score >= 40) return 'bg-yellow-50 border-yellow-200'
+    return 'bg-orange-50 border-orange-200'
   }
 
   const getPriorityColor = (priority: string) => {
@@ -262,6 +495,13 @@ export default function DashboardPage() {
               <Link href="/settings" className="text-gray-600 hover:text-gray-700">
                 Settings
               </Link>
+              <Button 
+                variant="ghost" 
+                className="text-gray-600"
+                onClick={handleLogout}
+              >
+                Logout
+              </Button>
             </nav>
           </div>
         </div>
@@ -269,6 +509,13 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Success/Error Messages */}
+        {message && (
+          <div className="mb-6 p-4 rounded-lg bg-green-50 text-green-700 border border-green-200">
+            {message}
+          </div>
+        )}
+
         {/* Relationship Status Banner */}
         {relationships.length > 0 ? (
           <div className="bg-gradient-to-r from-mint-500 to-calm-500 rounded-xl p-6 mb-8 text-white">
@@ -303,12 +550,12 @@ export default function DashboardPage() {
               <div>
                 <h3 className="text-xl font-semibold mb-2">Ready to Connect?</h3>
                 <p className="text-blue-100">
-                  Invite your partner to unlock shared insights and strengthen your relationship together
+                  Create an invitation code to connect with your partner and unlock shared insights
                 </p>
               </div>
               <Link href="/relationships">
                 <Button className="bg-white text-blue-700 hover:bg-gray-100">
-                  Invite Partner
+                  Create Invitation
                 </Button>
               </Link>
             </div>
@@ -318,30 +565,128 @@ export default function DashboardPage() {
         {/* Connection Score Hero */}
         <div className={`${getScoreBg(connectionScore)} rounded-2xl p-8 mb-8 border-2`}>
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Your Connection Score
-            </h2>
-            <div className={`text-6xl font-bold ${getScoreColor(connectionScore)} mb-4`}>
-              {connectionScore}
+            <div className="flex items-center justify-center space-x-4 mb-2">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Your Connection Score
+              </h2>
+              <Button 
+                onClick={refreshScore}
+                size="sm"
+                variant="ghost"
+                className="text-gray-500 hover:text-gray-700"
+              >
+                🔄
+              </Button>
             </div>
+            
+            <div className="flex items-center justify-center space-x-4 mb-4">
+              <div className={`text-6xl font-bold ${getScoreColor(connectionScore)}`}>
+                {scoreLoading ? (
+                  <div className="w-16 h-16 border-4 border-current border-t-transparent rounded-full animate-spin mx-auto"></div>
+                ) : (
+                  connectionScore
+                )}
+              </div>
+              {!scoreLoading && scoreData.trend !== 0 && (
+                <div className={`flex items-center text-lg font-semibold ${
+                  scoreData.trend > 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {scoreData.trend > 0 ? '↗️' : '↘️'}
+                  <span className="ml-1">{Math.abs(scoreData.trend).toFixed(1)}</span>
+                </div>
+              )}
+            </div>
+            
             <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-              {relationships.length > 0 
-                ? `Your relationship health is good and trending upward. Keep focusing on quality communication and shared experiences with ${activeRelationship?.name}.`
-                : 'Your personal growth and self-awareness are building a strong foundation for future relationships.'
-              }
+              {getScoreMessage(connectionScore, scoreData)}
             </p>
-            <div className="flex justify-center space-x-4">
+            
+            {!scoreLoading && scoreData.totalCheckins > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-sm">
+                <div className="bg-white bg-opacity-50 rounded-lg p-3">
+                  <div className="font-bold text-lg">{scoreData.totalCheckins}</div>
+                  <div className="text-gray-600">Check-ins</div>
+                </div>
+                <div className="bg-white bg-opacity-50 rounded-lg p-3">
+                  <div className="font-bold text-lg">{scoreData.daysActive}</div>
+                  <div className="text-gray-600">Active Days</div>
+                </div>
+                <div className="bg-white bg-opacity-50 rounded-lg p-3">
+                  <div className="font-bold text-lg">{scoreData.lastWeekAvg}</div>
+                  <div className="text-gray-600">Recent Avg</div>
+                </div>
+                <div className="bg-white bg-opacity-50 rounded-lg p-3">
+                  <div className={`font-bold text-lg ${scoreData.trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {scoreData.trend >= 0 ? '+' : ''}{scoreData.trend.toFixed(1)}
+                  </div>
+                  <div className="text-gray-600">Trend</div>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-center space-x-4 mb-4">
               <Link href="/checkin">
-                <Button className="bg-calm-600 hover:bg-calm-700">
-                  Daily Check-In
+                <Button 
+                  className="bg-calm-600 hover:bg-calm-700"
+                  onClick={() => trackEngagementAfterScore('clicked_checkin')}
+                >
+                  {scoreData.totalCheckins === 0 ? 'Start Your First Check-In' : 'Daily Check-In'}
                 </Button>
               </Link>
               <Link href="/journal">
-                <Button variant="outline" className="border-calm-300 text-calm-700">
+                <Button 
+                  variant="outline" 
+                  className="border-calm-300 text-calm-700"
+                  onClick={() => trackEngagementAfterScore('clicked_journal')}
+                >
                   Write in Journal
                 </Button>
               </Link>
             </div>
+
+            {/* Score Feedback Section */}
+            {connectionScore && !scoreLoading && scoreData.totalCheckins > 0 && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowScoreFeedback(!showScoreFeedback)}
+                  className="text-sm text-gray-500 hover:text-gray-700 underline"
+                >
+                  Does this score feel accurate?
+                </button>
+                
+                {showScoreFeedback && (
+                  <div className="mt-3 p-4 bg-white bg-opacity-50 rounded-lg">
+                    <p className="text-sm text-gray-700 mb-3">How does this score feel to you?</p>
+                    <div className="flex justify-center space-x-2">
+                      <Button
+                        onClick={() => submitScoreFeedback('too_low')}
+                        size="sm"
+                        variant="outline"
+                        className="border-orange-300 text-orange-700"
+                      >
+                        Too Low
+                      </Button>
+                      <Button
+                        onClick={() => submitScoreFeedback('just_right')}
+                        size="sm"
+                        variant="outline"
+                        className="border-green-300 text-green-700"
+                      >
+                        Just Right
+                      </Button>
+                      <Button
+                        onClick={() => submitScoreFeedback('too_high')}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-300 text-red-700"
+                      >
+                        Too High
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -351,7 +696,7 @@ export default function DashboardPage() {
             <SharedInsights 
               relationshipId={activeRelationship.id}
               currentUserId={user?.id}
-              privacyLevel="patterns" // This would come from user settings
+              privacyLevel="patterns"
             />
           </div>
         )}
@@ -474,7 +819,7 @@ export default function DashboardPage() {
                 {relationships.length === 0 ? (
                   <Link href="/relationships">
                     <Button variant="outline" className="w-full border-purple-300 text-purple-700">
-                      Invite Partner
+                      Create Invitation
                     </Button>
                   </Link>
                 ) : (
