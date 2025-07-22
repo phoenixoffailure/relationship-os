@@ -5,10 +5,46 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
 
+// Proper TypeScript interfaces
+interface RelationshipMember {
+  user_id: string
+  role: string
+  joined_at: string
+  users?: {
+    id: string
+    email: string
+    full_name: string
+  }
+}
+
+interface Relationship {
+  id: string
+  name: string
+  relationship_type: string
+  created_by: string
+  created_at: string
+  myRole: string
+  joinedAt: string
+  otherMembers: RelationshipMember[]
+}
+
+interface Invitation {
+  id: string
+  from_user_id: string
+  invite_code: string
+  to_email: string | null
+  relationship_name: string
+  relationship_type: string
+  status: string
+  expires_at: string
+  created_at: string
+  type?: string
+}
+
 export default function RelationshipsPage() {
   const [user, setUser] = useState<any>(null)
-  const [relationships, setRelationships] = useState<any[]>([])
-  const [invitations, setInvitations] = useState<any[]>([])
+  const [relationships, setRelationships] = useState<Relationship[]>([])
+  const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteLoading, setInviteLoading] = useState(false)
@@ -21,7 +57,7 @@ export default function RelationshipsPage() {
     relationshipType: 'couple'
   })
 
-  // New code system state
+  // Code system state
   const [showCodeModal, setShowCodeModal] = useState(false)
   const [generatedCode, setGeneratedCode] = useState('')
   const [inviteCode, setInviteCode] = useState('')
@@ -51,86 +87,140 @@ export default function RelationshipsPage() {
     getUser()
   }, [])
 
+  // FIXED: Simple queries without recursive joins
   const loadRelationships = async (userId: string) => {
     try {
-      // Get relationships where user is a member
+      console.log('🔍 DEBUG: Loading relationships for user:', userId)
+      
+      // Step 1: Get user's memberships (SIMPLE query)
       const { data: memberData, error: memberError } = await supabase
         .from('relationship_members')
-        .select(`
-          relationship_id,
-          role,
-          joined_at,
-          relationships (
-            id,
-            name,
-            relationship_type,
-            created_by,
-            created_at
-          )
-        `)
+        .select('relationship_id, role, joined_at')
         .eq('user_id', userId)
 
-      if (memberError) throw memberError
+      console.log('🔍 DEBUG: Member data:', memberData)
+      console.log('🔍 DEBUG: Member error:', memberError)
 
-      // For each relationship, get the other members
-      const relationshipsWithMembers = await Promise.all(
-        (memberData || []).map(async (member) => {
-          const { data: otherMembers, error: membersError } = await supabase
-            .from('relationship_members')
-            .select(`
-              user_id,
-              role,
-              joined_at,
-              users (
-                id,
-                email,
-                full_name
-              )
-            `)
-            .eq('relationship_id', member.relationship_id)
-            .neq('user_id', userId)
+      if (memberError) {
+        console.error('Error loading member data:', memberError)
+        return
+      }
 
-          if (membersError) {
-            console.error('Error loading members:', membersError)
-            return {
-              ...member.relationships,
-              myRole: member.role,
-              joinedAt: member.joined_at,
-              otherMembers: []
-            }
-          }
+      if (!memberData || memberData.length === 0) {
+        console.log('🔍 DEBUG: No relationships found')
+        setRelationships([])
+        return
+      }
 
-          return {
-            ...member.relationships,
+      // Step 2: Get relationship details separately
+      const relationshipIds = memberData.map(m => m.relationship_id)
+      const { data: relationshipData, error: relError } = await supabase
+        .from('relationships')
+        .select('id, name, relationship_type, created_by, created_at')
+        .in('id', relationshipIds)
+
+      console.log('🔍 DEBUG: Relationship data:', relationshipData)
+      console.log('🔍 DEBUG: Relationship error:', relError)
+
+      if (relError) {
+        console.error('Error loading relationship data:', relError)
+        return
+      }
+
+      if (!relationshipData) {
+        console.log('🔍 DEBUG: No relationship data found')
+        setRelationships([])
+        return
+      }
+
+      // Step 3: Combine data manually
+      const combinedData: Relationship[] = []
+
+      for (const member of memberData) {
+        const relationship = relationshipData.find(rel => rel.id === member.relationship_id)
+        if (relationship) {
+          combinedData.push({
+            id: relationship.id,
+            name: relationship.name,
+            relationship_type: relationship.relationship_type,
+            created_by: relationship.created_by,
+            created_at: relationship.created_at,
             myRole: member.role,
             joinedAt: member.joined_at,
-            otherMembers: otherMembers || []
-          }
-        })
-      )
+            otherMembers: [] // Initialize empty
+          })
+        }
+      }
 
-      setRelationships(relationshipsWithMembers)
+      console.log('🔍 DEBUG: Combined relationships:', combinedData)
+      
+      // Step 4: Load other members separately
+      for (const relationship of combinedData) {
+        const { data: otherMembers, error: membersError } = await supabase
+          .from('relationship_members')
+          .select(`
+            user_id,
+            role,
+            joined_at,
+            users (
+              id,
+              email,
+              full_name
+            )
+          `)
+          .eq('relationship_id', relationship.id)
+          .neq('user_id', userId)
+
+        console.log('🔍 DEBUG: Other members for', relationship.id, ':', otherMembers)
+
+        if (otherMembers && !membersError) {
+          relationship.otherMembers = otherMembers
+            .filter(member => member.users) // Only members with user data
+            .map(member => ({
+              user_id: member.user_id,
+              role: member.role,
+              joined_at: member.joined_at,
+              users: Array.isArray(member.users) ? member.users[0] : member.users
+            }))
+        }
+      }
+
+      setRelationships(combinedData)
+      console.log('🔍 DEBUG: Final relationships:', combinedData)
+
     } catch (error) {
-      console.error('Error loading relationships:', error)
+      console.error('Error in loadRelationships:', error)
     }
   }
 
   const loadInvitations = async (userId: string) => {
     try {
-      // Get invitations sent by this user
+      console.log('🔍 DEBUG: Loading invitations for user:', userId)
+      
       const { data: sentInvites, error: sentError } = await supabase
         .from('relationship_invitations')
         .select('*')
         .eq('from_user_id', userId)
         .order('created_at', { ascending: false })
 
+      console.log('🔍 DEBUG: Sent invites:', sentInvites)
+      console.log('🔍 DEBUG: Sent invites error:', sentError)
+
       if (sentError) {
         console.error('Error loading sent invitations:', sentError)
+        return
       }
 
-      setInvitations((sentInvites || []).map(inv => ({ ...inv, type: 'sent' })))
+      if (sentInvites) {
+        const typedInvitations: Invitation[] = sentInvites.map(inv => ({ 
+          ...inv, 
+          type: 'sent' 
+        }))
+        setInvitations(typedInvitations)
+      }
+
     } catch (error) {
-      console.error('Error loading invitations:', error)
+      console.error('Error in loadInvitations:', error)
     }
   }
 
@@ -141,28 +231,19 @@ export default function RelationshipsPage() {
     setMessage('')
 
     try {
-      // Generate a unique 6-character code
       const code = Math.random().toString(36).substring(2, 8).toUpperCase()
       console.log('🔍 DEBUG: Generated code:', code)
       
-      // Create expiry date 7 days from now
-      const expiryDate = new Date()
-      expiryDate.setDate(expiryDate.getDate() + 7)
-      
-      console.log('🔍 DEBUG: Current time:', new Date().toISOString())
-      console.log('🔍 DEBUG: Expiry time:', expiryDate.toISOString())
-      
-      // Save invitation with code instead of email
       const { data, error } = await supabase
         .from('relationship_invitations')
         .insert([{
           from_user_id: user.id,
           invite_code: code,
-          to_email: null, // No email needed
+          to_email: null,
           relationship_name: inviteData.relationshipName,
           relationship_type: inviteData.relationshipType,
           status: 'pending',
-          expires_at: expiryDate.toISOString()
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
         }])
         .select()
 
@@ -176,7 +257,6 @@ export default function RelationshipsPage() {
       setShowInviteForm(false)
       setInviteData({ partnerName: '', relationshipName: '', relationshipType: 'couple' })
       
-      // Reload invitations
       await loadInvitations(user.id)
         
     } catch (error: any) {
@@ -191,70 +271,35 @@ export default function RelationshipsPage() {
     if (!user || !inviteCode.trim()) return
 
     setMessage('')
-    const code = inviteCode.toUpperCase().trim()
-    console.log('🔍 DEBUG: Starting invitation acceptance')
-    console.log('🔍 DEBUG: User ID:', user?.id)
-    console.log('🔍 DEBUG: Invite Code:', code)
+    console.log('🔍 DEBUG: Accepting invitation with code:', inviteCode.toUpperCase())
 
     try {
-      // Look for the specific invitation
-      console.log('🔍 DEBUG: Looking for invitation...')
+      // Find the invitation
       const { data: invitation, error: findError } = await supabase
         .from('relationship_invitations')
         .select('*')
-        .eq('invite_code', code)
+        .eq('invite_code', inviteCode.toUpperCase())
         .eq('status', 'pending')
         .single()
 
       console.log('🔍 DEBUG: Found invitation:', invitation)
-      console.log('🔍 DEBUG: Find error (if any):', findError)
-
-      if (findError && findError.code === 'PGRST116') {
-        // No rows returned - check if code exists at all
-        const { data: anyInvitation } = await supabase
-          .from('relationship_invitations')
-          .select('*')
-          .eq('invite_code', code)
-          .single()
-
-        if (anyInvitation) {
-          if (anyInvitation.status === 'accepted') {
-            setMessage('This invitation code has already been used.')
-            return
-          } else if (anyInvitation.status === 'declined') {
-            setMessage('This invitation code was declined.')
-            return
-          }
-        } else {
-          setMessage('Invalid invitation code. Please check and try again.')
-          return
-        }
-      }
+      console.log('🔍 DEBUG: Find error:', findError)
 
       if (!invitation) {
-        setMessage('Invalid invitation code.')
+        setMessage('Invalid or expired invitation code.')
         return
       }
 
-      // Check expiry with more precise time comparison
-      const now = new Date()
-      const expiresAt = new Date(invitation.expires_at)
-      console.log('🔍 DEBUG: Current time:', now.toISOString())
-      console.log('🔍 DEBUG: Expires at:', expiresAt.toISOString())
-      console.log('🔍 DEBUG: Is expired?', now > expiresAt)
-
-      if (now > expiresAt) {
-        setMessage('This invitation code has expired. Please ask for a new one.')
+      if (new Date(invitation.expires_at) < new Date()) {
+        setMessage('This invitation code has expired.')
         return
       }
 
-      // Check if user is trying to accept their own invitation
       if (invitation.from_user_id === user.id) {
         setMessage('You cannot accept your own invitation!')
         return
       }
 
-      console.log('🔍 DEBUG: Creating relationship...')
       // Create the relationship
       const { data: relationshipData, error: relationshipError } = await supabase
         .from('relationships')
@@ -266,40 +311,30 @@ export default function RelationshipsPage() {
         .select()
         .single()
 
-      console.log('🔍 DEBUG: Relationship created:', relationshipData)
-      console.log('🔍 DEBUG: Relationship error:', relationshipError)
-
       if (relationshipError) throw relationshipError
 
-      console.log('🔍 DEBUG: Adding relationship members...')
-      // Add both users as members
-      const { error: membersError } = await supabase
+      // Add both users as members (separate inserts)
+      await supabase
         .from('relationship_members')
-        .insert([
-          {
-            relationship_id: relationshipData.id,
-            user_id: invitation.from_user_id,
-            role: 'admin'
-          },
-          {
-            relationship_id: relationshipData.id,
-            user_id: user.id,
-            role: 'member'
-          }
-        ])
+        .insert({
+          relationship_id: relationshipData.id,
+          user_id: invitation.from_user_id,
+          role: 'admin'
+        })
 
-      console.log('🔍 DEBUG: Members error:', membersError)
-      if (membersError) throw membersError
+      await supabase
+        .from('relationship_members')
+        .insert({
+          relationship_id: relationshipData.id,
+          user_id: user.id,
+          role: 'member'
+        })
 
-      console.log('🔍 DEBUG: Updating invitation status...')
       // Update invitation status
-      const { error: updateError } = await supabase
+      await supabase
         .from('relationship_invitations')
         .update({ status: 'accepted' })
         .eq('id', invitation.id)
-
-      console.log('🔍 DEBUG: Update error:', updateError)
-      if (updateError) throw updateError
 
       setMessage('Successfully joined the relationship! 🎉')
       setInviteCode('')
@@ -311,15 +346,9 @@ export default function RelationshipsPage() {
       ])
 
     } catch (error: any) {
-      console.error('🔍 DEBUG: Full error:', error)
+      console.error('🔍 DEBUG: Accept error:', error)
       setMessage(`Error: ${error.message}`)
     }
-  }
-
-  const copyCodeToClipboard = (code: string) => {
-    navigator.clipboard.writeText(code)
-    setMessage('Code copied to clipboard! 📋')
-    setTimeout(() => setMessage(''), 3000)
   }
 
   const getRelationshipTypeIcon = (type: string) => {
@@ -386,12 +415,6 @@ export default function RelationshipsPage() {
               </Link>
               <Link href="/relationships" className="text-calm-700 hover:text-calm-800 font-medium">
                 Relationships
-              </Link>
-              <Link href="/calendar" className="text-gray-600 hover:text-gray-700">
-                Calendar
-              </Link>
-              <Link href="/cycle" className="text-gray-600 hover:text-gray-700">
-                Cycle Tracker
               </Link>
               <Link href="/settings" className="text-gray-600 hover:text-gray-700">
                 Settings
@@ -512,11 +535,11 @@ export default function RelationshipsPage() {
                         <span className="font-medium">Connected since:</span> {formatDate(relationship.joinedAt)}
                       </div>
                       
-                      {relationship.otherMembers.length > 0 && (
+                      {relationship.otherMembers && relationship.otherMembers.length > 0 && (
                         <div className="text-sm text-gray-600">
                           <span className="font-medium">Partners:</span>
                           <div className="mt-1 space-y-1">
-                            {relationship.otherMembers.map((member: any) => (
+                            {relationship.otherMembers.map((member) => (
                               <div key={member.user_id} className="flex items-center space-x-2">
                                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                                 <span>{member.users?.full_name || member.users?.email}</span>
@@ -560,47 +583,36 @@ export default function RelationshipsPage() {
             ) : (
               <div className="space-y-3">
                 {sentInvites.map((invitation) => (
-                  <div key={invitation.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
+                  <div key={invitation.id} className="border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
                       <div>
                         <h5 className="font-medium text-gray-900">{invitation.relationship_name}</h5>
+                        <p className="text-sm text-gray-600">Code: <span className="font-mono font-bold">{invitation.invite_code}</span></p>
                         <p className="text-xs text-gray-500">
                           Created {formatDate(invitation.created_at)}
                         </p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        invitation.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        invitation.status === 'accepted' ? 'bg-green-100 text-green-700' :
-                        invitation.status === 'declined' ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {invitation.status}
-                      </span>
-                    </div>
-                    
-                    {invitation.status === 'pending' && (
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Invitation Code:</p>
-                            <p className="text-xl font-mono font-bold text-gray-900 tracking-wider">
-                              {invitation.invite_code}
-                            </p>
-                          </div>
+                      <div className="text-right">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          invitation.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                          invitation.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                          invitation.status === 'declined' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {invitation.status}
+                        </span>
+                        {invitation.status === 'pending' && (
                           <Button
-                            onClick={() => copyCodeToClipboard(invitation.invite_code)}
+                            onClick={() => navigator.clipboard.writeText(invitation.invite_code)}
                             size="sm"
-                            variant="outline"
-                            className="border-calm-300 text-calm-700"
+                            variant="ghost"
+                            className="mt-1 text-xs"
                           >
                             📋 Copy
                           </Button>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Expires {formatDate(invitation.expires_at)}
-                        </p>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -740,64 +752,48 @@ export default function RelationshipsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Invitation Code Created!</h3>
+                <p className="text-gray-600 mb-6">Share this code with your partner to connect your accounts</p>
                 
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Invitation Code Generated!</h3>
-                <p className="text-gray-600 mb-6">Share this code with your partner</p>
-                
-                <div className="bg-gray-50 rounded-xl p-6 mb-6">
-                  <p className="text-sm text-gray-700 mb-2">Your invitation code:</p>
-                  <div className="text-3xl font-mono font-bold text-gray-900 tracking-wider mb-4">
+                <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                  <div className="text-3xl font-bold tracking-widest text-calm-600 mb-2">
                     {generatedCode}
                   </div>
                   <Button
-                    onClick={() => copyCodeToClipboard(generatedCode)}
-                    className="w-full bg-calm-600 hover:bg-calm-700"
+                    onClick={() => navigator.clipboard.writeText(generatedCode)}
+                    variant="outline"
+                    size="sm"
+                    className="border-calm-300 text-calm-700"
                   >
                     📋 Copy Code
                   </Button>
                 </div>
-                
-                <div className="text-left bg-blue-50 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-blue-900 mb-2">Next Steps:</h4>
-                  <ol className="text-sm text-blue-800 space-y-1">
-                    <li>1. Share this code with your partner</li>
-                    <li>2. They visit <strong>hellorelationshipos.com</strong></li>
-                    <li>3. They enter the code in their Relationships page</li>
-                    <li>4. You'll both be connected!</li>
-                  </ol>
+
+                <div className="space-y-3 text-sm text-gray-600 text-left">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>Code expires in 7 days</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>Share via text, email, or in person</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>Your partner enters it on their relationships page</span>
+                  </div>
                 </div>
-                
-                <div className="text-xs text-gray-500 mb-4">
-                  This code expires in 7 days
-                </div>
-                
+
                 <Button
                   onClick={() => setShowCodeModal(false)}
-                  variant="outline"
-                  className="w-full border-gray-300"
+                  className="w-full mt-6 bg-calm-600 hover:bg-calm-700"
                 >
-                  Done
+                  Got It!
                 </Button>
               </div>
             </div>
           </div>
         )}
-
-        {/* Privacy Notice */}
-        <div className="mt-8 bg-white rounded-xl shadow-lg p-6 border-l-4 border-calm-500">
-          <div className="flex items-start space-x-3">
-            <svg className="w-6 h-6 text-calm-600 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Privacy Protected Connections</h4>
-              <p className="text-gray-600 text-sm">
-                When you connect with a partner, only insights appropriate to your privacy settings are shared. 
-                Your personal journal entries and detailed data always remain completely private to you.
-              </p>
-            </div>
-          </div>
-        </div>
       </main>
     </div>
   )
