@@ -16,10 +16,15 @@ export default function RelationshipsPage() {
 
   // Invite form state
   const [inviteData, setInviteData] = useState({
-    email: '',
+    partnerName: '',
     relationshipName: '',
     relationshipType: 'couple'
   })
+
+  // New code system state
+  const [showCodeModal, setShowCodeModal] = useState(false)
+  const [generatedCode, setGeneratedCode] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -119,71 +124,33 @@ export default function RelationshipsPage() {
         .eq('from_user_id', userId)
         .order('created_at', { ascending: false })
 
-      // Get invitations sent to this user's email
-      const { data: userData } = await supabase
-        .from('users')
-        .select('email')
-        .eq('id', userId)
-        .single()
-
-      const { data: receivedInvites, error: receivedError } = await supabase
-        .from('relationship_invitations')
-        .select(`
-          *,
-          users!relationship_invitations_from_user_id_fkey (
-            full_name,
-            email
-          )
-        `)
-        .eq('to_email', userData?.email || '')
-        .order('created_at', { ascending: false })
-
-      if (sentError || receivedError) {
-        console.error('Error loading invitations:', { sentError, receivedError })
+      if (sentError) {
+        console.error('Error loading sent invitations:', sentError)
       }
 
-      setInvitations([
-        ...(sentInvites || []).map(inv => ({ ...inv, type: 'sent' })),
-        ...(receivedInvites || []).map(inv => ({ ...inv, type: 'received' }))
-      ])
+      setInvitations((sentInvites || []).map(inv => ({ ...inv, type: 'sent' })))
     } catch (error) {
       console.error('Error loading invitations:', error)
     }
   }
 
-  const sendInvitation = async () => {
-    if (!user || !inviteData.email || !inviteData.relationshipName) return
+  const generateInviteCode = async () => {
+    if (!user || !inviteData.relationshipName) return
 
     setInviteLoading(true)
     setMessage('')
 
     try {
-      // Check if user is trying to invite themselves
-      if (inviteData.email.toLowerCase() === user.email?.toLowerCase()) {
-        setMessage('You cannot invite yourself!')
-        return
-      }
-
-      // Check if invitation already exists
-      const { data: existingInvite } = await supabase
-        .from('relationship_invitations')
-        .select('*')
-        .eq('from_user_id', user.id)
-        .eq('to_email', inviteData.email)
-        .eq('status', 'pending')
-        .single()
-
-      if (existingInvite) {
-        setMessage('An invitation to this email is already pending.')
-        return
-      }
-
-      // Create invitation
+      // Generate a unique 6-character code
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+      
+      // Save invitation with code instead of email
       const { data, error } = await supabase
         .from('relationship_invitations')
         .insert([{
           from_user_id: user.id,
-          to_email: inviteData.email.toLowerCase(),
+          invite_code: code,
+          to_email: null, // No email needed
           relationship_name: inviteData.relationshipName,
           relationship_type: inviteData.relationshipType,
           status: 'pending',
@@ -193,15 +160,14 @@ export default function RelationshipsPage() {
 
       if (error) throw error
 
-      setMessage('Invitation sent successfully! ✨')
+      setGeneratedCode(code)
+      setShowCodeModal(true)
       setShowInviteForm(false)
-      setInviteData({ email: '', relationshipName: '', relationshipType: 'couple' })
+      setInviteData({ partnerName: '', relationshipName: '', relationshipType: 'couple' })
       
       // Reload invitations
       await loadInvitations(user.id)
-
-      // TODO: Send email notification (implement later)
-      
+        
     } catch (error: any) {
       setMessage(`Error: ${error.message}`)
     } finally {
@@ -209,10 +175,37 @@ export default function RelationshipsPage() {
     }
   }
 
-  const acceptInvitation = async (invitationId: string, invitation: any) => {
-    if (!user) return
+  const acceptInvitationByCode = async () => {
+    if (!user || !inviteCode.trim()) return
+
+    setMessage('')
 
     try {
+      // Find invitation by code
+      const { data: invitation, error: findError } = await supabase
+        .from('relationship_invitations')
+        .select('*')
+        .eq('invite_code', inviteCode.toUpperCase())
+        .eq('status', 'pending')
+        .single()
+
+      if (findError || !invitation) {
+        setMessage('Invalid or expired invitation code.')
+        return
+      }
+
+      // Check if not expired
+      if (new Date(invitation.expires_at) < new Date()) {
+        setMessage('This invitation code has expired.')
+        return
+      }
+
+      // Check if user is trying to accept their own invitation
+      if (invitation.from_user_id === user.id) {
+        setMessage('You cannot accept your own invitation!')
+        return
+      }
+
       // Create the relationship
       const { data: relationshipData, error: relationshipError } = await supabase
         .from('relationships')
@@ -248,11 +241,12 @@ export default function RelationshipsPage() {
       const { error: updateError } = await supabase
         .from('relationship_invitations')
         .update({ status: 'accepted' })
-        .eq('id', invitationId)
+        .eq('id', invitation.id)
 
       if (updateError) throw updateError
 
-      setMessage('Invitation accepted! Welcome to your shared relationship space! 🎉')
+      setMessage('Successfully joined the relationship! 🎉')
+      setInviteCode('')
       
       // Reload data
       await Promise.all([
@@ -260,22 +254,6 @@ export default function RelationshipsPage() {
         loadInvitations(user.id)
       ])
 
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`)
-    }
-  }
-
-  const declineInvitation = async (invitationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('relationship_invitations')
-        .update({ status: 'declined' })
-        .eq('id', invitationId)
-
-      if (error) throw error
-
-      setMessage('Invitation declined.')
-      await loadInvitations(user.id)
     } catch (error: any) {
       setMessage(`Error: ${error.message}`)
     }
@@ -311,7 +289,6 @@ export default function RelationshipsPage() {
     })
   }
 
-  const pendingReceivedInvites = invitations.filter(inv => inv.type === 'received' && inv.status === 'pending')
   const sentInvites = invitations.filter(inv => inv.type === 'sent')
 
   if (loading) {
@@ -369,21 +346,21 @@ export default function RelationshipsPage() {
             <div>
               <h2 className="text-3xl font-bold text-gray-900">Your Relationships</h2>
               <p className="text-gray-600 mt-2">
-                Connect with partners to share insights and strengthen your bonds
+                Connect with partners using invitation codes
               </p>
             </div>
             <Button 
               onClick={() => setShowInviteForm(true)}
               className="bg-calm-600 hover:bg-calm-700"
             >
-              + Invite Partner
+              + Create Invitation
             </Button>
           </div>
 
           {/* Success/Error Messages */}
           {message && (
             <div className={`mb-6 p-4 rounded-lg ${
-              message.includes('Error') || message.includes('error') 
+              message.includes('Error') || message.includes('error') || message.includes('Invalid') || message.includes('expired')
                 ? 'bg-red-50 text-red-700 border border-red-200' 
                 : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
@@ -392,57 +369,32 @@ export default function RelationshipsPage() {
           )}
         </div>
 
-        {/* Pending Invitations Alert */}
-        {pendingReceivedInvites.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
-            <div className="flex items-center space-x-3 mb-4">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <h3 className="text-lg font-semibold text-blue-900">
-                {pendingReceivedInvites.length} Pending Invitation{pendingReceivedInvites.length > 1 ? 's' : ''}
-              </h3>
-            </div>
-            
-            <div className="space-y-4">
-              {pendingReceivedInvites.map((invitation) => (
-                <div key={invitation.id} className="bg-white rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">{getRelationshipTypeIcon(invitation.relationship_type)}</span>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{invitation.relationship_name}</h4>
-                        <p className="text-sm text-gray-600">
-                          from <strong>{invitation.users?.full_name || invitation.users?.email}</strong>
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {getRelationshipTypeLabel(invitation.relationship_type)} • Expires {formatDate(invitation.expires_at)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={() => acceptInvitation(invitation.id, invitation)}
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        Accept
-                      </Button>
-                      <Button
-                        onClick={() => declineInvitation(invitation.id)}
-                        size="sm"
-                        variant="outline"
-                        className="border-red-300 text-red-700 hover:bg-red-50"
-                      >
-                        Decline
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Join by Code Section */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
+          <h3 className="text-lg font-semibold text-blue-900 mb-4">
+            💝 Have an invitation code?
+          </h3>
+          <div className="flex space-x-3">
+            <input
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              placeholder="Enter 6-character code"
+              maxLength={6}
+              className="flex-1 px-4 py-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase tracking-wider text-center text-lg font-semibold"
+            />
+            <Button
+              onClick={acceptInvitationByCode}
+              disabled={inviteCode.length !== 6}
+              className="bg-blue-600 hover:bg-blue-700 px-6"
+            >
+              Join Relationship
+            </Button>
           </div>
-        )}
+          <p className="text-sm text-blue-700 mt-2">
+            Your partner can share their invitation code with you to connect your accounts
+          </p>
+        </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Connected Relationships */}
@@ -456,13 +408,13 @@ export default function RelationshipsPage() {
                 </svg>
                 <p className="text-gray-500 mb-4">No connected relationships yet</p>
                 <p className="text-sm text-gray-400 mb-4">
-                  Invite your partner to start sharing insights and strengthen your bond
+                  Create an invitation code to connect with your partner
                 </p>
                 <Button 
                   onClick={() => setShowInviteForm(true)}
                   className="bg-calm-600 hover:bg-calm-700"
                 >
-                  Send Your First Invitation
+                  Create Your First Invitation
                 </Button>
               </div>
             ) : (
@@ -527,14 +479,14 @@ export default function RelationshipsPage() {
 
           {/* Invitation Management */}
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Invitation History</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-6">Invitation Codes</h3>
             
             {sentInvites.length === 0 ? (
               <div className="text-center py-8">
                 <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-gray-500">No invitations sent yet</p>
+                <p className="text-gray-500">No invitation codes created yet</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -543,19 +495,31 @@ export default function RelationshipsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h5 className="font-medium text-gray-900">{invitation.relationship_name}</h5>
-                        <p className="text-sm text-gray-600">to {invitation.to_email}</p>
+                        <p className="text-sm text-gray-600">Code: <span className="font-mono font-bold">{invitation.invite_code}</span></p>
                         <p className="text-xs text-gray-500">
-                          Sent {formatDate(invitation.created_at)}
+                          Created {formatDate(invitation.created_at)}
                         </p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        invitation.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        invitation.status === 'accepted' ? 'bg-green-100 text-green-700' :
-                        invitation.status === 'declined' ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {invitation.status}
-                      </span>
+                      <div className="text-right">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          invitation.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                          invitation.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                          invitation.status === 'declined' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {invitation.status}
+                        </span>
+                        {invitation.status === 'pending' && (
+                          <Button
+                            onClick={() => navigator.clipboard.writeText(invitation.invite_code)}
+                            size="sm"
+                            variant="ghost"
+                            className="mt-1 text-xs"
+                          >
+                            📋 Copy
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -563,23 +527,23 @@ export default function RelationshipsPage() {
             )}
 
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">How Partner Connections Work</h4>
+              <h4 className="font-semibold text-gray-900 mb-3">How Invitation Codes Work</h4>
               <ul className="text-sm text-gray-600 space-y-2">
                 <li className="flex items-start space-x-2">
                   <span className="text-calm-600">•</span>
-                  <span>Send invitations to connect with partners</span>
+                  <span>Create a unique 6-character code</span>
                 </li>
                 <li className="flex items-start space-x-2">
                   <span className="text-calm-600">•</span>
-                  <span>Share insights based on your privacy settings</span>
+                  <span>Share the code with your partner</span>
                 </li>
                 <li className="flex items-start space-x-2">
                   <span className="text-calm-600">•</span>
-                  <span>Your personal journal always stays private</span>
+                  <span>They enter it above to connect</span>
                 </li>
                 <li className="flex items-start space-x-2">
                   <span className="text-calm-600">•</span>
-                  <span>Build stronger relationships together</span>
+                  <span>Codes expire after 7 days</span>
                 </li>
               </ul>
             </div>
@@ -591,7 +555,7 @@ export default function RelationshipsPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Invite Your Partner</h3>
+                <h3 className="text-xl font-bold text-gray-900">Create Invitation Code</h3>
                 <button
                   onClick={() => setShowInviteForm(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -604,17 +568,16 @@ export default function RelationshipsPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Partner's Email
+                  <label htmlFor="partnerName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Partner's Name (Optional)
                   </label>
                   <input
-                    id="email"
-                    type="email"
-                    value={inviteData.email}
-                    onChange={(e) => setInviteData(prev => ({ ...prev, email: e.target.value }))}
+                    id="partnerName"
+                    type="text"
+                    value={inviteData.partnerName}
+                    onChange={(e) => setInviteData(prev => ({ ...prev, partnerName: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-calm-500 focus:border-calm-500"
-                    placeholder="partner@example.com"
-                    required
+                    placeholder="Your partner's name"
                   />
                 </div>
 
@@ -657,10 +620,10 @@ export default function RelationshipsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div className="text-sm">
-                      <p className="font-medium text-calm-800 mb-1">Privacy Protected</p>
+                      <p className="font-medium text-calm-800 mb-1">How This Works</p>
                       <p className="text-calm-700">
-                        Only insights appropriate to your privacy settings will be shared. 
-                        Your personal journal entries always remain private.
+                        We'll generate a unique code you can share with your partner. 
+                        No emails needed - just share the code!
                       </p>
                     </div>
                   </div>
@@ -668,11 +631,11 @@ export default function RelationshipsPage() {
 
                 <div className="flex space-x-3 pt-4">
                   <Button
-                    onClick={sendInvitation}
-                    disabled={inviteLoading || !inviteData.email || !inviteData.relationshipName}
+                    onClick={generateInviteCode}
+                    disabled={inviteLoading || !inviteData.relationshipName}
                     className="flex-1 bg-calm-600 hover:bg-calm-700"
                   >
-                    {inviteLoading ? 'Sending...' : 'Send Invitation'}
+                    {inviteLoading ? 'Generating...' : 'Generate Code'}
                   </Button>
                   <Button
                     onClick={() => setShowInviteForm(false)}
@@ -686,7 +649,71 @@ export default function RelationshipsPage() {
             </div>
           </div>
         )}
+
+        {/* Code Display Modal */}
+        {showCodeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Invitation Code Generated! 🎉</h3>
+                <p className="text-gray-600 mb-6">Share this code with your partner</p>
+                
+                <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                  <div className="text-4xl font-bold text-calm-600 tracking-wider font-mono">
+                    {generatedCode}
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedCode)
+                      setMessage('Code copied to clipboard!')
+                    }}
+                    className="w-full bg-calm-600 hover:bg-calm-700"
+                  >
+                    📋 Copy Code
+                  </Button>
+                  
+                  <Button
+                    onClick={() => {
+                      const text = `Join me on Relationship OS! Use code: ${generatedCode} at https://hellorelationships.com`
+                      if (navigator.share) {
+                        navigator.share({ text })
+                      } else {
+                        navigator.clipboard.writeText(text)
+                        setMessage('Invitation message copied!')
+                      }
+                    }}
+                    variant="outline"
+                    className="w-full border-calm-300 text-calm-700"
+                  >
+                    📱 Share Invitation
+                  </Button>
+                  
+                  <Button
+                    onClick={() => setShowCodeModal(false)}
+                    variant="ghost"
+                    className="w-full"
+                  >
+                    Close
+                  </Button>
+                </div>
+                
+                <p className="text-xs text-gray-500 mt-4">
+                  Code expires in 7 days
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
-} 0
+}
