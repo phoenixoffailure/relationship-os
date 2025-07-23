@@ -180,114 +180,155 @@ export default function RelationshipsPage() {
     }
   }
 
-  const acceptInvitationByCode = async () => {
-    if (!user || !inviteCode.trim()) return
+ const acceptInvitationByCode = async () => {
+  if (!user || !inviteCode.trim()) return
 
-    setMessage('')
-    console.log('🔍 DEBUG: Starting invitation acceptance')
-    console.log('🔍 DEBUG: User ID:', user?.id)
-    console.log('🔍 DEBUG: Invite Code:', inviteCode.toUpperCase())
+  setMessage('')
+  console.log('🔍 DEBUG: Starting invitation acceptance')
+  console.log('🔍 DEBUG: User ID:', user?.id)
+  console.log('🔍 DEBUG: Invite Code:', inviteCode.toUpperCase())
 
-    try {
-      // FIXED: Use array query instead of .single() to avoid 406 errors
-      console.log('🔍 DEBUG: Looking for invitation...')
-      const { data: invitations, error: findError } = await supabase
-        .from('relationship_invitations')
-        .select('*')
-        .eq('invite_code', inviteCode.toUpperCase())
-        .eq('status', 'pending')
+  try {
+    // ENHANCED DEBUG: First check if ANY invitations exist
+    console.log('🔍 DEBUG: Checking all invitations in database...')
+    const { data: allInvitations, error: allError } = await supabase
+      .from('relationship_invitations')
+      .select('*')
 
-      console.log('🔍 DEBUG: Found invitations:', invitations)
-      console.log('🔍 DEBUG: Find error (if any):', findError)
+    console.log('🔍 DEBUG: All invitations:', allInvitations)
+    console.log('🔍 DEBUG: All invitations error:', allError)
+    console.log('🔍 DEBUG: Total invitation count:', allInvitations?.length || 0)
 
-      if (findError) {
-        console.log('🔍 DEBUG: Database error:', findError.message)
-        setMessage(`Database error: ${findError.message}`)
-        return
+    // ENHANCED DEBUG: Check specific code with different approaches
+    console.log('🔍 DEBUG: Looking for invitation with multiple methods...')
+    
+    // Method 1: Exact case match
+    const { data: exactMatch, error: exactError } = await supabase
+      .from('relationship_invitations')
+      .select('*')
+      .eq('invite_code', inviteCode.toUpperCase())
+
+    console.log('🔍 DEBUG: Exact match results:', exactMatch)
+    console.log('🔍 DEBUG: Exact match error:', exactError)
+
+    // Method 2: Case insensitive search
+    const { data: caseInsensitive, error: caseError } = await supabase
+      .from('relationship_invitations')
+      .select('*')
+      .ilike('invite_code', inviteCode.toUpperCase())
+
+    console.log('🔍 DEBUG: Case insensitive results:', caseInsensitive)
+    console.log('🔍 DEBUG: Case insensitive error:', caseError)
+
+    // Method 3: Check pending status separately
+    const { data: pendingOnly, error: pendingError } = await supabase
+      .from('relationship_invitations')
+      .select('*')
+      .eq('status', 'pending')
+
+    console.log('🔍 DEBUG: All pending invitations:', pendingOnly)
+    console.log('🔍 DEBUG: Pending error:', pendingError)
+
+    // Use the working method
+    let foundInvitations = exactMatch || caseInsensitive || []
+    
+    // Filter for pending and matching code manually if needed
+    const matchingInvitations = foundInvitations.filter(inv => 
+      inv.invite_code?.toUpperCase() === inviteCode.toUpperCase() && 
+      inv.status === 'pending'
+    )
+
+    console.log('🔍 DEBUG: Manually filtered invitations:', matchingInvitations)
+
+    if (!matchingInvitations || matchingInvitations.length === 0) {
+      // ENHANCED ERROR: Provide more specific feedback
+      if (allInvitations && allInvitations.length > 0) {
+        const codes = allInvitations.map(inv => inv.invite_code).join(', ')
+        console.log('🔍 DEBUG: Available codes in database:', codes)
+        setMessage(`Code not found. Available codes: ${codes}`)
+      } else {
+        setMessage('No invitations found in database. Please create an invitation first.')
       }
+      return
+    }
 
-      // Check if invitation exists
-      if (!invitations || invitations.length === 0) {
-        setMessage('Invalid or expired invitation code.')
-        return
-      }
+    // Get the first matching invitation
+    const invitation = matchingInvitations[0]
+    console.log('🔍 DEBUG: Using invitation:', invitation)
 
-      // Get the first (and should be only) invitation
-      const invitation = invitations[0]
+    // Check if not expired
+    if (new Date(invitation.expires_at) < new Date()) {
+      setMessage('This invitation code has expired.')
+      return
+    }
 
-      // Check if not expired
-      if (new Date(invitation.expires_at) < new Date()) {
-        setMessage('This invitation code has expired.')
-        return
-      }
+    // Check if user is trying to accept their own invitation
+    if (invitation.from_user_id === user.id) {
+      setMessage('You cannot accept your own invitation!')
+      return
+    }
 
-      // Check if user is trying to accept their own invitation
-      if (invitation.from_user_id === user.id) {
-        setMessage('You cannot accept your own invitation!')
-        return
-      }
+    console.log('🔍 DEBUG: Creating relationship...')
+    // Create the relationship
+    const { data: relationshipData, error: relationshipError } = await supabase
+      .from('relationships')
+      .insert([{
+        name: invitation.relationship_name,
+        relationship_type: invitation.relationship_type,
+        created_by: invitation.from_user_id
+      }])
+      .select()
+      .single()
 
-      console.log('🔍 DEBUG: Creating relationship...')
-      // Create the relationship
-      const { data: relationshipData, error: relationshipError } = await supabase
-        .from('relationships')
-        .insert([{
-          name: invitation.relationship_name,
-          relationship_type: invitation.relationship_type,
-          created_by: invitation.from_user_id
-        }])
-        .select()
-        .single()
+    console.log('🔍 DEBUG: Relationship created:', relationshipData)
+    console.log('🔍 DEBUG: Relationship error:', relationshipError)
 
-      console.log('🔍 DEBUG: Relationship created:', relationshipData)
-      console.log('🔍 DEBUG: Relationship error:', relationshipError)
+    if (relationshipError) throw relationshipError
 
-      if (relationshipError) throw relationshipError
-
-      console.log('🔍 DEBUG: Adding relationship members...')
-      // Add both users as members
-      const { error: membersError } = await supabase
-        .from('relationship_members')
-        .insert([
-          {
-            relationship_id: relationshipData.id,
-            user_id: invitation.from_user_id,
-            role: 'admin'
-          },
-          {
-            relationship_id: relationshipData.id,
-            user_id: user.id,
-            role: 'member'
-          }
-        ])
-
-      console.log('🔍 DEBUG: Members error:', membersError)
-      if (membersError) throw membersError
-
-      console.log('🔍 DEBUG: Updating invitation status...')
-      // Update invitation status
-      const { error: updateError } = await supabase
-        .from('relationship_invitations')
-        .update({ status: 'accepted' })
-        .eq('id', invitation.id)
-
-      console.log('🔍 DEBUG: Update error:', updateError)
-      if (updateError) throw updateError
-
-      setMessage('Successfully joined the relationship! 🎉')
-      setInviteCode('')
-      
-      // Reload data
-      await Promise.all([
-        loadRelationships(user.id),
-        loadInvitations(user.id)
+    console.log('🔍 DEBUG: Adding relationship members...')
+    // Add both users as members
+    const { error: membersError } = await supabase
+      .from('relationship_members')
+      .insert([
+        {
+          relationship_id: relationshipData.id,
+          user_id: invitation.from_user_id,
+          role: 'admin'
+        },
+        {
+          relationship_id: relationshipData.id,
+          user_id: user.id,
+          role: 'member'
+        }
       ])
 
-    } catch (error: any) {
-      console.error('🔍 DEBUG: Full error:', error)
-      setMessage(`Error: ${error.message}`)
-    }
+    console.log('🔍 DEBUG: Members error:', membersError)
+    if (membersError) throw membersError
+
+    console.log('🔍 DEBUG: Updating invitation status...')
+    // Update invitation status
+    const { error: updateError } = await supabase
+      .from('relationship_invitations')
+      .update({ status: 'accepted' })
+      .eq('id', invitation.id)
+
+    console.log('🔍 DEBUG: Update error:', updateError)
+    if (updateError) throw updateError
+
+    setMessage('Successfully joined the relationship! 🎉')
+    setInviteCode('')
+    
+    // Reload data
+    await Promise.all([
+      loadRelationships(user.id),
+      loadInvitations(user.id)
+    ])
+
+  } catch (error: any) {
+    console.error('🔍 DEBUG: Full error:', error)
+    setMessage(`Error: ${error.message}`)
   }
+}
 
   const getRelationshipTypeIcon = (type: string) => {
     switch (type) {
