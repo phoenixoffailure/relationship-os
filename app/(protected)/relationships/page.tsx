@@ -180,7 +180,7 @@ export default function RelationshipsPage() {
     }
   }
 
- const acceptInvitationByCode = async () => {
+const acceptInvitationByCode = async () => {
   if (!user || !inviteCode.trim()) return
 
   setMessage('')
@@ -189,87 +189,99 @@ export default function RelationshipsPage() {
   console.log('🔍 DEBUG: Invite Code:', inviteCode.toUpperCase())
 
   try {
-    // ENHANCED DEBUG: First check if ANY invitations exist
-    console.log('🔍 DEBUG: Checking all invitations in database...')
-    const { data: allInvitations, error: allError } = await supabase
-      .from('relationship_invitations')
-      .select('*')
-
-    console.log('🔍 DEBUG: All invitations:', allInvitations)
-    console.log('🔍 DEBUG: All invitations error:', allError)
-    console.log('🔍 DEBUG: Total invitation count:', allInvitations?.length || 0)
-
-    // ENHANCED DEBUG: Check specific code with different approaches
-    console.log('🔍 DEBUG: Looking for invitation with multiple methods...')
-    
-    // Method 1: Exact case match
-    const { data: exactMatch, error: exactError } = await supabase
+    // STEP 1: Find the invitation
+    const { data: invitations, error: findError } = await supabase
       .from('relationship_invitations')
       .select('*')
       .eq('invite_code', inviteCode.toUpperCase())
-
-    console.log('🔍 DEBUG: Exact match results:', exactMatch)
-    console.log('🔍 DEBUG: Exact match error:', exactError)
-
-    // Method 2: Case insensitive search
-    const { data: caseInsensitive, error: caseError } = await supabase
-      .from('relationship_invitations')
-      .select('*')
-      .ilike('invite_code', inviteCode.toUpperCase())
-
-    console.log('🔍 DEBUG: Case insensitive results:', caseInsensitive)
-    console.log('🔍 DEBUG: Case insensitive error:', caseError)
-
-    // Method 3: Check pending status separately
-    const { data: pendingOnly, error: pendingError } = await supabase
-      .from('relationship_invitations')
-      .select('*')
       .eq('status', 'pending')
 
-    console.log('🔍 DEBUG: All pending invitations:', pendingOnly)
-    console.log('🔍 DEBUG: Pending error:', pendingError)
+    console.log('🔍 DEBUG: Found invitations:', invitations)
 
-    // Use the working method
-    let foundInvitations = exactMatch || caseInsensitive || []
-    
-    // Filter for pending and matching code manually if needed
-    const matchingInvitations = foundInvitations.filter(inv => 
-      inv.invite_code?.toUpperCase() === inviteCode.toUpperCase() && 
-      inv.status === 'pending'
-    )
-
-    console.log('🔍 DEBUG: Manually filtered invitations:', matchingInvitations)
-
-    if (!matchingInvitations || matchingInvitations.length === 0) {
-      // ENHANCED ERROR: Provide more specific feedback
-      if (allInvitations && allInvitations.length > 0) {
-        const codes = allInvitations.map(inv => inv.invite_code).join(', ')
-        console.log('🔍 DEBUG: Available codes in database:', codes)
-        setMessage(`Code not found. Available codes: ${codes}`)
-      } else {
-        setMessage('No invitations found in database. Please create an invitation first.')
-      }
+    if (findError) {
+      console.log('🔍 DEBUG: Database error:', findError.message)
+      setMessage(`Database error: ${findError.message}`)
       return
     }
 
-    // Get the first matching invitation
-    const invitation = matchingInvitations[0]
-    console.log('🔍 DEBUG: Using invitation:', invitation)
+    if (!invitations || invitations.length === 0) {
+      setMessage('Invalid or expired invitation code.')
+      return
+    }
 
-    // Check if not expired
+    const invitation = invitations[0]
+
+    // STEP 2: Enhanced validation checks
+    console.log('🔍 DEBUG: Running validation checks...')
+
+    // Check if expired
     if (new Date(invitation.expires_at) < new Date()) {
       setMessage('This invitation code has expired.')
       return
     }
 
-    // Check if user is trying to accept their own invitation
+    // Check self-invitation (FIXED: Compare actual user IDs)
     if (invitation.from_user_id === user.id) {
       setMessage('You cannot accept your own invitation!')
       return
     }
 
-    console.log('🔍 DEBUG: Creating relationship...')
-    // Create the relationship
+    // STEP 3: NEW - Check for existing relationship between these users
+    console.log('🔍 DEBUG: Checking for existing relationships...')
+    const { data: existingMembers, error: existingError } = await supabase
+      .from('relationship_members')
+      .select(`
+        relationship_id,
+        relationships (
+          id,
+          name,
+          created_by
+        )
+      `)
+      .eq('user_id', user.id)
+
+    if (existingError) {
+      console.log('🔍 DEBUG: Error checking existing relationships:', existingError)
+    } else if (existingMembers) {
+      // FIXED: Check if user is already in a relationship with the invitation creator
+      const hasExistingRelationship = existingMembers.some((member: any) => {
+        const relationship = member.relationships
+        return relationship && relationship.created_by === invitation.from_user_id
+      })
+
+      if (hasExistingRelationship) {
+        setMessage('You are already connected with this person!')
+        return
+      }
+    }
+
+    // STEP 4: NEW - Check if invitation was already accepted
+    const { data: acceptedInvitations, error: acceptedError } = await supabase
+      .from('relationship_invitations')
+      .select('*')
+      .eq('invite_code', inviteCode.toUpperCase())
+      .eq('status', 'accepted')
+
+    if (acceptedInvitations && acceptedInvitations.length > 0) {
+      setMessage('This invitation code has already been used.')
+      return
+    }
+
+    // STEP 5: NEW - Check if same relationship name already exists for this creator
+    const { data: sameNameRelationships, error: sameNameError } = await supabase
+      .from('relationships')
+      .select('id, name')
+      .eq('created_by', invitation.from_user_id)
+      .eq('name', invitation.relationship_name)
+
+    if (sameNameRelationships && sameNameRelationships.length > 0) {
+      setMessage('A relationship with this name already exists between you and this person.')
+      return
+    }
+
+    console.log('🔍 DEBUG: All validation checks passed. Creating relationship...')
+
+    // STEP 6: Create the relationship (existing code)
     const { data: relationshipData, error: relationshipError } = await supabase
       .from('relationships')
       .insert([{
@@ -281,12 +293,11 @@ export default function RelationshipsPage() {
       .single()
 
     console.log('🔍 DEBUG: Relationship created:', relationshipData)
-    console.log('🔍 DEBUG: Relationship error:', relationshipError)
 
     if (relationshipError) throw relationshipError
 
+    // STEP 7: Add relationship members (existing code)
     console.log('🔍 DEBUG: Adding relationship members...')
-    // Add both users as members
     const { error: membersError } = await supabase
       .from('relationship_members')
       .insert([
@@ -302,18 +313,22 @@ export default function RelationshipsPage() {
         }
       ])
 
-    console.log('🔍 DEBUG: Members error:', membersError)
     if (membersError) throw membersError
 
-    console.log('🔍 DEBUG: Updating invitation status...')
-    // Update invitation status
+    // STEP 8: IMPORTANT - Mark invitation as accepted (invalidates the code)
+    console.log('🔍 DEBUG: Marking invitation as accepted...')
     const { error: updateError } = await supabase
       .from('relationship_invitations')
       .update({ status: 'accepted' })
       .eq('id', invitation.id)
 
-    console.log('🔍 DEBUG: Update error:', updateError)
-    if (updateError) throw updateError
+    if (updateError) {
+      console.log('🔍 DEBUG: Warning - Could not invalidate invitation code:', updateError)
+      // Don't fail the whole process if we can't update the invitation
+      // The relationship was created successfully, which is the main goal
+    } else {
+      console.log('🔍 DEBUG: Invitation successfully marked as accepted')
+    }
 
     setMessage('Successfully joined the relationship! 🎉')
     setInviteCode('')
