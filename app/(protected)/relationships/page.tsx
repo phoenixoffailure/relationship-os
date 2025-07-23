@@ -26,6 +26,13 @@ export default function RelationshipsPage() {
   const [generatedCode, setGeneratedCode] = useState('')
   const [inviteCode, setInviteCode] = useState('')
 
+  // Settings modal state
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [selectedRelationship, setSelectedRelationship] = useState<any>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -180,170 +187,255 @@ export default function RelationshipsPage() {
     }
   }
 
-const acceptInvitationByCode = async () => {
-  if (!user || !inviteCode.trim()) return
+  const acceptInvitationByCode = async () => {
+    if (!user || !inviteCode.trim()) return
 
-  setMessage('')
-  console.log('🔍 DEBUG: Starting invitation acceptance')
-  console.log('🔍 DEBUG: User ID:', user?.id)
-  console.log('🔍 DEBUG: Invite Code:', inviteCode.toUpperCase())
+    setMessage('')
+    console.log('🔍 DEBUG: Starting invitation acceptance')
+    console.log('🔍 DEBUG: User ID:', user?.id)
+    console.log('🔍 DEBUG: Invite Code:', inviteCode.toUpperCase())
 
-  try {
-    // STEP 1: Find the invitation
-    const { data: invitations, error: findError } = await supabase
-      .from('relationship_invitations')
-      .select('*')
-      .eq('invite_code', inviteCode.toUpperCase())
-      .eq('status', 'pending')
+    try {
+      // STEP 1: Find the invitation
+      const { data: invitations, error: findError } = await supabase
+        .from('relationship_invitations')
+        .select('*')
+        .eq('invite_code', inviteCode.toUpperCase())
+        .eq('status', 'pending')
 
-    console.log('🔍 DEBUG: Found invitations:', invitations)
+      console.log('🔍 DEBUG: Found invitations:', invitations)
 
-    if (findError) {
-      console.log('🔍 DEBUG: Database error:', findError.message)
-      setMessage(`Database error: ${findError.message}`)
-      return
-    }
-
-    if (!invitations || invitations.length === 0) {
-      setMessage('Invalid or expired invitation code.')
-      return
-    }
-
-    const invitation = invitations[0]
-
-    // STEP 2: Enhanced validation checks
-    console.log('🔍 DEBUG: Running validation checks...')
-
-    // Check if expired
-    if (new Date(invitation.expires_at) < new Date()) {
-      setMessage('This invitation code has expired.')
-      return
-    }
-
-    // Check self-invitation (FIXED: Compare actual user IDs)
-    if (invitation.from_user_id === user.id) {
-      setMessage('You cannot accept your own invitation!')
-      return
-    }
-
-    // STEP 3: NEW - Check for existing relationship between these users
-    console.log('🔍 DEBUG: Checking for existing relationships...')
-    const { data: existingMembers, error: existingError } = await supabase
-      .from('relationship_members')
-      .select(`
-        relationship_id,
-        relationships (
-          id,
-          name,
-          created_by
-        )
-      `)
-      .eq('user_id', user.id)
-
-    if (existingError) {
-      console.log('🔍 DEBUG: Error checking existing relationships:', existingError)
-    } else if (existingMembers) {
-      // FIXED: Check if user is already in a relationship with the invitation creator
-      const hasExistingRelationship = existingMembers.some((member: any) => {
-        const relationship = member.relationships
-        return relationship && relationship.created_by === invitation.from_user_id
-      })
-
-      if (hasExistingRelationship) {
-        setMessage('You are already connected with this person!')
+      if (findError) {
+        console.log('🔍 DEBUG: Database error:', findError.message)
+        setMessage(`Database error: ${findError.message}`)
         return
       }
-    }
 
-    // STEP 4: NEW - Check if invitation was already accepted
-    const { data: acceptedInvitations, error: acceptedError } = await supabase
-      .from('relationship_invitations')
-      .select('*')
-      .eq('invite_code', inviteCode.toUpperCase())
-      .eq('status', 'accepted')
+      if (!invitations || invitations.length === 0) {
+        setMessage('Invalid or expired invitation code.')
+        return
+      }
 
-    if (acceptedInvitations && acceptedInvitations.length > 0) {
-      setMessage('This invitation code has already been used.')
-      return
-    }
+      const invitation = invitations[0]
 
-    // STEP 5: NEW - Check if same relationship name already exists for this creator
-    const { data: sameNameRelationships, error: sameNameError } = await supabase
-      .from('relationships')
-      .select('id, name')
-      .eq('created_by', invitation.from_user_id)
-      .eq('name', invitation.relationship_name)
+      // STEP 2: Enhanced validation checks
+      console.log('🔍 DEBUG: Running validation checks...')
 
-    if (sameNameRelationships && sameNameRelationships.length > 0) {
-      setMessage('A relationship with this name already exists between you and this person.')
-      return
-    }
+      // Check if expired
+      if (new Date(invitation.expires_at) < new Date()) {
+        setMessage('This invitation code has expired.')
+        return
+      }
 
-    console.log('🔍 DEBUG: All validation checks passed. Creating relationship...')
+      // Check self-invitation (FIXED: Compare actual user IDs)
+      if (invitation.from_user_id === user.id) {
+        setMessage('You cannot accept your own invitation!')
+        return
+      }
 
-    // STEP 6: Create the relationship (existing code)
-    const { data: relationshipData, error: relationshipError } = await supabase
-      .from('relationships')
-      .insert([{
-        name: invitation.relationship_name,
-        relationship_type: invitation.relationship_type,
-        created_by: invitation.from_user_id
-      }])
-      .select()
-      .single()
+      // STEP 3: NEW - Check for existing relationship between these users
+      console.log('🔍 DEBUG: Checking for existing relationships...')
+      const { data: existingMembers, error: existingError } = await supabase
+        .from('relationship_members')
+        .select(`
+          relationship_id,
+          relationships (
+            id,
+            name,
+            created_by
+          )
+        `)
+        .eq('user_id', user.id)
 
-    console.log('🔍 DEBUG: Relationship created:', relationshipData)
+      if (existingError) {
+        console.log('🔍 DEBUG: Error checking existing relationships:', existingError)
+      } else if (existingMembers) {
+        // FIXED: Check if user is already in a relationship with the invitation creator
+        const hasExistingRelationship = existingMembers.some((member: any) => {
+          const relationship = member.relationships
+          return relationship && relationship.created_by === invitation.from_user_id
+        })
 
-    if (relationshipError) throw relationshipError
-
-    // STEP 7: Add relationship members (existing code)
-    console.log('🔍 DEBUG: Adding relationship members...')
-    const { error: membersError } = await supabase
-      .from('relationship_members')
-      .insert([
-        {
-          relationship_id: relationshipData.id,
-          user_id: invitation.from_user_id,
-          role: 'admin'
-        },
-        {
-          relationship_id: relationshipData.id,
-          user_id: user.id,
-          role: 'member'
+        if (hasExistingRelationship) {
+          setMessage('You are already connected with this person!')
+          return
         }
+      }
+
+      // STEP 4: NEW - Check if invitation was already accepted
+      const { data: acceptedInvitations, error: acceptedError } = await supabase
+        .from('relationship_invitations')
+        .select('*')
+        .eq('invite_code', inviteCode.toUpperCase())
+        .eq('status', 'accepted')
+
+      if (acceptedInvitations && acceptedInvitations.length > 0) {
+        setMessage('This invitation code has already been used.')
+        return
+      }
+
+      console.log('🔍 DEBUG: All validation checks passed. Creating relationship...')
+
+      // STEP 5: Create the relationship
+      const { data: relationshipData, error: relationshipError } = await supabase
+        .from('relationships')
+        .insert([{
+          name: invitation.relationship_name,
+          relationship_type: invitation.relationship_type,
+          created_by: invitation.from_user_id
+        }])
+        .select()
+        .single()
+
+      console.log('🔍 DEBUG: Relationship created:', relationshipData)
+
+      if (relationshipError) throw relationshipError
+
+      // STEP 6: Add relationship members
+      console.log('🔍 DEBUG: Adding relationship members...')
+      const { error: membersError } = await supabase
+        .from('relationship_members')
+        .insert([
+          {
+            relationship_id: relationshipData.id,
+            user_id: invitation.from_user_id,
+            role: 'admin'
+          },
+          {
+            relationship_id: relationshipData.id,
+            user_id: user.id,
+            role: 'member'
+          }
+        ])
+
+      if (membersError) throw membersError
+
+      // STEP 7: Mark invitation as accepted
+      console.log('🔍 DEBUG: Marking invitation as accepted...')
+      const { error: updateError } = await supabase
+        .from('relationship_invitations')
+        .update({ status: 'accepted' })
+        .eq('id', invitation.id)
+
+      if (updateError) {
+        console.log('🔍 DEBUG: Warning - Could not invalidate invitation code:', updateError)
+      } else {
+        console.log('🔍 DEBUG: Invitation successfully marked as accepted')
+      }
+
+      setMessage('Successfully joined the relationship! 🎉')
+      setInviteCode('')
+      
+      // Reload data
+      await Promise.all([
+        loadRelationships(user.id),
+        loadInvitations(user.id)
       ])
 
-    if (membersError) throw membersError
-
-    // STEP 8: IMPORTANT - Mark invitation as accepted (invalidates the code)
-    console.log('🔍 DEBUG: Marking invitation as accepted...')
-    const { error: updateError } = await supabase
-      .from('relationship_invitations')
-      .update({ status: 'accepted' })
-      .eq('id', invitation.id)
-
-    if (updateError) {
-      console.log('🔍 DEBUG: Warning - Could not invalidate invitation code:', updateError)
-      // Don't fail the whole process if we can't update the invitation
-      // The relationship was created successfully, which is the main goal
-    } else {
-      console.log('🔍 DEBUG: Invitation successfully marked as accepted')
+    } catch (error: any) {
+      console.error('🔍 DEBUG: Full error:', error)
+      setMessage(`Error: ${error.message}`)
     }
-
-    setMessage('Successfully joined the relationship! 🎉')
-    setInviteCode('')
-    
-    // Reload data
-    await Promise.all([
-      loadRelationships(user.id),
-      loadInvitations(user.id)
-    ])
-
-  } catch (error: any) {
-    console.error('🔍 DEBUG: Full error:', error)
-    setMessage(`Error: ${error.message}`)
   }
-}
+
+  // Settings modal functions
+  const openRelationshipSettings = (relationship: any) => {
+    setSelectedRelationship(relationship)
+    setShowSettingsModal(true)
+    setShowDeleteConfirm(false)
+    setDeleteConfirmText('')
+  }
+
+  const deleteRelationship = async () => {
+    if (!selectedRelationship || deleteConfirmText !== 'DELETE') return
+
+    setDeleteLoading(true)
+    setMessage('')
+
+    try {
+      console.log('🔍 DEBUG: Deleting relationship:', selectedRelationship.id)
+
+      // Step 1: Delete all relationship members
+      const { error: membersError } = await supabase
+        .from('relationship_members')
+        .delete()
+        .eq('relationship_id', selectedRelationship.id)
+
+      if (membersError) {
+        console.error('Error deleting members:', membersError)
+        throw membersError
+      }
+
+      // Step 2: Delete related insights (optional - they might cascade)
+      const { error: insightsError } = await supabase
+        .from('relationship_insights')
+        .delete()
+        .eq('relationship_id', selectedRelationship.id)
+
+      if (insightsError) {
+        console.log('Warning: Could not delete insights:', insightsError)
+        // Don't fail for this - insights might not exist or might cascade
+      }
+
+      // Step 3: Delete the relationship itself
+      const { error: relationshipError } = await supabase
+        .from('relationships')
+        .delete()
+        .eq('id', selectedRelationship.id)
+
+      if (relationshipError) {
+        console.error('Error deleting relationship:', relationshipError)
+        throw relationshipError
+      }
+
+      setMessage(`Successfully deleted "${selectedRelationship.name}" relationship! 🗑️`)
+      setShowSettingsModal(false)
+      setSelectedRelationship(null)
+      setDeleteConfirmText('')
+
+      // Reload relationships data
+      await loadRelationships(user.id)
+
+    } catch (error: any) {
+      console.error('Delete error:', error)
+      setMessage(`Error deleting relationship: ${error.message}`)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const leaveRelationship = async () => {
+    if (!selectedRelationship || !user) return
+
+    setDeleteLoading(true)
+    setMessage('')
+
+    try {
+      console.log('🔍 DEBUG: Leaving relationship:', selectedRelationship.id)
+
+      // Remove user from relationship members
+      const { error: leaveError } = await supabase
+        .from('relationship_members')
+        .delete()
+        .eq('relationship_id', selectedRelationship.id)
+        .eq('user_id', user.id)
+
+      if (leaveError) throw leaveError
+
+      setMessage(`Successfully left "${selectedRelationship.name}" relationship! 👋`)
+      setShowSettingsModal(false)
+      setSelectedRelationship(null)
+
+      // Reload relationships data
+      await loadRelationships(user.id)
+
+    } catch (error: any) {
+      console.error('Leave error:', error)
+      setMessage(`Error leaving relationship: ${error.message}`)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
 
   const getRelationshipTypeIcon = (type: string) => {
     switch (type) {
@@ -552,7 +644,12 @@ const acceptInvitationByCode = async () => {
                             View Shared Insights
                           </Button>
                         </Link>
-                        <Button size="sm" variant="outline" className="border-gray-300">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="border-gray-300"
+                          onClick={() => openRelationshipSettings(relationship)}
+                        >
                           Settings
                         </Button>
                       </div>
@@ -746,51 +843,174 @@ const acceptInvitationByCode = async () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Invitation Code Generated!</h3>
-                <p className="text-gray-600 mb-6">Share this code with your partner:</p>
+                <p className="text-gray-600 mb-6">Share this code with your partner to connect</p>
                 
                 <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                  <div className="text-3xl font-bold font-mono tracking-wider text-calm-600 mb-2">
+                  <div className="text-3xl font-bold font-mono text-calm-600 tracking-wider mb-2">
                     {generatedCode}
                   </div>
                   <Button
                     onClick={() => navigator.clipboard.writeText(generatedCode)}
                     variant="outline"
                     size="sm"
-                    className="text-sm"
+                    className="border-calm-300 text-calm-700"
                   >
                     📋 Copy Code
                   </Button>
                 </div>
-                
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-blue-800">
-                    <strong>Instructions for your partner:</strong><br/>
-                    1. Go to the Relationships page<br/>
-                    2. Enter this code in the "Have an invitation code?" section<br/>
-                    3. Click "Join Relationship"
-                  </p>
+
+                <div className="text-sm text-gray-600 mb-6">
+                  <p>✅ Code expires in 7 days</p>
+                  <p>✅ Can only be used once</p>
+                  <p>✅ Your partner enters this code to connect</p>
                 </div>
 
-                <div className="flex space-x-3">
-                  <Button
-                    onClick={() => setShowCodeModal(false)}
-                    className="flex-1 bg-calm-600 hover:bg-calm-700"
-                  >
-                    Done
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`Hi! I'd like to connect our accounts on Relationship OS. Please use this invitation code: ${generatedCode}`)
-                    }}
-                    variant="outline"
-                    className="flex-1 border-calm-300 text-calm-700"
-                  >
-                    📱 Copy Message
-                  </Button>
+                <Button
+                  onClick={() => setShowCodeModal(false)}
+                  className="w-full bg-calm-600 hover:bg-calm-700"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Modal */}
+        {showSettingsModal && selectedRelationship && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Relationship Settings</h3>
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Relationship Info */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3 mb-2">
+                  <span className="text-2xl">{getRelationshipTypeIcon(selectedRelationship.relationship_type)}</span>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{selectedRelationship.name}</h4>
+                    <p className="text-sm text-gray-600">{getRelationshipTypeLabel(selectedRelationship.relationship_type)}</p>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <p>Your role: <span className="font-medium">{selectedRelationship.myRole}</span></p>
+                  <p>Connected: {formatDate(selectedRelationship.joinedAt)}</p>
+                  <p>Partners: {selectedRelationship.otherMembers.length}</p>
                 </div>
               </div>
+
+              {!showDeleteConfirm ? (
+                <div className="space-y-4">
+                  {/* View Insights */}
+                  <Link href={`/insights?relationship=${selectedRelationship.id}`}>
+                    <Button className="w-full bg-calm-600 hover:bg-calm-700 justify-start">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      View Shared Insights
+                    </Button>
+                  </Link>
+
+                  {/* Privacy Settings */}
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-300 justify-start"
+                    onClick={() => {
+                      setShowSettingsModal(false)
+                      // Navigate to settings with relationship context
+                      window.location.href = `/settings?relationship=${selectedRelationship.id}`
+                    }}
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Privacy & Sharing Settings
+                  </Button>
+
+                  {/* Danger Zone */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="font-medium text-gray-900 mb-3">Danger Zone</h4>
+                    
+                    {selectedRelationship.myRole === 'admin' ? (
+                      <Button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        variant="outline"
+                        className="w-full border-red-300 text-red-700 hover:bg-red-50 justify-start"
+                      >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete Entire Relationship
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={leaveRelationship}
+                        disabled={deleteLoading}
+                        variant="outline"
+                        className="w-full border-orange-300 text-orange-700 hover:bg-orange-50 justify-start"
+                      >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        {deleteLoading ? 'Leaving...' : 'Leave Relationship'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Delete Confirmation */
+                <div className="space-y-4">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-red-900 mb-2">⚠️ Permanent Deletion</h4>
+                    <p className="text-sm text-red-700 mb-3">
+                      This will permanently delete "{selectedRelationship.name}" and remove all members, insights, and data. This action cannot be undone.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Type "DELETE" to confirm
+                    </label>
+                    <input
+                      type="text"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="DELETE"
+                    />
+                  </div>
+
+                  <div className="flex space-x-3">
+                    <Button
+                      onClick={deleteRelationship}
+                      disabled={deleteLoading || deleteConfirmText !== 'DELETE'}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      {deleteLoading ? 'Deleting...' : 'Delete Permanently'}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowDeleteConfirm(false)
+                        setDeleteConfirmText('')
+                      }}
+                      variant="outline"
+                      className="flex-1 border-gray-300"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
