@@ -5,46 +5,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
 
-// Proper TypeScript interfaces
-interface RelationshipMember {
-  user_id: string
-  role: string
-  joined_at: string
-  users?: {
-    id: string
-    email: string
-    full_name: string
-  }
-}
-
-interface Relationship {
-  id: string
-  name: string
-  relationship_type: string
-  created_by: string
-  created_at: string
-  myRole: string
-  joinedAt: string
-  otherMembers: RelationshipMember[]
-}
-
-interface Invitation {
-  id: string
-  from_user_id: string
-  invite_code: string
-  to_email: string | null
-  relationship_name: string
-  relationship_type: string
-  status: string
-  expires_at: string
-  created_at: string
-  type?: string
-}
-
 export default function RelationshipsPage() {
   const [user, setUser] = useState<any>(null)
-  const [relationships, setRelationships] = useState<Relationship[]>([])
-  const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [relationships, setRelationships] = useState<any[]>([])
+  const [invitations, setInvitations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteLoading, setInviteLoading] = useState(false)
@@ -57,7 +21,7 @@ export default function RelationshipsPage() {
     relationshipType: 'couple'
   })
 
-  // Code system state
+  // New code system state
   const [showCodeModal, setShowCodeModal] = useState(false)
   const [generatedCode, setGeneratedCode] = useState('')
   const [inviteCode, setInviteCode] = useState('')
@@ -87,140 +51,86 @@ export default function RelationshipsPage() {
     getUser()
   }, [])
 
-  // FIXED: Simple queries without recursive joins
   const loadRelationships = async (userId: string) => {
     try {
-      console.log('🔍 DEBUG: Loading relationships for user:', userId)
-      
-      // Step 1: Get user's memberships (SIMPLE query)
+      // Get relationships where user is a member
       const { data: memberData, error: memberError } = await supabase
         .from('relationship_members')
-        .select('relationship_id, role, joined_at')
+        .select(`
+          relationship_id,
+          role,
+          joined_at,
+          relationships (
+            id,
+            name,
+            relationship_type,
+            created_by,
+            created_at
+          )
+        `)
         .eq('user_id', userId)
 
-      console.log('🔍 DEBUG: Member data:', memberData)
-      console.log('🔍 DEBUG: Member error:', memberError)
+      if (memberError) throw memberError
 
-      if (memberError) {
-        console.error('Error loading member data:', memberError)
-        return
-      }
+      // For each relationship, get the other members
+      const relationshipsWithMembers = await Promise.all(
+        (memberData || []).map(async (member) => {
+          const { data: otherMembers, error: membersError } = await supabase
+            .from('relationship_members')
+            .select(`
+              user_id,
+              role,
+              joined_at,
+              users (
+                id,
+                email,
+                full_name
+              )
+            `)
+            .eq('relationship_id', member.relationship_id)
+            .neq('user_id', userId)
 
-      if (!memberData || memberData.length === 0) {
-        console.log('🔍 DEBUG: No relationships found')
-        setRelationships([])
-        return
-      }
+          if (membersError) {
+            console.error('Error loading members:', membersError)
+            return {
+              ...member.relationships,
+              myRole: member.role,
+              joinedAt: member.joined_at,
+              otherMembers: []
+            }
+          }
 
-      // Step 2: Get relationship details separately
-      const relationshipIds = memberData.map(m => m.relationship_id)
-      const { data: relationshipData, error: relError } = await supabase
-        .from('relationships')
-        .select('id, name, relationship_type, created_by, created_at')
-        .in('id', relationshipIds)
-
-      console.log('🔍 DEBUG: Relationship data:', relationshipData)
-      console.log('🔍 DEBUG: Relationship error:', relError)
-
-      if (relError) {
-        console.error('Error loading relationship data:', relError)
-        return
-      }
-
-      if (!relationshipData) {
-        console.log('🔍 DEBUG: No relationship data found')
-        setRelationships([])
-        return
-      }
-
-      // Step 3: Combine data manually
-      const combinedData: Relationship[] = []
-
-      for (const member of memberData) {
-        const relationship = relationshipData.find(rel => rel.id === member.relationship_id)
-        if (relationship) {
-          combinedData.push({
-            id: relationship.id,
-            name: relationship.name,
-            relationship_type: relationship.relationship_type,
-            created_by: relationship.created_by,
-            created_at: relationship.created_at,
+          return {
+            ...member.relationships,
             myRole: member.role,
             joinedAt: member.joined_at,
-            otherMembers: [] // Initialize empty
-          })
-        }
-      }
+            otherMembers: otherMembers || []
+          }
+        })
+      )
 
-      console.log('🔍 DEBUG: Combined relationships:', combinedData)
-      
-      // Step 4: Load other members separately
-      for (const relationship of combinedData) {
-        const { data: otherMembers, error: membersError } = await supabase
-          .from('relationship_members')
-          .select(`
-            user_id,
-            role,
-            joined_at,
-            users (
-              id,
-              email,
-              full_name
-            )
-          `)
-          .eq('relationship_id', relationship.id)
-          .neq('user_id', userId)
-
-        console.log('🔍 DEBUG: Other members for', relationship.id, ':', otherMembers)
-
-        if (otherMembers && !membersError) {
-          relationship.otherMembers = otherMembers
-            .filter(member => member.users) // Only members with user data
-            .map(member => ({
-              user_id: member.user_id,
-              role: member.role,
-              joined_at: member.joined_at,
-              users: Array.isArray(member.users) ? member.users[0] : member.users
-            }))
-        }
-      }
-
-      setRelationships(combinedData)
-      console.log('🔍 DEBUG: Final relationships:', combinedData)
-
+      setRelationships(relationshipsWithMembers)
     } catch (error) {
-      console.error('Error in loadRelationships:', error)
+      console.error('Error loading relationships:', error)
     }
   }
 
   const loadInvitations = async (userId: string) => {
     try {
-      console.log('🔍 DEBUG: Loading invitations for user:', userId)
-      
+      // Get invitations sent by this user
       const { data: sentInvites, error: sentError } = await supabase
         .from('relationship_invitations')
         .select('*')
         .eq('from_user_id', userId)
         .order('created_at', { ascending: false })
 
-      console.log('🔍 DEBUG: Sent invites:', sentInvites)
-      console.log('🔍 DEBUG: Sent invites error:', sentError)
-
       if (sentError) {
         console.error('Error loading sent invitations:', sentError)
-        return
       }
 
-      if (sentInvites) {
-        const typedInvitations: Invitation[] = sentInvites.map(inv => ({ 
-          ...inv, 
-          type: 'sent' 
-        }))
-        setInvitations(typedInvitations)
-      }
-
+      setInvitations((sentInvites || []).map(inv => ({ ...inv, type: 'sent' })))
     } catch (error) {
-      console.error('Error in loadInvitations:', error)
+      console.error('Error loading invitations:', error)
     }
   }
 
@@ -231,19 +141,21 @@ export default function RelationshipsPage() {
     setMessage('')
 
     try {
+      // Generate a unique 6-character code
       const code = Math.random().toString(36).substring(2, 8).toUpperCase()
       console.log('🔍 DEBUG: Generated code:', code)
       
+      // Save invitation with code instead of email
       const { data, error } = await supabase
         .from('relationship_invitations')
         .insert([{
           from_user_id: user.id,
           invite_code: code,
-          to_email: null,
+          to_email: null, // No email needed
           relationship_name: inviteData.relationshipName,
           relationship_type: inviteData.relationshipType,
           status: 'pending',
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
         }])
         .select()
 
@@ -257,6 +169,7 @@ export default function RelationshipsPage() {
       setShowInviteForm(false)
       setInviteData({ partnerName: '', relationshipName: '', relationshipType: 'couple' })
       
+      // Reload invitations
       await loadInvitations(user.id)
         
     } catch (error: any) {
@@ -271,35 +184,50 @@ export default function RelationshipsPage() {
     if (!user || !inviteCode.trim()) return
 
     setMessage('')
-    console.log('🔍 DEBUG: Accepting invitation with code:', inviteCode.toUpperCase())
+    console.log('🔍 DEBUG: Starting invitation acceptance')
+    console.log('🔍 DEBUG: User ID:', user?.id)
+    console.log('🔍 DEBUG: Invite Code:', inviteCode.toUpperCase())
 
     try {
-      // Find the invitation
-      const { data: invitation, error: findError } = await supabase
+      // FIXED: Use array query instead of .single() to avoid 406 errors
+      console.log('🔍 DEBUG: Looking for invitation...')
+      const { data: invitations, error: findError } = await supabase
         .from('relationship_invitations')
         .select('*')
         .eq('invite_code', inviteCode.toUpperCase())
         .eq('status', 'pending')
-        .single()
 
-      console.log('🔍 DEBUG: Found invitation:', invitation)
-      console.log('🔍 DEBUG: Find error:', findError)
+      console.log('🔍 DEBUG: Found invitations:', invitations)
+      console.log('🔍 DEBUG: Find error (if any):', findError)
 
-      if (!invitation) {
+      if (findError) {
+        console.log('🔍 DEBUG: Database error:', findError.message)
+        setMessage(`Database error: ${findError.message}`)
+        return
+      }
+
+      // Check if invitation exists
+      if (!invitations || invitations.length === 0) {
         setMessage('Invalid or expired invitation code.')
         return
       }
 
+      // Get the first (and should be only) invitation
+      const invitation = invitations[0]
+
+      // Check if not expired
       if (new Date(invitation.expires_at) < new Date()) {
         setMessage('This invitation code has expired.')
         return
       }
 
+      // Check if user is trying to accept their own invitation
       if (invitation.from_user_id === user.id) {
         setMessage('You cannot accept your own invitation!')
         return
       }
 
+      console.log('🔍 DEBUG: Creating relationship...')
       // Create the relationship
       const { data: relationshipData, error: relationshipError } = await supabase
         .from('relationships')
@@ -311,30 +239,40 @@ export default function RelationshipsPage() {
         .select()
         .single()
 
+      console.log('🔍 DEBUG: Relationship created:', relationshipData)
+      console.log('🔍 DEBUG: Relationship error:', relationshipError)
+
       if (relationshipError) throw relationshipError
 
-      // Add both users as members (separate inserts)
-      await supabase
+      console.log('🔍 DEBUG: Adding relationship members...')
+      // Add both users as members
+      const { error: membersError } = await supabase
         .from('relationship_members')
-        .insert({
-          relationship_id: relationshipData.id,
-          user_id: invitation.from_user_id,
-          role: 'admin'
-        })
+        .insert([
+          {
+            relationship_id: relationshipData.id,
+            user_id: invitation.from_user_id,
+            role: 'admin'
+          },
+          {
+            relationship_id: relationshipData.id,
+            user_id: user.id,
+            role: 'member'
+          }
+        ])
 
-      await supabase
-        .from('relationship_members')
-        .insert({
-          relationship_id: relationshipData.id,
-          user_id: user.id,
-          role: 'member'
-        })
+      console.log('🔍 DEBUG: Members error:', membersError)
+      if (membersError) throw membersError
 
+      console.log('🔍 DEBUG: Updating invitation status...')
       // Update invitation status
-      await supabase
+      const { error: updateError } = await supabase
         .from('relationship_invitations')
         .update({ status: 'accepted' })
         .eq('id', invitation.id)
+
+      console.log('🔍 DEBUG: Update error:', updateError)
+      if (updateError) throw updateError
 
       setMessage('Successfully joined the relationship! 🎉')
       setInviteCode('')
@@ -346,7 +284,7 @@ export default function RelationshipsPage() {
       ])
 
     } catch (error: any) {
-      console.error('🔍 DEBUG: Accept error:', error)
+      console.error('🔍 DEBUG: Full error:', error)
       setMessage(`Error: ${error.message}`)
     }
   }
@@ -535,11 +473,11 @@ export default function RelationshipsPage() {
                         <span className="font-medium">Connected since:</span> {formatDate(relationship.joinedAt)}
                       </div>
                       
-                      {relationship.otherMembers && relationship.otherMembers.length > 0 && (
+                      {relationship.otherMembers.length > 0 && (
                         <div className="text-sm text-gray-600">
                           <span className="font-medium">Partners:</span>
                           <div className="mt-1 space-y-1">
-                            {relationship.otherMembers.map((member) => (
+                            {relationship.otherMembers.map((member: any) => (
                               <div key={member.user_id} className="flex items-center space-x-2">
                                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                                 <span>{member.users?.full_name || member.users?.email}</span>
@@ -752,44 +690,50 @@ export default function RelationshipsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Invitation Code Created!</h3>
-                <p className="text-gray-600 mb-6">Share this code with your partner to connect your accounts</p>
+                
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Invitation Code Generated!</h3>
+                <p className="text-gray-600 mb-6">Share this code with your partner:</p>
                 
                 <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                  <div className="text-3xl font-bold tracking-widest text-calm-600 mb-2">
+                  <div className="text-3xl font-bold font-mono tracking-wider text-calm-600 mb-2">
                     {generatedCode}
                   </div>
                   <Button
                     onClick={() => navigator.clipboard.writeText(generatedCode)}
                     variant="outline"
                     size="sm"
-                    className="border-calm-300 text-calm-700"
+                    className="text-sm"
                   >
                     📋 Copy Code
                   </Button>
                 </div>
-
-                <div className="space-y-3 text-sm text-gray-600 text-left">
-                  <div className="flex items-start space-x-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
-                    <span>Code expires in 7 days</span>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
-                    <span>Share via text, email, or in person</span>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
-                    <span>Your partner enters it on their relationships page</span>
-                  </div>
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-blue-800">
+                    <strong>Instructions for your partner:</strong><br/>
+                    1. Go to the Relationships page<br/>
+                    2. Enter this code in the "Have an invitation code?" section<br/>
+                    3. Click "Join Relationship"
+                  </p>
                 </div>
 
-                <Button
-                  onClick={() => setShowCodeModal(false)}
-                  className="w-full mt-6 bg-calm-600 hover:bg-calm-700"
-                >
-                  Got It!
-                </Button>
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={() => setShowCodeModal(false)}
+                    className="flex-1 bg-calm-600 hover:bg-calm-700"
+                  >
+                    Done
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`Hi! I'd like to connect our accounts on Relationship OS. Please use this invitation code: ${generatedCode}`)
+                    }}
+                    variant="outline"
+                    className="flex-1 border-calm-300 text-calm-700"
+                  >
+                    📱 Copy Message
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
