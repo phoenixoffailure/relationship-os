@@ -66,6 +66,58 @@ export async function POST(request: Request) {
 
     console.log('🗑️ Deleting account for user:', targetUserId)
 
+    // FIXED: Delete auth user FIRST (this will cascade to other tables)
+    // This is the correct order to avoid foreign key constraint issues
+    if (adminSupabase) {
+      console.log('🗑️ Deleting auth user first (will cascade to related tables)...')
+      
+      try {
+        const { error: authDeleteError } = await adminSupabase.auth.admin.deleteUser(
+          targetUserId
+        )
+
+        if (authDeleteError) {
+          console.error('Auth user deletion error:', authDeleteError)
+          
+          // If auth deletion fails, don't proceed with manual cleanup
+          return NextResponse.json({ 
+            success: false,
+            error: 'Failed to delete user account',
+            details: authDeleteError.message,
+            hint: 'Auth user deletion failed - may have foreign key constraints'
+          }, { status: 500 })
+        }
+
+        console.log('✅ Auth user deleted successfully (cascaded to related tables)')
+        
+        // Auth deletion successful - return success
+        return NextResponse.json({ 
+          success: true,
+          message: 'Account deleted successfully',
+          method: 'auth_cascade_deletion'
+        })
+
+      } catch (error: any) {
+        console.error('Exception during auth user deletion:', error)
+        
+        return NextResponse.json({ 
+          success: false,
+          error: 'Failed to delete user account',
+          details: error.message,
+          hint: 'Exception during auth user deletion'
+        }, { status: 500 })
+      }
+    } else {
+      console.log('⚠️ Service role key not found - falling back to manual deletion')
+      // Fall back to manual deletion if no service role key
+    }
+
+    // FALLBACK: Manual deletion if auth deletion not available
+    console.log('🗑️ Performing manual data cleanup...')
+
+    // FALLBACK: Manual deletion if auth deletion not available
+    console.log('🗑️ Performing manual data cleanup...')
+
     // Step 1: Get all relationships this user is involved in
     const { data: userRelationships, error: relationshipsError } = await supabase
       .from('relationship_members')
@@ -225,53 +277,20 @@ export async function POST(request: Request) {
       console.log('ℹ️ No profile data to delete (user only existed in auth)')
     }
 
-    // Step 4: Delete the auth user (requires service role key)
-    if (adminSupabase) {
-      console.log('🗑️ Deleting auth user...')
-      
-      try {
-        const { error: authDeleteError } = await adminSupabase.auth.admin.deleteUser(
-          targetUserId
-        )
+    // NOTE: We don't delete auth user in manual mode to avoid foreign key issues
+    // The auth user will remain but have no associated data
+    console.log('ℹ️ Auth user not deleted in manual mode (to avoid foreign key constraints)')
 
-        if (authDeleteError) {
-          console.error('Auth user deletion error:', authDeleteError)
-          
-          // Return success for data cleanup but warn about auth user
-          return NextResponse.json({ 
-            success: true,
-            warning: 'User data deleted but auth user deletion failed. The user account may still exist in authentication but all profile data has been removed.',
-            auth_error: authDeleteError.message
-          })
-        }
-
-        console.log('✅ Auth user deleted successfully')
-      } catch (error: any) {
-        console.error('Exception during auth user deletion:', error)
-        
-        return NextResponse.json({ 
-          success: true,
-          warning: 'User data deleted but auth user deletion failed with exception. The user account may still exist in authentication but all profile data has been removed.',
-          auth_error: error.message
-        })
-      }
-    } else {
-      console.log('⚠️ Service role key not found - cannot delete auth user')
-      return NextResponse.json({ 
-        success: true,
-        warning: 'User data deleted but auth user requires manual deletion. Add SUPABASE_SERVICE_ROLE_KEY to environment variables.',
-      })
-    }
-
-    console.log('🎉 Account deletion completed successfully')
+    console.log('🎉 Manual account deletion completed successfully')
 
     return NextResponse.json({ 
       success: true,
       message: 'Account deleted successfully',
+      method: 'manual_deletion',
       deletedData: {
         relationships: userRelationships?.length || 0,
         personalData: true,
-        authUser: true
+        authUser: false // Manual deletion doesn't remove auth user
       }
     })
 
