@@ -495,6 +495,11 @@ export default function DashboardPage() {
               <Link href="/settings" className="text-gray-600 hover:text-gray-700">
                 Settings
               </Link>
+              {user?.email && ['jwalkwithyou@gmail.com'].includes(user.email) && (
+              <Link href="/admin/users" className="text-orange-600 hover:text-orange-700 font-medium">
+              🛠️ Admin
+              </Link>
+              )}
               <Button 
                 variant="ghost" 
                 className="text-gray-600"

@@ -1,5 +1,11 @@
+// middleware.ts - Complete integration (no separate files needed)
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+
+// Define admin emails here (for development)
+const ADMIN_EMAILS = [
+  'jwalkwithyou@gmail.com' // Replace with your actual email
+]
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -30,6 +36,20 @@ export async function middleware(request: NextRequest) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
+
+  // Admin routes protection (integrated directly)
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    if (!session) {
+      return NextResponse.redirect(new URL('/login?message=Admin access requires login', request.url))
+    }
+
+    // Check if user is admin
+    const isAdminUser = ADMIN_EMAILS.includes(session.user.email || '')
+    
+    if (!isAdminUser) {
+      return NextResponse.redirect(new URL('/dashboard?message=Access denied: Admin privileges required', request.url))
+    }
+  }
 
   // Redirect unauthenticated users from protected routes
   if (!session && request.nextUrl.pathname.startsWith('/dashboard')) {

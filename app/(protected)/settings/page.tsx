@@ -26,10 +26,12 @@ export default function SettingsPage() {
     insightNotifications: true
   })
 
-  // Account actions
+  // Account actions - UPDATED for proper deletion
   const [showDataExport, setShowDataExport] = useState(false)
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteStep, setDeleteStep] = useState(1) // 1: confirmation, 2: processing, 3: success
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -200,55 +202,110 @@ export default function SettingsPage() {
     if (!user) return
 
     try {
-      // Collect all user data
-      const [journalData, checkinData, insightsData] = await Promise.all([
+      setMessage('Preparing data export...')
+
+      // Collect all user data - enhanced to include more tables
+      const [journalData, checkinData, insightsData, relationshipData, onboardingEnhancedData] = await Promise.all([
         supabase.from('journal_entries').select('*').eq('user_id', user.id),
         supabase.from('daily_checkins').select('*').eq('user_id', user.id),
-        supabase.from('relationship_insights').select('*').eq('generated_for_user', user.id)
+        supabase.from('relationship_insights').select('*').eq('generated_for_user', user.id),
+        supabase.from('relationship_members').select(`
+          *,
+          relationships (*)
+        `).eq('user_id', user.id),
+        // Try to get enhanced onboarding if it exists
+        supabase.from('enhanced_onboarding_responses').select('*').eq('user_id', user.id)
       ])
 
       const exportData = {
-        profile: profile,
+        user_profile: profile,
         onboarding: onboardingData,
+        enhanced_onboarding: onboardingEnhancedData.data || [],
         journals: journalData.data || [],
         checkins: checkinData.data || [],
         insights: insightsData.data || [],
-        exportedAt: new Date().toISOString()
+        relationships: relationshipData.data || [],
+        exportedAt: new Date().toISOString(),
+        export_note: 'Complete export of your RelationshipOS data'
       }
 
       // Create and download file
       const dataStr = JSON.stringify(exportData, null, 2)
       const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
       
-      const exportFileDefaultName = `relationship-os-data-${new Date().toISOString().split('T')[0]}.json`
+      const exportFileDefaultName = `relationshipos-data-${new Date().toISOString().split('T')[0]}.json`
       
       const linkElement = document.createElement('a')
       linkElement.setAttribute('href', dataUri)
       linkElement.setAttribute('download', exportFileDefaultName)
       linkElement.click()
 
-      setMessage('Data exported successfully!')
+      setMessage('Data exported successfully! 📥')
       setTimeout(() => setMessage(''), 3000)
     } catch (error: any) {
       setMessage(`Export error: ${error.message}`)
+      setTimeout(() => setMessage(''), 3000)
     }
   }
 
+  // FIXED: Proper account deletion using API route
   const deleteAccount = async () => {
     if (!user || deleteConfirmText !== 'DELETE') return
 
-    try {
-      // Note: In production, you'd want a more sophisticated account deletion
-      // that might soft-delete or have a grace period
-      const { error } = await supabase.auth.admin.deleteUser(user.id)
-      
-      if (error) throw error
+    setDeleteLoading(true)
+    setDeleteStep(2) // Processing step
+    setMessage('')
 
-      alert('Account deleted successfully.')
-      window.location.href = '/'
+    try {
+      console.log('🗑️ Starting account deletion...')
+      
+      const response = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          isAdminDelete: false
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete account')
+      }
+
+      console.log('Account deletion result:', result)
+
+      if (result.success) {
+        setDeleteStep(3) // Success step
+        setMessage(`Account deleted successfully! ${result.warning || ''} You will be logged out shortly.`)
+        
+        // Show success message then logout and redirect
+        setTimeout(async () => {
+          await supabase.auth.signOut()
+          window.location.href = '/?deleted=true'
+        }, 3000)
+      } else {
+        throw new Error(result.error || 'Account deletion failed')
+      }
+
     } catch (error: any) {
-      setMessage(`Deletion error: ${error.message}`)
+      console.error('Account deletion error:', error)
+      setMessage(`Error deleting account: ${error.message}`)
+      setDeleteStep(1) // Back to confirmation
+    } finally {
+      setDeleteLoading(false)
     }
+  }
+
+  const resetDeleteState = () => {
+    setShowDeleteAccount(false)
+    setDeleteConfirmText('')
+    setDeleteStep(1)
+    setDeleteLoading(false)
+    setMessage('')
   }
 
   const tabs = [
@@ -616,17 +673,17 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {/* Data & Account Tab */}
+              {/* Data & Account Tab - ENHANCED with proper deletion */}
               {activeTab === 'data' && (
                 <div className="p-6">
                   <h3 className="text-xl font-semibold text-gray-900 mb-6">Data & Account Management</h3>
                   
                   <div className="space-y-8">
-                    {/* Data Export */}
+                    {/* Data Export - Enhanced */}
                     <div className="border border-gray-200 rounded-lg p-6">
                       <h4 className="font-semibold text-gray-900 mb-2">Export Your Data</h4>
                       <p className="text-gray-600 mb-4">
-                        Download all your relationship data including journal entries, check-ins, and insights.
+                        Download all your relationship data including journal entries, check-ins, insights, and onboarding responses.
                       </p>
                       <Button
                         onClick={exportData}
@@ -637,7 +694,7 @@ export default function SettingsPage() {
                       </Button>
                     </div>
 
-                    {/* Account Deletion */}
+                    {/* Account Deletion - COMPLETELY REWRITTEN */}
                     <div className="border border-red-200 rounded-lg p-6 bg-red-50">
                       <h4 className="font-semibold text-red-900 mb-2">Delete Account</h4>
                       <p className="text-red-700 mb-4">
@@ -654,37 +711,76 @@ export default function SettingsPage() {
                         </Button>
                       ) : (
                         <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-red-900 mb-2">
-                              Type "DELETE" to confirm account deletion
-                            </label>
-                            <input
-                              type="text"
-                              value={deleteConfirmText}
-                              onChange={(e) => setDeleteConfirmText(e.target.value)}
-                              className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                              placeholder="DELETE"
-                            />
-                          </div>
-                          <div className="flex space-x-3">
-                            <Button
-                              onClick={deleteAccount}
-                              disabled={deleteConfirmText !== 'DELETE'}
-                              className="bg-red-600 hover:bg-red-700 text-white"
-                            >
-                              Delete Account Permanently
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setShowDeleteAccount(false)
-                                setDeleteConfirmText('')
-                              }}
-                              variant="outline"
-                              className="border-gray-300"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
+                          {deleteStep === 1 && (
+                            <div className="space-y-4">
+                              <div className="bg-red-100 border border-red-300 rounded-lg p-4">
+                                <h5 className="font-semibold text-red-900 mb-2">⚠️ Warning: This will permanently delete:</h5>
+                                <ul className="list-disc list-inside text-sm text-red-800 space-y-1">
+                                  <li>Your profile and account data</li>
+                                  <li>All journal entries and check-ins</li>
+                                  <li>Relationships you created (other members will lose access)</li>
+                                  <li>All insights and partner suggestions</li>
+                                  <li>Your onboarding responses and preferences</li>
+                                </ul>
+                                <p className="mt-3 font-medium text-red-900">This action cannot be undone!</p>
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-red-900 mb-2">
+                                  Type "DELETE" to confirm account deletion
+                                </label>
+                                <input
+                                  type="text"
+                                  value={deleteConfirmText}
+                                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                  className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                  placeholder="DELETE"
+                                />
+                              </div>
+                              
+                              <div className="flex space-x-3">
+                                <Button
+                                  onClick={deleteAccount}
+                                  disabled={deleteConfirmText !== 'DELETE' || deleteLoading}
+                                  className="bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                  {deleteLoading ? 'Deleting...' : 'Delete Account Permanently'}
+                                </Button>
+                                <Button
+                                  onClick={resetDeleteState}
+                                  disabled={deleteLoading}
+                                  variant="outline"
+                                  className="border-gray-300"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {deleteStep === 2 && (
+                            <div className="text-center py-8">
+                              <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                              <h3 className="text-lg font-medium text-red-900 mb-2">Deleting Account...</h3>
+                              <p className="text-red-700">
+                                We're permanently removing all your data. This may take a moment.
+                              </p>
+                            </div>
+                          )}
+
+                          {deleteStep === 3 && (
+                            <div className="text-center py-8">
+                              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                              <h3 className="text-lg font-medium text-green-900 mb-2">Account Deleted Successfully</h3>
+                              <p className="text-green-700">
+                                Your account and all data have been permanently removed. You will be logged out shortly.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
