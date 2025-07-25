@@ -4,8 +4,13 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
+import { PartnerSuggestions } from '@/components/dashboard/PartnerSuggestions'
 
 export default function InsightsPage() {
+  const [partnerSuggestions, setPartnerSuggestions] = useState<any[]>([])
+  const [loadingPartnerSuggestions, setLoadingPartnerSuggestions] = useState(false)
+  const [showPartnerSuggestions, setShowPartnerSuggestions] = useState(true)
+  const [relationships, setRelationships] = useState<any[]>([])
   const [insights, setInsights] = useState<any[]>([])
   const [filteredInsights, setFilteredInsights] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,15 +31,19 @@ export default function InsightsPage() {
   }
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUser(user)
-        loadInsights(user.id)
-      }
+  const getUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      setUser(user)
+      await Promise.all([
+        loadInsights(user.id),
+        loadPartnerSuggestions(user.id),
+        loadRelationships(user.id)
+      ])
     }
-    getUser()
-  }, [])
+  }
+  getUser()
+}, [])
 
   // Apply filters whenever insights, search, or filter options change
   useEffect(() => {
@@ -82,6 +91,54 @@ export default function InsightsPage() {
       setLoading(false)
     }
   }
+    const loadPartnerSuggestions = async (userId: string) => {
+  setLoadingPartnerSuggestions(true)
+  try {
+    const { data, error } = await supabase
+      .from('partner_suggestions')
+      .select('*')
+      .eq('recipient_user_id', userId)
+      .gte('expires_at', new Date().toISOString()) // Not expired
+      .order('created_at', { ascending: false })
+
+    if (data && !error) {
+      setPartnerSuggestions(data)
+    } else if (error) {
+      console.error('Error loading partner suggestions:', error)
+    }
+  } catch (error) {
+    console.error('Error loading partner suggestions:', error)
+  } finally {
+    setLoadingPartnerSuggestions(false)
+  }
+}
+
+const loadRelationships = async (userId: string) => {
+  try {
+    const { data: relationshipData, error } = await supabase
+      .from('relationship_members')
+      .select(`
+        relationship_id,
+        role,
+        relationships (
+          id,
+          name,
+          relationship_type
+        )
+      `)
+      .eq('user_id', userId)
+
+    if (relationshipData && !error) {
+      const relationshipsList = relationshipData.map(r => ({
+        ...r.relationships,
+        myRole: r.role
+      }))
+      setRelationships(relationshipsList)
+    }
+  } catch (error) {
+    console.error('Error loading relationships:', error)
+  }
+}
 
   const markAsRead = async (insightId: string) => {
     try {
@@ -309,7 +366,7 @@ export default function InsightsPage() {
           </div>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-5 gap-4 mb-6">
             <div className="bg-white rounded-lg p-4 border border-gray-200">
               <div className="text-2xl font-bold text-gray-900">{insights.length}</div>
               <div className="text-sm text-gray-600">Total Insights</div>
@@ -319,10 +376,14 @@ export default function InsightsPage() {
               <div className="text-sm text-gray-600">Unread</div>
             </div>
             <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="text-2xl font-bold text-pink-600">{partnerSuggestions.length}</div>
+              <div className="text-sm text-gray-600">Partner Suggestions</div>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
               <div className="text-2xl font-bold text-blue-600">
                 {insights.filter(i => i.insight_type === 'suggestion').length}
               </div>
-              <div className="text-sm text-gray-600">Suggestions</div>
+              <div className="text-sm text-gray-600">AI Suggestions</div>
             </div>
             <div className="bg-white rounded-lg p-4 border border-gray-200">
               <div className="text-2xl font-bold text-mint-600">
@@ -372,6 +433,48 @@ export default function InsightsPage() {
             </div>
           </div>
         </div>
+
+        {/* Partner Suggestions Section - NEW */}
+      {relationships.length > 0 && (
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-6 border border-pink-200 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
+                  <span className="text-lg">💕</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Partner Suggestions
+                  </h3>
+                  <p className="text-gray-600 text-sm">
+                    AI-generated suggestions based on your partner's relationship needs
+                  </p>
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => setShowPartnerSuggestions(!showPartnerSuggestions)}
+                  variant="outline"
+                  size="sm"
+                  className="border-pink-300 text-pink-700"
+                >
+                  {showPartnerSuggestions ? 'Hide' : 'Show'} Suggestions
+                </Button>
+                <div className="text-sm text-gray-500 self-center">
+                  {partnerSuggestions.filter(s => !s.delivered_at).length} new
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {showPartnerSuggestions && (
+            <div className="mb-8">
+              <PartnerSuggestions />
+            </div>
+          )}
+        </div>
+      )}
 
         {/* Insights List */}
         <div className="space-y-4">

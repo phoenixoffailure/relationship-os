@@ -1,5 +1,4 @@
-{
-  ;`export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -130,6 +129,124 @@ export type Database = {
           },
         ]
       }
+      enhanced_onboarding_responses: {
+        Row: {
+          ai_processing_status: string
+          ai_profile_data: Json | null
+          challenge_note: string | null
+          communication_barriers: string[] | null
+          communication_style: string | null
+          communication_timing: string[] | null
+          completed_at: string | null
+          conflict_approach: string | null
+          connection_frequency: Json | null
+          created_at: string
+          expression_directness: string | null
+          expression_frequency: string | null
+          expression_preferences: Json | null
+          goal_timeline: string | null
+          id: string
+          intimacy_barriers: string[] | null
+          intimacy_enhancers: string[] | null
+          intimacy_priorities: Json | null
+          love_language_examples: Json | null
+          love_language_ranking: string[] | null
+          love_language_scores: Json | null
+          need_categories_difficulty: Json | null
+          partner_reading_ability: number | null
+          preferred_methods: string[] | null
+          primary_goals: string[] | null
+          relationship_values: string[] | null
+          session_id: string
+          specific_challenges: string | null
+          stress_response: string | null
+          success_metrics: string | null
+          successful_communication_example: string | null
+          updated_at: string
+          user_id: string | null
+          version: number
+        }
+        Insert: {
+          ai_processing_status?: string
+          ai_profile_data?: Json | null
+          challenge_note?: string | null
+          communication_barriers?: string[] | null
+          communication_style?: string | null
+          communication_timing?: string[] | null
+          completed_at?: string | null
+          conflict_approach?: string | null
+          connection_frequency?: Json | null
+          created_at?: string
+          expression_directness?: string | null
+          expression_frequency?: string | null
+          expression_preferences?: Json | null
+          goal_timeline?: string | null
+          id?: string
+          intimacy_barriers?: string[] | null
+          intimacy_enhancers?: string[] | null
+          intimacy_priorities?: Json | null
+          love_language_examples?: Json | null
+          love_language_ranking?: string[] | null
+          love_language_scores?: Json | null
+          need_categories_difficulty?: Json | null
+          partner_reading_ability?: number | null
+          preferred_methods?: string[] | null
+          primary_goals?: string[] | null
+          relationship_values?: string[] | null
+          session_id: string
+          specific_challenges?: string | null
+          stress_response?: string | null
+          success_metrics?: string | null
+          successful_communication_example?: string | null
+          updated_at?: string
+          user_id?: string | null
+          version?: number
+        }
+        Update: {
+          ai_processing_status?: string
+          ai_profile_data?: Json | null
+          challenge_note?: string | null
+          communication_barriers?: string[] | null
+          communication_style?: string | null
+          communication_timing?: string[] | null
+          completed_at?: string | null
+          conflict_approach?: string | null
+          connection_frequency?: Json | null
+          created_at?: string
+          expression_directness?: string | null
+          expression_frequency?: string | null
+          expression_preferences?: Json | null
+          goal_timeline?: string | null
+          id?: string
+          intimacy_barriers?: string[] | null
+          intimacy_enhancers?: string[] | null
+          intimacy_priorities?: Json | null
+          love_language_examples?: Json | null
+          love_language_ranking?: string[] | null
+          love_language_scores?: Json | null
+          need_categories_difficulty?: Json | null
+          partner_reading_ability?: number | null
+          preferred_methods?: string[] | null
+          primary_goals?: string[] | null
+          relationship_values?: string[] | null
+          session_id?: string
+          specific_challenges?: string | null
+          stress_response?: string | null
+          success_metrics?: string | null
+          successful_communication_example?: string | null
+          updated_at?: string
+          user_id?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enhanced_onboarding_responses_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_entries: {
         Row: {
           ai_analysis: Json | null
@@ -230,6 +347,82 @@ export type Database = {
           {
             foreignKeyName: "onboarding_responses_user_id_fkey"
             columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_suggestions: {
+        Row: {
+          id: string
+          relationship_id: string
+          recipient_user_id: string
+          source_user_id: string
+          suggestion_type: string
+          suggestion_text: string
+          anonymized_context: string | null
+          priority_score: number
+          confidence_score: number | null
+          delivered_at: string | null
+          viewed_at: string | null
+          response: string | null
+          effectiveness_rating: number | null
+          created_at: string
+          updated_at: string | null
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          relationship_id: string
+          recipient_user_id: string
+          source_user_id: string
+          suggestion_type: string
+          suggestion_text: string
+          anonymized_context?: string | null
+          priority_score?: number
+          confidence_score?: number | null
+          delivered_at?: string | null
+          viewed_at?: string | null
+          response?: string | null
+          effectiveness_rating?: number | null
+          created_at?: string
+          updated_at?: string | null
+          expires_at?: string
+        }
+        Update: {
+          id?: string
+          relationship_id?: string
+          recipient_user_id?: string
+          source_user_id?: string
+          suggestion_type?: string
+          suggestion_text?: string
+          anonymized_context?: string | null
+          priority_score?: number
+          confidence_score?: number | null
+          delivered_at?: string | null
+          viewed_at?: string | null
+          response?: string | null
+          effectiveness_rating?: number | null
+          created_at?: string
+          updated_at?: string | null
+          expires_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_suggestions_relationship_id_fkey"
+            columns: ["relationship_id"]
+            referencedRelation: "relationships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_suggestions_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_suggestions_source_user_id_fkey"
+            columns: ["source_user_id"]
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -486,5 +679,65 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
     ? PublicSchema["Enums"][PublicEnumNameOrOptions]
     : never
-`
+
+// ============================================
+// HELPER TYPES FOR PARTNER SUGGESTIONS
+// ============================================
+
+// Type for creating new suggestions
+export type PartnerSuggestionInsert = Database['public']['Tables']['partner_suggestions']['Insert']
+
+// Type for suggestion with user details (for UI components)
+export type PartnerSuggestionWithUsers = Database['public']['Tables']['partner_suggestions']['Row'] & {
+  recipient_user: {
+    id: string
+    full_name: string | null
+    email: string
+  }
+  source_user: {
+    id: string
+    full_name: string | null
+    email: string
+  }
+  relationship: {
+    id: string
+    name: string
+    relationship_type: string
+  }
+}
+
+// Enum for suggestion types (for validation)
+export const SUGGESTION_TYPES = [
+  'love_language_action',
+  'communication_improvement', 
+  'intimacy_connection',
+  'goal_support',
+  'conflict_resolution',
+  'quality_time',
+  'stress_support'
+] as const
+
+export type SuggestionType = typeof SUGGESTION_TYPES[number]
+
+// Type for suggestion generation request
+export interface GenerateSuggestionRequest {
+  relationshipId: string
+  sourceUserId: string
+  needType: SuggestionType
+  needContext: string
+  priority?: number
+}
+
+// Type for suggestion delivery
+export interface SuggestionDelivery {
+  suggestionId: string
+  deliveredAt: string
+}
+
+// Type for suggestion response
+export interface SuggestionResponse {
+  suggestionId: string
+  response: string
+  effectivenessRating: number // 1-5
+  viewedAt: string
 }

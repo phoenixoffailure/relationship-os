@@ -1,4 +1,4 @@
-// COMPLETE DASHBOARD PAGE WITH DYNAMIC CONNECTION SCORE
+// COMPLETE DASHBOARD PAGE WITH PARTNER SUGGESTIONS INTEGRATION
 // Replace your entire app/dashboard/page.tsx with this:
 
 'use client'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
 import SharedInsights from '@/components/SharedInsights'
 import RecentActivity from '@/components/RecentActivity'
+import { PartnerSuggestions } from '@/components/dashboard/PartnerSuggestions'
 
 export default function DashboardPage() {
   // State management
@@ -33,6 +34,10 @@ export default function DashboardPage() {
   const [relationships, setRelationships] = useState<any[]>([])
   const [activeRelationship, setActiveRelationship] = useState<any>(null)
   const [showSharedInsights, setShowSharedInsights] = useState(false)
+  
+  // Partner suggestions state
+  const [showPartnerSuggestions, setShowPartnerSuggestions] = useState(true)
+  const [suggestionCount, setSuggestionCount] = useState(0)
   
   // Score feedback state
   const [showScoreFeedback, setShowScoreFeedback] = useState(false)
@@ -70,12 +75,31 @@ export default function DashboardPage() {
         await Promise.all([
           loadInsights(user.id),
           loadRelationships(user.id),
-          calculateConnectionScore(user.id)
+          calculateConnectionScore(user.id),
+          loadSuggestionCount(user.id)
         ])
       }
     }
     getUser()
   }, [])
+
+  // Load suggestion count
+  const loadSuggestionCount = async (userId: string) => {
+    try {
+      const { data: suggestions, error } = await supabase
+        .from('partner_suggestions')
+        .select('id')
+        .eq('recipient_user_id', userId)
+        .is('delivered_at', null) // Only undelivered suggestions
+        .gte('expires_at', new Date().toISOString()) // Not expired
+
+      if (!error && suggestions) {
+        setSuggestionCount(suggestions.length)
+      }
+    } catch (error) {
+      console.error('Error loading suggestion count:', error)
+    }
+  }
 
   // Calculate dynamic connection score
   const calculateConnectionScore = async (userId: string) => {
@@ -463,6 +487,8 @@ export default function DashboardPage() {
     }
   }
 
+  const unreadCount = insights.filter(i => !i.is_read).length
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50">
       {/* Header */}
@@ -484,7 +510,11 @@ export default function DashboardPage() {
                 Check-In
               </Link>
               <Link href="/insights" className="text-gray-600 hover:text-gray-700">
-                Insights
+                Insights {unreadCount > 0 && (
+                  <span className="ml-1 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
               </Link>
               <Link href="/relationships" className="text-gray-600 hover:text-gray-700">
                 Relationships
@@ -706,6 +736,51 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Partner Suggestions Section - NEW */}
+        {relationships.length > 0 && suggestionCount > 0 && (
+          <div className="mb-8">
+            <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-6 border border-pink-200 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
+                    <span className="text-lg">💕</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      New Relationship Suggestions
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      {suggestionCount} new suggestion{suggestionCount !== 1 ? 's' : ''} based on your partner's needs
+                    </p>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => setShowPartnerSuggestions(!showPartnerSuggestions)}
+                    variant="outline"
+                    size="sm"
+                    className="border-pink-300 text-pink-700"
+                  >
+                    {showPartnerSuggestions ? 'Hide' : 'Show'} Suggestions
+                  </Button>
+                  <Link href="/insights">
+                    <Button 
+                      size="sm"
+                      className="bg-pink-600 hover:bg-pink-700 text-white"
+                    >
+                      View All in Insights
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+            
+            {showPartnerSuggestions && (
+              <PartnerSuggestions />
+            )}
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-2 gap-8">
           {/* AI Insights */}
           <div className="bg-white rounded-xl shadow-lg p-6">
@@ -827,6 +902,12 @@ export default function DashboardPage() {
                       Create Invitation
                     </Button>
                   </Link>
+                ) : suggestionCount > 0 ? (
+                  <Link href="/insights">
+                    <Button variant="outline" className="w-full border-pink-300 text-pink-700">
+                      💕 View Suggestions ({suggestionCount})
+                    </Button>
+                  </Link>
                 ) : (
                   <Link href={`/insights?relationship=${activeRelationship?.id}`}>
                     <Button variant="outline" className="w-full border-calm-300 text-calm-700">
@@ -849,7 +930,7 @@ export default function DashboardPage() {
               <h4 className="font-semibold text-gray-900 mb-1">Your Privacy is Protected</h4>
               <p className="text-gray-600 text-sm">
                 {relationships.length > 0 
-                  ? 'Shared insights respect your privacy settings. Your personal journal entries remain completely confidential to you.'
+                  ? 'Shared insights and partner suggestions respect your privacy settings. Your personal journal entries remain completely confidential to you.'
                   : 'All insights are generated from your private data without sharing sensitive details. Your journal entries remain completely confidential to you.'
                 }
               </p>
