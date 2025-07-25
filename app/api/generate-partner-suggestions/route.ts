@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { generateValidatedPartnerSuggestion } from '@/lib/quality-validation'
 
 // Type definitions for AI suggestions
 interface PartnerSuggestion {
@@ -10,6 +11,7 @@ interface PartnerSuggestion {
   context: string
   priority: number
   confidence: number
+  quality_metrics?: any
 }
 
 interface PersonalInsight {
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
     console.log('💭 Generated personal insights:', personalInsights.length)
 
     // 3. Generate partner suggestions for each relationship
-    const partnerSuggestions = await generatePartnerSuggestions(userData)
+    const partnerSuggestions = await generatePartnerSuggestions(userData, supabase)
     console.log('💕 Generated partner suggestions:', partnerSuggestions.length)
 
     // 4. Save personal insights to database
@@ -264,7 +266,7 @@ Return JSON with this structure:
 }
 
 // Generate partner suggestions from user data
-async function generatePartnerSuggestions(userData: any) {
+async function generatePartnerSuggestions(userData: any, supabase: any) {
   const suggestions = []
 
   for (const relationship of userData.relationships) {
@@ -276,7 +278,8 @@ async function generatePartnerSuggestions(userData: any) {
     const relationshipSuggestions = await generateSuggestionsForPartner(
       userData,
       relationship,
-      partner
+      partner,
+      supabase
     )
     suggestions.push(...relationshipSuggestions)
   }
@@ -285,18 +288,33 @@ async function generatePartnerSuggestions(userData: any) {
 }
 
 // Generate specific suggestions for a partner
-async function generateSuggestionsForPartner(userData: any, relationship: any, partner: any): Promise<any[]> {
+async function generateSuggestionsForPartner(
+  userData: any, 
+  relationship: any, 
+  partner: any, 
+  supabase: any
+): Promise<any[]> {
   const suggestions = []
 
-  // Analyze recent journal entries for partner suggestions
+  // Get past feedback for this partner
+  const { data: pastFeedback } = await supabase
+    .from('partner_suggestions')
+    .select('rating, suggestion_type, feedback_text')
+    .eq('recipient_user_id', partner.user_id)
+    .eq('source_user_id', userData.userId)
+    .not('rating', 'is', null)
+
+  // Analyze recent journal entries with quality validation
   const recentJournals = userData.journalEntries.slice(0, 3)
   for (const entry of recentJournals) {
     const suggestion = await generatePartnerSuggestionFromJournal(
       entry,
       userData.onboardingData,
       relationship,
-      partner
+      partner,
+      pastFeedback || [] // Pass feedback history
     )
+    
     if (suggestion) {
       suggestions.push({
         relationship_id: relationship.relationships.id,
@@ -307,7 +325,9 @@ async function generateSuggestionsForPartner(userData: any, relationship: any, p
         anonymized_context: suggestion.context,
         priority_score: suggestion.priority,
         confidence_score: suggestion.confidence,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        quality_metrics: suggestion.quality_metrics || null, // Store quality data
+        validation_passed: true, // Mark as validated
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       })
     }
   }
@@ -344,60 +364,18 @@ async function generatePartnerSuggestionFromJournal(
   journalEntry: any,
   onboardingData: any,
   relationship: any,
-  partner: any
+  partner: any,
+  pastFeedback?: any[]
 ): Promise<PartnerSuggestion | null> {
-  if (!process.env.XAI_API_KEY) {
-    return generateRuleBasedPartnerSuggestion(journalEntry, onboardingData)
-  }
-
-  const prompt = `You are an AI relationship coach analyzing a private journal entry to generate an actionable suggestion for their partner. The suggestion should help meet the user's needs WITHOUT revealing the private journal content.
-
-Journal Entry (PRIVATE): "${journalEntry.content}"
-
-User's Preferences:
-- Love Languages: ${onboardingData?.love_language_ranking?.join(', ') || 'unknown'}
-- Communication Style: ${onboardingData?.communication_style || 'unknown'}
-- Relationship Type: ${relationship?.relationships?.relationship_type || 'unknown'}
-
-Generate a partner suggestion that:
-1. Addresses the underlying need without revealing the journal content
-2. Is actionable and specific
-3. Feels natural, not demanding
-4. Considers the user's love languages
-5. Maintains privacy while being helpful
-
-Return JSON:
-{
-  "type": "affection|quality_time|support|communication|appreciation",
-  "text": "Specific actionable suggestion for the partner",
-  "context": "Brief anonymized context (why this would help)",
-  "priority": 1-10,
-  "confidence": 1-10
-}`
-
-  try {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.XAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: 'You are a relationship coach creating partner suggestions. Always respond with valid JSON only.' },
-          { role: 'user', content: prompt }
-        ],
-        model: 'grok-beta',
-        temperature: 0.6
-      })
-    })
-
-    const data = await response.json()
-    return JSON.parse(data.choices[0].message.content)
-  } catch (error) {
-    console.error('❌ Grok API error for partner suggestion:', error)
-    return generateRuleBasedPartnerSuggestion(journalEntry, onboardingData)
-  }
+  
+  // Use the new validated generation function
+  return await generateValidatedPartnerSuggestion(
+    journalEntry,
+    onboardingData,
+    relationship,
+    partner,
+    pastFeedback
+  )
 }
 
 // Fallback rule-based suggestion generation
@@ -459,13 +437,20 @@ async function generateRelationshipSkillsInsights(userData: any) {
   return []
 }
 
-async function generatePartnerSuggestionFromCheckin(checkin: any, onboardingData: any, relationship: any, partner: any): Promise<PartnerSuggestion | null> {
+async function generatePartnerSuggestionFromCheckin(
+  checkin: any, 
+  onboardingData: any, 
+  relationship: any, 
+  partner: any
+): Promise<PartnerSuggestion | null> {
   // Generate suggestions based on check-in data
   return null
 }
 
 // Save personal insights to database
 async function savePersonalInsights(supabase: any, userId: string, insights: any[]) {
+  if (insights.length === 0) return []
+
   const insightsToSave = insights.map(insight => ({
     generated_for_user: userId,
     insight_type: insight.type,
