@@ -323,40 +323,8 @@ export default function SettingsPage() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-calm-800">Relationship OS</h1>
-            </div>
-            <nav className="flex items-center space-x-6">
-              <Link href="/dashboard" className="text-gray-600 hover:text-gray-700">
-                Dashboard
-              </Link>
-              <Link href="/journal" className="text-gray-600 hover:text-gray-700">
-                Journal
-              </Link>
-              <Link href="/checkin" className="text-gray-600 hover:text-gray-700">
-                Check-In
-              </Link>
-              <Link href="/insights" className="text-gray-600 hover:text-gray-700">
-                Insights
-              </Link>
-              <span className="text-calm-700 font-medium">Settings</span>
-              <Button 
-                variant="ghost" 
-                className="text-gray-600"
-                onClick={handleLogout}
-              >
-                Logout
-              </Button>
-            </nav>
-          </div>
-        </div>
-      </header>
+return (
+  <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

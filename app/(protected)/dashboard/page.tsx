@@ -489,58 +489,8 @@ export default function DashboardPage() {
 
   const unreadCount = insights.filter(i => !i.is_read).length
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-calm-800">Relationship OS</h1>
-              <div className="text-gray-500">Welcome back, {user?.email?.split('@')[0]}!</div>
-            </div>
-            <nav className="flex items-center space-x-6">
-              <Link href="/dashboard" className="text-calm-700 hover:text-calm-800 font-medium">
-                Dashboard
-              </Link>
-              <Link href="/journal" className="text-gray-600 hover:text-gray-700">
-                Journal
-              </Link>
-              <Link href="/checkin" className="text-gray-600 hover:text-gray-700">
-                Check-In
-              </Link>
-              <Link href="/insights" className="text-gray-600 hover:text-gray-700">
-                Insights {unreadCount > 0 && (
-                  <span className="ml-1 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
-              <Link href="/relationships" className="text-gray-600 hover:text-gray-700">
-                Relationships
-              </Link>
-              <Link href="/calendar" className="text-gray-600 hover:text-gray-700">
-                Calendar
-              </Link>
-              <Link href="/settings" className="text-gray-600 hover:text-gray-700">
-                Settings
-              </Link>
-              {user?.email && ['jwalkwithyou@gmail.com'].includes(user.email) && (
-              <Link href="/admin/users" className="text-orange-600 hover:text-orange-700 font-medium">
-              🛠️ Admin
-              </Link>
-              )}
-              <Button 
-                variant="ghost" 
-                className="text-gray-600"
-                onClick={handleLogout}
-              >
-                Logout
-              </Button>
-            </nav>
-          </div>
-        </div>
-      </header>
+return (
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
