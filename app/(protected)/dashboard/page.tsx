@@ -490,8 +490,8 @@ export default function DashboardPage() {
   const unreadCount = insights.filter(i => !i.is_read).length
 
 return (
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
+    
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Success/Error Messages */}

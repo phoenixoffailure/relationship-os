@@ -13,7 +13,8 @@ import {
   Settings,
   Shield,
   LogOut,
-  X
+  X,
+  Calendar
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
@@ -45,6 +46,7 @@ const mainNavItems: NavItem[] = [
 // Secondary items (shown in "More" menu)
 const secondaryNavItems: NavItem[] = [
   { href: '/relationships', label: 'Relationships', icon: Users },
+  { href: '/calendar', label: 'Calendar', icon: Calendar },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 

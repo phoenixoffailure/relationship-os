@@ -29,6 +29,7 @@ const desktopNavItems = [
   { href: '/checkin', label: 'Check-In' },
   { href: '/insights', label: 'Insights' },
   { href: '/relationships', label: 'Relationships' },
+  { href: '/calendar', label: 'Calendar' },
   { href: '/settings', label: 'Settings' },
 ]
 
