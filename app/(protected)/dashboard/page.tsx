@@ -1,5 +1,5 @@
 // app/(protected)/dashboard/page.tsx
-// COMPLETE PRODUCTION VERSION - All test code removed, fully functional
+// COMPLETE PRODUCTION VERSION - All features preserved, unified colors & mobile responsive
 
 'use client'
 
@@ -295,282 +295,283 @@ export default function DashboardPage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-calm-300 border-t-calm-600 rounded-full animate-spin"></div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {message && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-blue-800">{message}</p>
+    <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Status Message */}
+        {message && (
+          <div className="mb-6 p-4 bg-calm-50 border border-calm-200 rounded-xl">
+            <p className="text-calm-800">{message}</p>
+          </div>
+        )}
+
+        {/* Welcome Section */}
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+            Welcome back! 👋
+          </h1>
+          <p className="text-gray-600">
+            Here's what's happening in your relationship journey.
+          </p>
         </div>
-      )}
 
-      {/* Welcome Section */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Welcome back! 👋
-        </h1>
-        <p className="text-gray-600">
-          Here's what's happening in your relationship journey.
-        </p>
-      </div>
-
-      {/* Connection Score */}
-      <div className="mb-8">
-        <div className="bg-gradient-to-r from-calm-100 to-mint-100 rounded-xl p-6 border border-calm-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Connection Score</h2>
-              {scoreLoading ? (
-                <div className="animate-pulse">
-                  <div className="h-8 bg-gray-200 rounded w-20 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-32"></div>
-                </div>
-              ) : (
-                <div>
-                  <div className="text-3xl font-bold text-calm-600 mb-1">
-                    {scoreData.currentScore || 'N/A'}/10
+        {/* Connection Score */}
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-gradient-to-r from-calm-100 to-mint-100 rounded-xl p-4 sm:p-6 border border-calm-200 backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 sm:mb-0">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Connection Score</h2>
+                {scoreLoading ? (
+                  <div className="animate-pulse">
+                    <div className="h-6 sm:h-8 bg-gray-200 rounded w-16 sm:w-20 mb-2"></div>
+                    <div className="h-3 sm:h-4 bg-gray-200 rounded w-24 sm:w-32"></div>
                   </div>
-                  <p className="text-gray-600 text-sm">
-                    {scoreData.currentScore 
-                      ? `Based on ${scoreData.totalCheckins} check-ins over ${scoreData.daysActive} days`
-                      : 'Complete your first daily check-in to see your score'
-                    }
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="text-right">
-              <button 
-                onClick={() => setShowScoreFeedback(!showScoreFeedback)}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                How accurate is this? 🤔
-              </button>
-              
-              {showScoreFeedback && (
-                <div className="mt-3 p-4 bg-white bg-opacity-50 rounded-lg">
-                  <p className="text-sm text-gray-700 mb-3">How does this score feel to you?</p>
-                  <div className="flex justify-center space-x-2">
-                    <Button
-                      onClick={() => submitScoreFeedback('too_low')}
-                      size="sm"
-                      variant="outline"
-                      className="border-orange-300 text-orange-700"
-                    >
-                      Too Low
-                    </Button>
-                    <Button
-                      onClick={() => submitScoreFeedback('just_right')}
-                      size="sm"
-                      variant="outline"
-                      className="border-green-300 text-green-700"
-                    >
-                      Just Right
-                    </Button>
-                    <Button
-                      onClick={() => submitScoreFeedback('too_high')}
-                      size="sm"
-                      variant="outline"
-                      className="border-red-300 text-red-700"
-                    >
-                      Too High
-                    </Button>
+                ) : (
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-bold text-calm-600 mb-1">
+                      {scoreData.currentScore || 'N/A'}/10
+                    </div>
+                    <p className="text-gray-600 text-xs sm:text-sm">
+                      {scoreData.currentScore 
+                        ? `Based on ${scoreData.totalCheckins} check-ins over ${scoreData.daysActive} days`
+                        : 'Complete your first daily check-in to see your score'
+                      }
+                    </p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+              <div className="text-left sm:text-right">
+                <button 
+                  onClick={() => setShowScoreFeedback(!showScoreFeedback)}
+                  className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  How accurate is this? 🤔
+                </button>
+                
+                {showScoreFeedback && (
+                  <div className="mt-3 p-3 sm:p-4 bg-white/60 backdrop-blur-sm rounded-lg border border-calm-100">
+                    <p className="text-xs sm:text-sm text-gray-700 mb-3">How does this score feel to you?</p>
+                    <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-2">
+                      <Button
+                        onClick={() => submitScoreFeedback('too_low')}
+                        size="sm"
+                        variant="outline"
+                        className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                      >
+                        Too Low
+                      </Button>
+                      <Button
+                        onClick={() => submitScoreFeedback('just_right')}
+                        size="sm"
+                        variant="outline"
+                        className="border-green-300 text-green-700 hover:bg-green-50"
+                      >
+                        Just Right
+                      </Button>
+                      <Button
+                        onClick={() => submitScoreFeedback('too_high')}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                      >
+                        Too High
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Shared Insights Section */}
-      {showSharedInsights && activeRelationship && (
-        <div className="mb-8">
-          <SharedInsights 
-            relationshipId={activeRelationship.id}
-            currentUserId={user?.id}
-            privacyLevel="patterns"
-          />
-        </div>
-      )}
+        {/* Shared Insights Section */}
+        {showSharedInsights && activeRelationship && (
+          <div className="mb-6 sm:mb-8">
+            <SharedInsights 
+              relationshipId={activeRelationship.id}
+              currentUserId={user?.id}
+              privacyLevel="patterns"
+            />
+          </div>
+        )}
 
-      {/* Partner Suggestions Section */}
-      {relationships.length > 0 && (
-        <div className="mb-8">
-          <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-6 border border-pink-200 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
-                  <span className="text-lg">💕</span>
+        {/* Partner Suggestions Section */}
+        {relationships.length > 0 && (
+          <div className="mb-6 sm:mb-8">
+            <div className="bg-gradient-to-r from-mint-50 to-calm-50 rounded-xl p-4 sm:p-6 border border-mint-200 mb-4 sm:mb-6 backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center space-x-3 mb-4 sm:mb-0">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-mint-100 rounded-full flex items-center justify-center">
+                    <span className="text-base sm:text-lg">💕</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                      Partner Suggestions
+                    </h3>
+                    <p className="text-gray-600 text-xs sm:text-sm">
+                      {suggestionCount} suggestion{suggestionCount !== 1 ? 's' : ''} based on your partner's needs
+                    </p>
+                    <p className="text-gray-500 text-xs">
+                      Last checked: {lastSuggestionRefresh.toLocaleTimeString()}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Partner Suggestions
-                  </h3>
-                  <p className="text-gray-600 text-sm">
-                    {suggestionCount} suggestion{suggestionCount !== 1 ? 's' : ''} based on your partner's needs
-                  </p>
-                  <p className="text-gray-500 text-xs">
-                    Last checked: {lastSuggestionRefresh.toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => setShowPartnerSuggestions(!showPartnerSuggestions)}
-                  variant="outline"
-                  size="sm"
-                  className="border-pink-300 text-pink-700"
-                >
-                  {showPartnerSuggestions ? 'Hide' : 'Show'} Suggestions
-                </Button>
-                <Button
-                  onClick={() => loadSuggestionCount(user.id)}
-                  variant="outline"
-                  size="sm"
-                  className="border-pink-300 text-pink-700"
-                >
-                  Refresh
-                </Button>
-                <Link href="/insights">
-                  <Button 
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                  <Button
+                    onClick={() => setShowPartnerSuggestions(!showPartnerSuggestions)}
+                    variant="outline"
                     size="sm"
-                    className="bg-pink-600 hover:bg-pink-700 text-white"
+                    className="border-mint-300 text-mint-700 hover:bg-mint-50"
                   >
-                    View All in Insights
+                    {showPartnerSuggestions ? 'Hide' : 'Show'} Suggestions
                   </Button>
-                </Link>
+                  <Button
+                    onClick={() => loadSuggestionCount(user.id)}
+                    variant="outline"
+                    size="sm"
+                    className="border-mint-300 text-mint-700 hover:bg-mint-50"
+                  >
+                    Refresh
+                  </Button>
+                  <Link href="/insights">
+                    <Button 
+                      size="sm"
+                      className="w-full sm:w-auto bg-mint-600 hover:bg-mint-700 text-white"
+                    >
+                      View All in Insights
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </div>
+            
+            {showPartnerSuggestions && (
+              <PartnerSuggestions />
+            )}
           </div>
-          
-          {showPartnerSuggestions && (
-            <PartnerSuggestions />
-          )}
-        </div>
-      )}
+        )}
 
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* AI Insights */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">
-              {relationships.length > 0 ? 'Relationship Coach' : 'Personal Coach'}
-            </h3>
-            <div className="flex space-x-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+          {/* AI Insights */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4 sm:p-6 border border-calm-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-0">
+                {relationships.length > 0 ? 'Relationship Coach' : 'Personal Coach'}
+              </h3>
               <Button 
                 onClick={generateInsights}
                 disabled={generatingInsights}
                 size="sm"
-                className="bg-calm-600 hover:bg-calm-700"
+                className="bg-calm-600 hover:bg-calm-700 text-white"
               >
                 {generatingInsights ? 'Analyzing...' : 'Generate Insights'}
               </Button>
             </div>
-          </div>
-          
-          {loadingInsights ? (
-            <div className="space-y-4">
-              <div className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            </div>
-          ) : insights.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-calm-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🧠</span>
-              </div>
-              <p className="text-gray-600 mb-4">
-                {relationships.length > 0 
-                  ? 'No relationship insights yet. Generate your first AI coaching session!'
-                  : 'No personal insights yet. Generate your first AI guidance!'
-                }
-              </p>
-              <Button 
-                onClick={generateInsights}
-                disabled={generatingInsights}
-                className="bg-calm-600 hover:bg-calm-700"
-              >
-                {generatingInsights ? 'Analyzing...' : 'Generate Insights'}
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {insights.map((insight) => (
-                <div key={insight.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${getPriorityColor(insight.priority)}`} />
-                      <div className="flex items-center space-x-1">
-                        <span>{getInsightTypeIcon(insight.insight_type)}</span>
-                        <h4 className="font-semibold text-gray-900">{insight.title}</h4>
-                      </div>
-                      {insight.relationship_id && (
-                        <span className="bg-mint-100 text-mint-800 text-xs px-2 py-1 rounded-full">
-                          Relationship
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-500">{formatInsightTime(insight.created_at)}</span>
-                  </div>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {insight.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Recent Activity & Relationship Status */}
-        <div className="space-y-6">
-          {/* Recent Activity */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Activity</h3>
             
-            <RecentActivity userId={user?.id} limit={6} />
+            {loadingInsights ? (
+              <div className="space-y-4">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </div>
+            ) : insights.length === 0 ? (
+              <div className="text-center py-6 sm:py-8">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-calm-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-xl sm:text-2xl">🧠</span>
+                </div>
+                <p className="text-gray-600 mb-4 text-sm sm:text-base">
+                  {relationships.length > 0 
+                    ? 'No relationship insights yet. Generate your first AI coaching session!'
+                    : 'No personal insights yet. Generate your first AI guidance!'
+                  }
+                </p>
+                <Button 
+                  onClick={generateInsights}
+                  disabled={generatingInsights}
+                  className="bg-calm-600 hover:bg-calm-700 text-white"
+                >
+                  {generatingInsights ? 'Analyzing...' : 'Generate Insights'}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {insights.map((insight) => (
+                  <div key={insight.id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center space-x-2 flex-1 min-w-0">
+                        <div className={`w-2 h-2 rounded-full ${getPriorityColor(insight.priority)} flex-shrink-0`} />
+                        <div className="flex items-center space-x-1 min-w-0">
+                          <span className="flex-shrink-0">{getInsightTypeIcon(insight.insight_type)}</span>
+                          <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{insight.title}</h4>
+                        </div>
+                        {insight.relationship_id && (
+                          <span className="bg-mint-100 text-mint-800 text-xs px-2 py-1 rounded-full flex-shrink-0 hidden sm:inline">
+                            Relationship
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500 flex-shrink-0 ml-2">{formatInsightTime(insight.created_at)}</span>
+                    </div>
+                    <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">
+                      {insight.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Link href="/cycle">
-                <Button variant="outline" className="w-full border-mint-300 text-mint-700">
-                  Cycle Tracker
-                </Button>
-              </Link>
-              {relationships.length === 0 ? (
-                <Link href="/relationships">
-                  <Button className="w-full bg-calm-600 hover:bg-calm-700">
-                    Connect Partner
+          {/* Recent Activity & Quick Actions */}
+          <div className="space-y-6">
+            {/* Recent Activity */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4 sm:p-6 border border-calm-200">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Recent Activity</h3>
+              
+              <RecentActivity userId={user?.id} limit={6} />
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4 sm:p-6 border border-calm-200">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <Link href="/cycle">
+                  <Button variant="outline" className="w-full border-mint-300 text-mint-700 hover:bg-mint-50 text-xs sm:text-sm">
+                    Cycle Tracker
                   </Button>
                 </Link>
-              ) : (
-                <Button
-                  onClick={() => setShowSharedInsights(!showSharedInsights)}
-                  variant="outline"
-                  className="w-full border-calm-300 text-calm-700"
-                >
-                  {showSharedInsights ? 'Hide' : 'Show'} Shared Insights
-                </Button>
-              )}
-              <Link href="/checkin">
-                <Button variant="outline" className="w-full border-pink-300 text-pink-700">
-                  Daily Check-in
-                </Button>
-              </Link>
-              <Link href="/journal">
-                <Button variant="outline" className="w-full border-purple-300 text-purple-700">
-                  Write Journal
-                </Button>
-              </Link>
+                {relationships.length === 0 ? (
+                  <Link href="/relationships">
+                    <Button className="w-full bg-calm-600 hover:bg-calm-700 text-white text-xs sm:text-sm">
+                      Connect Partner
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    onClick={() => setShowSharedInsights(!showSharedInsights)}
+                    variant="outline"
+                    className="w-full border-calm-300 text-calm-700 hover:bg-calm-50 text-xs sm:text-sm"
+                  >
+                    {showSharedInsights ? 'Hide' : 'Show'} Shared
+                  </Button>
+                )}
+                <Link href="/checkin">
+                  <Button variant="outline" className="w-full border-mint-300 text-mint-700 hover:bg-mint-50 text-xs sm:text-sm">
+                    Daily Check-in
+                  </Button>
+                </Link>
+                <Link href="/journal">
+                  <Button variant="outline" className="w-full border-calm-300 text-calm-700 hover:bg-calm-50 text-xs sm:text-sm">
+                    Write Journal
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
