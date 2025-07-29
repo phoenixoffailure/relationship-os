@@ -1,5 +1,5 @@
 // app/api/journal/save-and-analyze/route.ts
-// Enhanced journal saving with automatic AI suggestion generation
+// Enhanced journal saving with automatic partner suggestion generation
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
@@ -58,18 +58,75 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Journal entry saved:', journalEntry.id)
 
-    // Step 2: Trigger AI analysis in the background (non-blocking)
-    triggerAIAnalysis(journalEntry.id, user_id)
+    // Step 2: Get user's relationships for partner suggestion generation
+    const { data: relationships, error: relationshipError } = await supabase
+      .from('relationship_members')
+      .select(`
+        relationship_id,
+        relationships (
+          id,
+          name,
+          relationship_type
+        )
+      `)
+      .eq('user_id', user_id)
 
-    // Step 3: Auto-cleanup old insights (non-blocking)
+    if (relationshipError) {
+      console.error('❌ Error fetching relationships:', relationshipError)
+    } else if (relationships && relationships.length > 0) {
+      console.log(`💕 Found ${relationships.length} relationships, triggering partner suggestions...`)
+      
+      // Step 3: Trigger partner suggestion generation for each relationship (async)
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
+      
+      relationships.forEach(async (rel) => {
+        try {
+          const response = await fetch(`${baseUrl}/api/relationships/generate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              relationshipId: rel.relationship_id,
+              sourceUserId: user_id,
+              timeframeHours: 72, // Look back 3 days
+              maxSuggestions: 3
+            })
+          })
+
+          if (response.ok) {
+            const result = await response.json()
+            console.log(`✅ Generated ${result.result?.suggestions?.length || 0} suggestions for relationship ${rel.relationship_id}`)
+          } else {
+            console.error(`❌ Failed to generate suggestions for relationship ${rel.relationship_id}`)
+          }
+        } catch (error) {
+          console.error(`❌ Error generating suggestions for relationship ${rel.relationship_id}:`, error)
+        }
+      })
+    } else {
+      console.log('ℹ️ No relationships found, skipping partner suggestion generation')
+    }
+
+    // Step 4: Trigger personal insights generation (existing logic)
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
+    fetch(`${baseUrl}/api/insights/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(error => {
+      console.error('Failed to trigger insights generation:', error)
+    })
+
+    // Step 5: Auto-cleanup old insights (non-blocking)
     setTimeout(() => {
       cleanupOldInsights(user_id)
-    }, 5000) // Wait 5 seconds after journal save
+    }, 5000)
 
     return NextResponse.json({
       success: true,
       journalEntry,
-      message: 'Journal entry saved! AI analysis will be ready shortly.'
+      partnerSuggestionsTriggered: relationships?.length || 0,
+      message: 'Journal entry saved! AI analysis and partner suggestions will be ready shortly.'
     })
 
   } catch (error) {
@@ -81,119 +138,33 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Background AI analysis trigger (non-blocking)
-async function triggerAIAnalysis(journalEntryId: string, userId: string) {
+// Helper function to cleanup old insights
+async function cleanupOldInsights(userId: string) {
   try {
-    console.log('🤖 Starting background AI analysis for journal:', journalEntryId)
-
-    // Small delay to ensure journal entry is fully committed
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Call our generate-partner-suggestions API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/generate-partner-suggestions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId: userId,
-        triggerSource: 'journal_entry',
-        triggerData: { journalEntryId },
-        lookbackDays: 3 // Focus on recent entries for responsiveness
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`AI analysis failed: ${response.statusText}`)
-    }
-
-    const result = await response.json()
-    console.log('✅ Background AI analysis completed:', {
-      personalInsights: result.personalInsights?.length || 0,
-      partnerSuggestions: result.partnerSuggestions?.length || 0
-    })
-
-  } catch (error) {
-    console.error('❌ Background AI analysis failed:', error)
-    // Don't throw - this is background processing
-  }
-}
-
-// GET endpoint for checking AI analysis status
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const journalEntryId = searchParams.get('journalEntryId')
-
-    if (!journalEntryId) {
-      return NextResponse.json({ error: 'journalEntryId required' }, { status: 400 })
-    }
-
-    const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { 
         cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-          set(name: string, value: string, options: any) {
-            cookieStore.set(name, value, options)
-          },
-          remove(name: string, options: any) {
-            cookieStore.delete(name)
-          },
+          get() { return undefined },
+          set() {},
+          remove() {},
         },
       }
     )
 
-    // Check if journal entry has AI analysis
-    const { data: journalEntry } = await supabase
-      .from('journal_entries')
-      .select('ai_analysis')
-      .eq('id', journalEntryId)
-      .single()
+    // Delete insights older than 30 days
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const hasAnalysis = journalEntry?.ai_analysis && 
-                       (journalEntry.ai_analysis as any).need_analysis
+    await supabase
+      .from('relationship_insights')
+      .delete()
+      .eq('generated_for_user', userId)
+      .lt('created_at', thirtyDaysAgo.toISOString())
 
-    return NextResponse.json({
-      analysisComplete: hasAnalysis,
-      analysis: hasAnalysis ? journalEntry.ai_analysis : null
-    })
-
+    console.log('✅ Cleaned up old insights for user:', userId)
   } catch (error) {
-    console.error('❌ Analysis status check error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to check analysis status',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
-  }
-}
-
-// Background cleanup of old insights
-async function cleanupOldInsights(userId: string) {
-  try {
-    console.log('🧹 Auto-cleaning old insights for user:', userId)
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/insights/cleanup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId: userId,
-        cleanupType: 'both' // Both time-based (1 week) and quantity-based (max 10)
-      })
-    })
-
-    if (response.ok) {
-      const result = await response.json()
-      console.log('✅ Auto-cleanup completed:', result.deleted)
-    }
-  } catch (error) {
-    console.error('❌ Auto-cleanup failed:', error)
-    // Don't throw - this is background processing
+    console.error('❌ Error cleaning up insights:', error)
   }
 }
