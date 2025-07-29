@@ -123,6 +123,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     console.log('✅ Need analysis completed successfully')
 
+          // Step 5: Trigger partner suggestion generation
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
+      const { data: relationships } = await supabase
+        .from('relationship_members')
+        .select('relationship_id')
+        .eq('user_id', userId)
+
+      // Use the same pattern as other Supabase queries in the codebase
+      const relationshipsList = relationships || []
+
+      if (relationshipsList.length > 0) {
+        console.log(`💕 Found ${relationshipsList.length} relationships, triggering partner suggestions...`)
+        
+        relationshipsList.forEach(async (rel) => {
+          try {
+            const response = await fetch(`${baseUrl}/api/relationships/generate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                relationshipId: rel.relationship_id,
+                sourceUserId: userId,
+                timeframeHours: 72,
+                maxSuggestions: 3
+              })
+            })
+            
+            if (response.ok) {
+              const result = await response.json()
+              console.log(`✅ Generated ${result.result?.suggestions?.length || 0} suggestions for relationship ${rel.relationship_id}`)
+            }
+          } catch (error) {
+            console.error(`❌ Error generating suggestions:`, error)
+          }
+        })
+      }
+
     return NextResponse.json({
       success: true,
       analysis: analysisResult,
@@ -133,6 +169,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         confidenceScore: analysisResult.confidence_score
       }
     })
+
 
   } catch (error) {
     console.error('❌ Need analysis error:', error)

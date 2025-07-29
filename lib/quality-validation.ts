@@ -471,7 +471,7 @@ Return JSON:
           { role: 'system', content: 'You are a relationship coach creating partner suggestions. Always respond with valid JSON only.' },
           { role: 'user', content: prompt }
         ],
-        model: 'grok-beta',
+        model: 'grok-4',
         temperature: 0.6
       })
     });
@@ -559,7 +559,7 @@ Return JSON in the same format:
           { role: 'system', content: 'You are a relationship coach improving suggestion quality. Always respond with valid JSON only.' },
           { role: 'user', content: prompt }
         ],
-        model: 'grok-beta',
+        model: 'grok-4',
         temperature: 0.5
       })
     });

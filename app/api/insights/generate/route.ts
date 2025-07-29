@@ -49,8 +49,8 @@ export async function POST(request: Request) {
     // Get user's onboarding responses for rich context
     console.log('🔍 Fetching onboarding data...')
     const { data: onboardingData } = await supabase
-      .from('onboarding_responses')
-      .select('responses')
+      .from('enhanced_onboarding_responses')  // ← CORRECT TABLE
+      .select('*')  // ← Get all fields, not just 'responses'
       .eq('user_id', user.id)
       .single()
 
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     const journals = journalResponse.data || []
     const checkins = checkinResponse.data || []
-    const onboarding = onboardingData?.responses || {}
+    const onboarding = onboardingData || {}
 
     console.log('📈 Data summary:', {
       journals: journals.length,
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     })
 
     // Analyze patterns from user data with relationship context
-    const patterns = analyzePatterns(journals, checkins, relationshipContext)
+    const patterns = analyzePatterns(journals, checkins, relationshipContext, onboarding)
     console.log('📊 Patterns analyzed with relationship context:', patterns)
     
     // Generate insights using enhanced Grok with relationship awareness
@@ -243,7 +243,7 @@ async function getRelationshipContext(supabase: any, userId: string) {
   }
 }
 
-function analyzePatterns(journals: any[], checkins: any[], relationshipContext: any) {
+function analyzePatterns(journals: any[], checkins: any[], relationshipContext: any, onboarding: any) {
   console.log('📊 Analyzing patterns with relationship context')
   
   // Basic pattern analysis (existing logic)
@@ -296,9 +296,9 @@ function analyzePatterns(journals: any[], checkins: any[], relationshipContext: 
     .map(c => c.challenge_note)
 
   // Relationship-specific patterns
-  const relationshipStage = getRelationshipStage(relationshipContext)
+  const relationshipStage = getRelationshipStage(relationshipContext, onboarding)
   const hasActivePartnership = relationshipContext.relationships.length > 0
-  const partnerCompatibility = analyzePartnerCompatibility(relationshipContext)
+  const partnerCompatibility = { hasData: relationshipContext.partnerOnboarding.length > 0 }
 
   const patterns = {
     // Basic patterns
@@ -330,123 +330,71 @@ function analyzePatterns(journals: any[], checkins: any[], relationshipContext: 
 }
 
 // STEP 2: Replace the getRelationshipStage function in app/api/insights/generate/route.ts
-// Find this function around line 385 and replace it with this updated version
+// Replace the getRelationshipStage function in app/api/insights/generate/route.ts
 
-function getRelationshipStage(relationshipContext: any): string {
-  console.log('🔍 Calculating relationship stage with timeline data...')
+function getRelationshipStage(relationshipContext: any, onboarding: any) {
+  if (relationshipContext.relationships.length === 0) return 'single'
   
-  if (relationshipContext.relationships.length === 0) {
-    console.log('📊 Result: single (no relationships)')
-    return 'single'
+  console.log('🔍 Calculating relationship stage...')
+  
+  // Priority order for calculating relationship age:
+  // 1. Use anniversary_date from enhanced_onboarding_responses (most accurate)
+  // 2. Use relationship_duration_years if available
+  // 3. Fall back to created_at (for new users without anniversary data)
+  
+  let monthsOld = 0;
+  let stageSource = 'unknown';
+  
+  // Check if we have enhanced onboarding data with anniversary
+  const onboardingData = onboarding; // Use the passed onboarding data directly
+  
+console.log('🔍 Onboarding data check:', {
+  hasOnboardingData: !!onboardingData,
+  anniversaryDate: onboardingData?.anniversary_date,      // ← Correct field name
+  durationYears: onboardingData?.relationship_duration_years  // ← Correct field name
+});
+
+if (onboardingData?.anniversary_date) {
+  // Use the actual anniversary date (MOST ACCURATE)
+  const anniversaryDate = new Date(onboardingData.anniversary_date);
+  monthsOld = (new Date().getTime() - anniversaryDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+  stageSource = 'anniversary_date';
+  console.log('🎯 Using anniversary date for relationship stage:', {
+    anniversaryDate: anniversaryDate.toISOString(),
+    monthsOld: monthsOld,
+    yearsOld: Math.round(monthsOld / 12 * 10) / 10
+  });
+  
+} else if (onboardingData?.relationship_duration_years) {
+  // Use manually entered duration (SECOND CHOICE)
+  monthsOld = onboardingData.relationship_duration_years * 12;
+  stageSource = 'manual_duration';
+  console.log('🎯 Using manual duration for relationship stage:', {
+    durationYears: onboardingData.relationship_duration_years,
+    monthsOld: monthsOld
+  });
   }
   
-  // Priority 1: Use onboarding timeline data (most accurate)
-  const onboardingData = relationshipContext.partnerOnboarding?.[0]
-  
-  if (onboardingData) {
-    console.log('📊 Found onboarding data:', {
-      hasAnniversary: !!onboardingData.anniversary_date,
-      hasStartDate: !!onboardingData.relationship_start_date,
-      hasDurationYears: !!onboardingData.relationship_duration_years,
-      anniversaryDate: onboardingData.anniversary_date,
-      durationYears: onboardingData.relationship_duration_years,
-      durationMonths: onboardingData.relationship_duration_months
-    })
-
-    // Strategy 1: Use anniversary date if available
-    if (onboardingData.anniversary_date) {
-      const anniversaryDate = new Date(onboardingData.anniversary_date)
-      const monthsOld = (new Date().getTime() - anniversaryDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-      
-      console.log('📅 Using anniversary date calculation:', {
-        anniversaryDate: anniversaryDate.toDateString(),
-        monthsOld: Math.round(monthsOld * 10) / 10,
-        yearsOld: Math.round((monthsOld / 12) * 10) / 10
-      })
-      
-      const stage = calculateStageFromMonths(monthsOld)
-      console.log('📊 Result from anniversary:', stage)
-      return stage
-    }
-    
-    // Strategy 2: Use duration data if available
-    if (onboardingData.relationship_duration_years !== null || onboardingData.relationship_duration_months !== null) {
-      const monthsOld = (onboardingData.relationship_duration_years || 0) * 12 + (onboardingData.relationship_duration_months || 0)
-      
-      console.log('📅 Using duration calculation:', {
-        years: onboardingData.relationship_duration_years || 0,
-        months: onboardingData.relationship_duration_months || 0,
-        totalMonths: monthsOld
-      })
-      
-      const stage = calculateStageFromMonths(monthsOld)
-      console.log('📊 Result from duration:', stage)
-      return stage
-    }
-    
-    // Strategy 3: Use start date if available
-    if (onboardingData.relationship_start_date) {
-      const startDate = new Date(onboardingData.relationship_start_date)
-      const monthsOld = (new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-      
-      console.log('📅 Using start date calculation:', {
-        startDate: startDate.toDateString(),
-        monthsOld: Math.round(monthsOld * 10) / 10,
-        yearsOld: Math.round((monthsOld / 12) * 10) / 10
-      })
-      
-      const stage = calculateStageFromMonths(monthsOld)
-      console.log('📊 Result from start date:', stage)
-      return stage
-    }
+  // Determine stage based on age
+  let stage = 'new';
+  if (monthsOld < 6) {
+    stage = 'new';
+  } else if (monthsOld < 24) {
+    stage = 'developing';
+  } else if (monthsOld < 60) {
+    stage = 'established';
+  } else {
+    stage = 'longterm';
   }
   
-  // Fallback: Use database created_at timestamp (for existing relationships without timeline data)
-  console.log('⚠️ No timeline data found, falling back to database timestamps')
-  
-  const oldestRelationship = relationshipContext.relationships
-    .map((r: any) => new Date(r.created_at))
-    .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0]
-  
-  const monthsOld = (new Date().getTime() - oldestRelationship.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-  
-  console.log('📅 Using fallback database timestamp:', {
-    createdAt: oldestRelationship.toDateString(),
+  console.log('✅ Relationship stage calculated:', {
+    stage: stage,
     monthsOld: Math.round(monthsOld * 10) / 10,
-    yearsOld: Math.round((monthsOld / 12) * 10) / 10,
-    warning: 'This may not reflect actual relationship duration'
-  })
+    yearsOld: Math.round(monthsOld / 12 * 10) / 10,
+    source: stageSource
+  });
   
-  const stage = calculateStageFromMonths(monthsOld)
-  console.log('📊 Result from fallback:', stage)
-  return stage
-}
-
-// ADD this helper function right after getRelationshipStage (if it doesn't exist)
-function calculateStageFromMonths(monthsOld: number): string {
-  // Define clear stage boundaries
-  if (monthsOld < 6) return 'new'           // 0-6 months
-  if (monthsOld < 24) return 'developing'   // 6 months - 2 years  
-  if (monthsOld < 60) return 'established'  // 2-5 years
-  return 'longterm'                         // 5+ years
-}
-
-function analyzePartnerCompatibility(relationshipContext: any) {
-  if (relationshipContext.partnerOnboarding.length === 0) {
-    return { hasData: false }
-  }
-
-  // Compare love languages, communication styles, etc.
-  const compatibilityInsights = {
-    hasData: true,
-    loveLanguageAlignment: null,
-    communicationStyleMatch: null,
-    goalAlignment: null
-  }
-
-  // This would be expanded with actual compatibility analysis
-  // For now, just indicate we have partner data
-  return compatibilityInsights
+  return stage;
 }
 
 async function generateRelationshipAwareInsights(patterns: any, onboarding: any, relationshipContext: any, userId: string) {
@@ -475,17 +423,18 @@ async function generateRelationshipAwareInsights(patterns: any, onboarding: any,
 
 function buildEnhancedContextForGrok(patterns: any, onboarding: any, relationshipContext: any) {
   const context = {
-    // User context
-    relationshipType: onboarding.relationshipType || 'unknown',
-    relationshipDuration: onboarding.relationshipDuration || 'unknown',
-    livingTogether: onboarding.livingTogether === 'yes',
-    conflictStyle: onboarding.conflictStyle || 'unknown',
-    stressResponse: onboarding.stressResponse || 'unknown',
-    loveLanguageGive: onboarding.loveLanguageGive || [],
-    loveLanguageReceive: onboarding.loveLanguageReceive || [],
-    relationshipGoals: onboarding.relationshipGoals || [],
-    additionalGoals: onboarding.additionalGoals || '',
-    sharingPreference: onboarding.sharingPreference || 'general',
+    // User context - FIXED to match actual database schema
+    relationshipType: 'couple', // Default since you have relationships
+    relationshipDuration: onboarding?.relationship_duration_years || 'unknown',
+    livingTogether: true, // Assume true for established relationships
+    conflictStyle: onboarding?.conflict_approach || 'unknown',
+    stressResponse: onboarding?.stress_response || 'unknown',
+    loveLanguageGive: onboarding?.love_language_ranking || [],
+    loveLanguageReceive: onboarding?.love_language_ranking || [],
+    relationshipGoals: onboarding?.primary_goals || [],
+    additionalGoals: onboarding?.specific_challenges || '',
+    sharingPreference: onboarding?.expression_directness || 'general',
+    communicationStyle: onboarding?.communication_style || 'unknown',
     
     // Current patterns
     avgConnectionScore: patterns.avgConnectionScore,
@@ -509,6 +458,13 @@ function buildEnhancedContextForGrok(patterns: any, onboarding: any, relationshi
   }
   
   console.log('📋 Built enhanced context with relationship data for Grok:', Object.keys(context))
+  console.log('🔍 DEBUG: Onboarding values being used:', {
+    communicationStyle: onboarding?.communication_style,
+    conflictApproach: onboarding?.conflict_approach,
+    loveLanguages: onboarding?.love_language_ranking,
+    anniversaryDate: onboarding?.anniversary_date,
+    relationshipDuration: onboarding?.relationship_duration_years
+  })
   return context
 }
 

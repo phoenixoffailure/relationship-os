@@ -45,7 +45,7 @@ interface JournalEntry {
   id: string
   user_id: string
   content: string
-  mood_rating: number | null
+  mood_score: number | null
   created_at: string
 }
 
@@ -227,7 +227,7 @@ async function getRecentJournalEntries(
 
   const { data: journalEntries, error } = await supabase
     .from('journal_entries')
-    .select('id, user_id, content, mood_rating, created_at')
+    .select('id, user_id, content, mood_score, created_at')
     .in('user_id', userIds)
     .gte('created_at', cutoffDate.toISOString())
     .order('created_at', { ascending: false })
@@ -315,7 +315,7 @@ Return ONLY a JSON array with exactly this structure:
             content: prompt
           }
         ],
-        model: 'grok-beta',
+        model: 'grok-4',
         temperature: 0.7,
         max_tokens: 1000
       })
