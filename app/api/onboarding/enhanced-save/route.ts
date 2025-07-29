@@ -1,64 +1,60 @@
-// app/api/onboarding/enhanced-save/route.ts - ENVIRONMENT VARIABLE FIX
-// Fixed to use correct environment variables
-
-// app/api/onboarding/enhanced-save/route.ts - MINIMAL TIMING FIX
-// Only changes the timing issue - keeps all your existing logic
+// app/api/onboarding/enhanced-save/route.ts
+// UPDATED: Add relationship timeline field processing
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-interface EnhancedOnboardingRequest {
-  responses: Record<string, any>
-  completedAt?: string
-}
-
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Parse and validate request body
-    let requestData: EnhancedOnboardingRequest
-    try {
-      requestData = await request.json()
-    } catch (parseError) {
-      return NextResponse.json({ 
-        error: 'Invalid JSON in request body' 
-      }, { status: 400 })
-    }
+    const body = await request.json()
+    const { responses } = body
 
-    const { responses, completedAt } = requestData
+    console.log('📋 Enhanced onboarding save request received')
+    console.log('📊 Response data keys:', Object.keys(responses))
 
-    if (!responses || typeof responses !== 'object') {
-      return NextResponse.json({ 
-        error: 'Missing or invalid responses data' 
-      }, { status: 400 })
-    }
-    
-    // Create Supabase client - FIXED ENVIRONMENT VARIABLES
+    // Get user from auth
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!, 
-      { 
-        cookies: { 
-          get: (name: string) => cookieStore.get(name)?.value 
-        } 
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          get: (name: string) => cookieStore.get(name)?.value
+        }
       }
     )
 
-    // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
     if (userError || !user) {
-      console.error('Auth error:', userError)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      console.error('❌ User authentication failed:', userError)
+      return NextResponse.json({ 
+        error: 'Authentication required' 
+      }, { status: 401 })
     }
 
     console.log('✅ User authenticated:', user.id)
 
-    // Process and validate responses with proper defaults (KEEP ALL YOUR EXISTING LOGIC)
+    // Process and validate all responses
     const processedResponses = {
       user_id: user.id,
+      session_id: responses.session_id || crypto.randomUUID(),
+      completed_at: new Date().toISOString(),
+      version: 2,
+      ai_processing_status: 'pending',
+
+      // NEW: Relationship Timeline Fields
+      relationship_start_date: responses.relationship_start_date || null,
+      anniversary_date: responses.anniversary_date || null,
+      relationship_duration_years: typeof responses.relationship_duration_years === 'number' 
+        ? responses.relationship_duration_years 
+        : null,
+      relationship_duration_months: typeof responses.relationship_duration_months === 'number' 
+        ? responses.relationship_duration_months 
+        : null,
       
-      // Step 1: Love Languages
+      // Step 1: Love Languages Assessment (Enhanced)
       love_language_ranking: Array.isArray(responses.love_language_ranking) 
         ? responses.love_language_ranking 
         : [],
@@ -138,16 +134,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         : '',
       communication_barriers: Array.isArray(responses.communication_barriers) 
         ? responses.communication_barriers 
-        : [],
-      
-      completed_at: completedAt || new Date().toISOString(),
-      ai_processing_status: 'pending' as const
+        : []
     }
 
-    console.log('📝 Saving enhanced onboarding responses...')
+    console.log('🔄 Processing enhanced onboarding data...')
+    console.log('📊 Processed fields:', {
+      hasTimelineData: !!(processedResponses.relationship_start_date || processedResponses.anniversary_date || processedResponses.relationship_duration_years),
+      timelineFields: {
+        startDate: processedResponses.relationship_start_date,
+        anniversaryDate: processedResponses.anniversary_date,
+        durationYears: processedResponses.relationship_duration_years,
+        durationMonths: processedResponses.relationship_duration_months
+      },
+      loveLanguagesCount: processedResponses.love_language_ranking.length,
+      communicationStyle: processedResponses.communication_style,
+      primaryGoalsCount: processedResponses.primary_goals.length
+    })
 
-    // Save enhanced onboarding responses with better error handling
     try {
+      // Save to enhanced_onboarding_responses table
       const { data: savedResponse, error: saveError } = await supabase
         .from('enhanced_onboarding_responses')
         .insert(processedResponses)
@@ -155,12 +160,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .single()
 
       if (saveError) {
-        console.error('Database save error:', saveError)
+        console.error('❌ Database save error:', saveError)
         
-        // Check if it's a table not found error
-        if (saveError.code === 'PGRST116' || saveError.message.includes('relation') || saveError.message.includes('does not exist')) {
+        if (saveError.code === '42P01') {
           return NextResponse.json({ 
-            error: 'Database table not found. Please run the database schema setup first.',
+            error: 'Database table not found',
+            message: 'Please run the database schema setup first.',
             details: 'The enhanced_onboarding_responses table does not exist in your database.'
           }, { status: 500 })
         }
@@ -183,7 +188,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.warn('Could not update user status:', userUpdateError)
       }
 
-      // ============ TIMING FIX STARTS HERE ============
       // Add delay and verification before triggering profile generation
       console.log('⏳ Ensuring data is committed before profile generation...')
       
@@ -193,7 +197,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Verify the data was actually saved and is readable
       const { data: verificationData, error: verifyError } = await supabase
         .from('enhanced_onboarding_responses')
-        .select('id, user_id, love_language_ranking, communication_style, completed_at')
+        .select('id, user_id, love_language_ranking, communication_style, completed_at, relationship_start_date, anniversary_date, relationship_duration_years')
         .eq('id', savedResponse.id)
         .single()
 
@@ -201,7 +205,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.error('❌ Data verification failed:', verifyError)
         console.log('⚠️ Profile generation will be skipped due to verification failure')
       } else {
-        console.log('✅ Data verified successfully, triggering profile generation')
+        console.log('✅ Data verified successfully, including timeline data:', {
+          hasStartDate: !!verificationData.relationship_start_date,
+          hasAnniversary: !!verificationData.anniversary_date,
+          hasDuration: !!verificationData.relationship_duration_years
+        })
         
         // Trigger AI profile generation (async - don't wait for completion)
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
@@ -216,7 +224,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error('Failed to trigger profile generation:', error)
         })
       }
-      // ============ TIMING FIX ENDS HERE ============
 
       return NextResponse.json({ 
         success: true, 
@@ -225,7 +232,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         debug: {
           dataVerified: !verifyError,
           userId: user.id,
-          savedFields: Object.keys(processedResponses).length
+          savedFields: Object.keys(processedResponses).length,
+          timelineDataSaved: {
+            startDate: !!processedResponses.relationship_start_date,
+            anniversary: !!processedResponses.anniversary_date,
+            duration: !!processedResponses.relationship_duration_years
+          }
         }
       })
       

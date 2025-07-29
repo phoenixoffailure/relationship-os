@@ -1,5 +1,5 @@
-// lib/onboarding/validation.ts - FIXED VERSION
-// Fixed TypeScript errors and added proper type safety
+// lib/onboarding/validation.ts
+// COMPLETED VERSION - Includes timeline fields and all question type validations
 
 export interface ValidationRule {
   required: boolean
@@ -15,6 +15,29 @@ export interface ValidationRule {
 
 export const validationRules: Record<string, Record<string, ValidationRule>> = {
   step1: {
+    // NEW: Timeline fields (optional, so no validation errors)
+    anniversary_date: { 
+      required: false, 
+      type: 'date'
+    },
+    relationship_start_date: { 
+      required: false, 
+      type: 'date'
+    },
+    relationship_duration_years: { 
+      required: false, 
+      type: 'number', 
+      min: 0, 
+      max: 50 
+    },
+    relationship_duration_months: { 
+      required: false, 
+      type: 'number', 
+      min: 0, 
+      max: 11 
+    },
+    
+    // EXISTING: Love language validations (preserved exactly)
     love_language_ranking: { 
       required: true, 
       type: 'ranking', 
@@ -167,6 +190,27 @@ export function validateStep(step: number, responses: Record<string, any>): { is
     // Skip further validation if field is empty and not required
     if (!value) return
 
+    // Date validation
+    if (rule.type === 'date' && typeof value === 'string') {
+      const dateValue = new Date(value)
+      if (isNaN(dateValue.getTime())) {
+        errors[questionId] = 'Please enter a valid date'
+        isValid = false
+      }
+    }
+
+    // Number validation
+    if (rule.type === 'number' && typeof value === 'number') {
+      if (rule.min !== undefined && value < rule.min) {
+        errors[questionId] = `Value must be at least ${rule.min}`
+        isValid = false
+      }
+      if (rule.max !== undefined && value > rule.max) {
+        errors[questionId] = `Value must be no more than ${rule.max}`
+        isValid = false
+      }
+    }
+
     // Multiple choice validation
     if (rule.type === 'multiple_choice' && Array.isArray(value)) {
       if (rule.minSelections && value.length < rule.minSelections) {
@@ -179,24 +223,14 @@ export function validateStep(step: number, responses: Record<string, any>): { is
       }
     }
 
-    // Textarea validation
-    if (rule.type === 'textarea' && typeof value === 'string') {
+    // Text area validation
+    if ((rule.type === 'textarea' || rule.type === 'textarea_group') && typeof value === 'string') {
       if (rule.minLength && value.length < rule.minLength) {
         errors[questionId] = `Please provide at least ${rule.minLength} characters`
         isValid = false
       }
       if (rule.maxLength && value.length > rule.maxLength) {
-        errors[questionId] = `Please keep under ${rule.maxLength} characters`
-        isValid = false
-      }
-    }
-
-    // Textarea group validation
-    if (rule.type === 'textarea_group' && typeof value === 'object' && value !== null) {
-      const allValues = Object.values(value) as string[]
-      const totalLength = allValues.join('').length
-      if (rule.minLength && totalLength < rule.minLength) {
-        errors[questionId] = `Please provide more detailed responses`
+        errors[questionId] = `Please limit to ${rule.maxLength} characters`
         isValid = false
       }
     }
@@ -264,11 +298,74 @@ export function getProgressPercentage(step: number, responses: Record<string, an
       (Array.isArray(value) && value.length > 0) ||
       (typeof value === 'object' && value !== null && Object.keys(value).length > 0) ||
       (typeof value === 'string' && value.length > 0) ||
-      (typeof value === 'number' && value > 0)
+      (typeof value === 'number' && value >= 0)
     )
   }).length
   
   const stepProgress = (completedFields / totalFields) * (100 / totalSteps)
   
   return Math.min(baseProgress + stepProgress, 100)
+}
+
+// Additional helper functions for form validation
+export function validateDateFormat(dateString: string): boolean {
+  if (!dateString) return true // Optional field
+  
+  const date = new Date(dateString)
+  return !isNaN(date.getTime()) && date <= new Date()
+}
+
+export function validateRelationshipDuration(years?: number, months?: number): boolean {
+  if (years === undefined && months === undefined) return true // Both optional
+  
+  const totalMonths = (years || 0) * 12 + (months || 0)
+  return totalMonths >= 0 && totalMonths <= 600 // Max 50 years
+}
+
+export function getValidationMessage(questionId: string, rule: ValidationRule, value: any): string | null {
+  if (rule.required && (!value || (Array.isArray(value) && value.length === 0))) {
+    return 'This field is required'
+  }
+  
+  if (!value) return null
+  
+  switch (rule.type) {
+    case 'date':
+      if (typeof value === 'string' && !validateDateFormat(value)) {
+        return 'Please enter a valid date'
+      }
+      break
+    case 'number':
+      if (typeof value === 'number') {
+        if (rule.min !== undefined && value < rule.min) {
+          return `Value must be at least ${rule.min}`
+        }
+        if (rule.max !== undefined && value > rule.max) {
+          return `Value must be no more than ${rule.max}`
+        }
+      }
+      break
+    case 'textarea':
+      if (typeof value === 'string') {
+        if (rule.minLength && value.length < rule.minLength) {
+          return `Please provide at least ${rule.minLength} characters`
+        }
+        if (rule.maxLength && value.length > rule.maxLength) {
+          return `Please limit to ${rule.maxLength} characters`
+        }
+      }
+      break
+    case 'multiple_choice':
+      if (Array.isArray(value)) {
+        if (rule.minSelections && value.length < rule.minSelections) {
+          return `Please select at least ${rule.minSelections} options`
+        }
+        if (rule.maxSelections && value.length > rule.maxSelections) {
+          return `Please select no more than ${rule.maxSelections} options`
+        }
+      }
+      break
+  }
+  
+  return null
 }

@@ -329,20 +329,106 @@ function analyzePatterns(journals: any[], checkins: any[], relationshipContext: 
   return patterns
 }
 
-function getRelationshipStage(relationshipContext: any) {
-  if (relationshipContext.relationships.length === 0) return 'single'
+// STEP 2: Replace the getRelationshipStage function in app/api/insights/generate/route.ts
+// Find this function around line 385 and replace it with this updated version
+
+function getRelationshipStage(relationshipContext: any): string {
+  console.log('🔍 Calculating relationship stage with timeline data...')
   
-  // Calculate relationship age based on oldest relationship
+  if (relationshipContext.relationships.length === 0) {
+    console.log('📊 Result: single (no relationships)')
+    return 'single'
+  }
+  
+  // Priority 1: Use onboarding timeline data (most accurate)
+  const onboardingData = relationshipContext.partnerOnboarding?.[0]
+  
+  if (onboardingData) {
+    console.log('📊 Found onboarding data:', {
+      hasAnniversary: !!onboardingData.anniversary_date,
+      hasStartDate: !!onboardingData.relationship_start_date,
+      hasDurationYears: !!onboardingData.relationship_duration_years,
+      anniversaryDate: onboardingData.anniversary_date,
+      durationYears: onboardingData.relationship_duration_years,
+      durationMonths: onboardingData.relationship_duration_months
+    })
+
+    // Strategy 1: Use anniversary date if available
+    if (onboardingData.anniversary_date) {
+      const anniversaryDate = new Date(onboardingData.anniversary_date)
+      const monthsOld = (new Date().getTime() - anniversaryDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+      
+      console.log('📅 Using anniversary date calculation:', {
+        anniversaryDate: anniversaryDate.toDateString(),
+        monthsOld: Math.round(monthsOld * 10) / 10,
+        yearsOld: Math.round((monthsOld / 12) * 10) / 10
+      })
+      
+      const stage = calculateStageFromMonths(monthsOld)
+      console.log('📊 Result from anniversary:', stage)
+      return stage
+    }
+    
+    // Strategy 2: Use duration data if available
+    if (onboardingData.relationship_duration_years !== null || onboardingData.relationship_duration_months !== null) {
+      const monthsOld = (onboardingData.relationship_duration_years || 0) * 12 + (onboardingData.relationship_duration_months || 0)
+      
+      console.log('📅 Using duration calculation:', {
+        years: onboardingData.relationship_duration_years || 0,
+        months: onboardingData.relationship_duration_months || 0,
+        totalMonths: monthsOld
+      })
+      
+      const stage = calculateStageFromMonths(monthsOld)
+      console.log('📊 Result from duration:', stage)
+      return stage
+    }
+    
+    // Strategy 3: Use start date if available
+    if (onboardingData.relationship_start_date) {
+      const startDate = new Date(onboardingData.relationship_start_date)
+      const monthsOld = (new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+      
+      console.log('📅 Using start date calculation:', {
+        startDate: startDate.toDateString(),
+        monthsOld: Math.round(monthsOld * 10) / 10,
+        yearsOld: Math.round((monthsOld / 12) * 10) / 10
+      })
+      
+      const stage = calculateStageFromMonths(monthsOld)
+      console.log('📊 Result from start date:', stage)
+      return stage
+    }
+  }
+  
+  // Fallback: Use database created_at timestamp (for existing relationships without timeline data)
+  console.log('⚠️ No timeline data found, falling back to database timestamps')
+  
   const oldestRelationship = relationshipContext.relationships
     .map((r: any) => new Date(r.created_at))
     .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0]
   
-  const monthsOld = (new Date().getTime() - oldestRelationship.getTime()) / (1000 * 60 * 60 * 24 * 30)
+  const monthsOld = (new Date().getTime() - oldestRelationship.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
   
-  if (monthsOld < 6) return 'new'
-  if (monthsOld < 24) return 'developing'
-  if (monthsOld < 60) return 'established'
-  return 'longterm'
+  console.log('📅 Using fallback database timestamp:', {
+    createdAt: oldestRelationship.toDateString(),
+    monthsOld: Math.round(monthsOld * 10) / 10,
+    yearsOld: Math.round((monthsOld / 12) * 10) / 10,
+    warning: 'This may not reflect actual relationship duration'
+  })
+  
+  const stage = calculateStageFromMonths(monthsOld)
+  console.log('📊 Result from fallback:', stage)
+  return stage
+}
+
+// ADD this helper function right after getRelationshipStage (if it doesn't exist)
+function calculateStageFromMonths(monthsOld: number): string {
+  // Define clear stage boundaries
+  if (monthsOld < 6) return 'new'           // 0-6 months
+  if (monthsOld < 24) return 'developing'   // 6 months - 2 years  
+  if (monthsOld < 60) return 'established'  // 2-5 years
+  return 'longterm'                         // 5+ years
 }
 
 function analyzePartnerCompatibility(relationshipContext: any) {
