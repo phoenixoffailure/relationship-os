@@ -1,5 +1,5 @@
 // app/api/relationships/generate/route.ts
-// ENHANCED VERSION - Real xAI Grok API Integration
+// FIXED VERSION - TypeScript safe with better data access
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!uuidRegex.test(relationshipId)) {
       console.log('❌ Invalid UUID format:', relationshipId)
       return NextResponse.json({ 
-        error: 'Invalid relationshipId format. Must be a valid UUID.' 
+        error: 'Invalid relationshipId format. Must be a valid UUID.'
       }, { status: 400 })
     }
 
@@ -93,25 +93,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     )
 
-    console.log('🎯 Starting AI-powered suggestion generation for relationship:', relationshipId)
+    console.log(`🤖 Starting ENHANCED AI suggestion generation for relationship: ${relationshipId}`)
 
-    // Step 1: Get relationship context and partners
+    // Step 1: Get relationship context
     const relationshipContext = await getRelationshipContext(supabase, relationshipId)
-    
     if (!relationshipContext.isValid) {
       return NextResponse.json({ 
-        error: 'Invalid relationship or insufficient members',
-        debug: {
-          partnersFound: relationshipContext.partners.length,
-          relationshipId: relationshipId
-        }
+        error: 'Invalid relationship context',
+        details: 'Relationship not found or has no active members'
       }, { status: 400 })
     }
-
-    console.log('👥 Relationship context:', {
-      members: relationshipContext.partners.length,
-      hasProfiles: relationshipContext.partnerProfiles.length
-    })
 
     // Step 2: Get recent journal entries for analysis
     const recentJournalEntries = await getRecentJournalEntries(
@@ -120,10 +111,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       timeframeHours
     )
 
-    console.log('📖 Found journal entries:', {
-      totalEntries: recentJournalEntries.length,
-      entriesWithContent: recentJournalEntries.filter(e => e.content.length > 20).length
-    })
+    console.log(`📖 Found journal entries: { totalEntries: ${recentJournalEntries.length}, entriesWithContent: ${recentJournalEntries.filter(e => e.content && e.content.length > 20).length} }`)
 
     // Step 3: Generate AI-powered suggestions for each partner
     const allGeneratedSuggestions: (GeneratedSuggestion & { 
@@ -142,27 +130,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         continue
       }
 
-      console.log(`🤖 Generating AI suggestions for ${partner.user_name} based on ${journalEntriesFromOthers.length} journal entries`)
+      console.log(`🤖 Generating ENHANCED AI suggestions for ${partner.user_name} based on ${journalEntriesFromOthers.length} journal entries`)
 
-      // Get partner's profile for personalization
-      const partnerProfile = relationshipContext.partnerProfiles.find(p => p.user_id === partner.user_id)
+      // Get both profiles for enhanced suggestion generation
+      const recipientProfile = relationshipContext.partnerProfiles.find(p => p.user_id === partner.user_id)
+      const journalWriterProfile = relationshipContext.partnerProfiles.find(p => 
+        p.user_id === journalEntriesFromOthers[0].user_id
+      )
 
-      // Generate personalized suggestions using xAI Grok API
-      const suggestions = await generateAISuggestions(
+      // Generate personalized suggestions using ENHANCED xAI Grok API
+      const suggestions = await generateEnhancedAISuggestions(
         journalEntriesFromOthers,
         partner,
-        partnerProfile,
+        recipientProfile,
+        journalWriterProfile,
         maxSuggestions
       )
 
       allGeneratedSuggestions.push(...suggestions.map(s => ({
         ...s,
         recipient_user_id: partner.user_id,
-        source_user_id: journalEntriesFromOthers[0].user_id // Primary source
+        source_user_id: journalEntriesFromOthers[0].user_id
       })))
     }
 
-    console.log(`✨ Generated ${allGeneratedSuggestions.length} AI-powered suggestions`)
+    console.log(`✨ Generated ${allGeneratedSuggestions.length} ENHANCED AI-powered suggestions`)
 
     // Step 4: Save suggestions to database
     const savedSuggestions = await saveSuggestionsToDatabase(
@@ -196,7 +188,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           confidence_threshold_met: allGeneratedSuggestions.filter(s => s.confidence_score >= 0.7).length
         }
       },
-      message: `Generated and saved ${allGeneratedSuggestions.length} AI-powered suggestions`,
+      message: `Generated and saved ${allGeneratedSuggestions.length} ENHANCED AI-powered suggestions`,
       debug: {
         savedToDatabase: savedSuggestions.length,
         suggestionsGenerated: allGeneratedSuggestions.length,
@@ -206,10 +198,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     })
 
   } catch (error) {
-    console.error('❌ AI suggestion generation error:', error)
+    console.error('❌ ENHANCED AI suggestion generation error:', error)
     
     return NextResponse.json({ 
-      error: 'AI suggestion generation failed',
+      error: 'ENHANCED AI suggestion generation failed',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
@@ -231,7 +223,7 @@ async function getRecentJournalEntries(
     .in('user_id', userIds)
     .gte('created_at', cutoffDate.toISOString())
     .order('created_at', { ascending: false })
-    .limit(20) // Reasonable limit for analysis
+    .limit(20)
 
   if (error) {
     console.error('❌ Error fetching journal entries:', error)
@@ -241,62 +233,119 @@ async function getRecentJournalEntries(
   return journalEntries || []
 }
 
-// Helper function: Generate AI-powered suggestions using xAI Grok API
-async function generateAISuggestions(
+// FIXED: TypeScript safe version with better data access
+async function generateEnhancedAISuggestions(
   journalEntries: JournalEntry[],
   recipient: RelationshipMember,
   recipientProfile: PartnerProfile | undefined,
+  journalWriterProfile: PartnerProfile | undefined,
   maxSuggestions: number
 ): Promise<GeneratedSuggestion[]> {
 
-  // Combine journal entries for analysis
   const journalContent = journalEntries
     .map(entry => `Entry from ${entry.created_at.split('T')[0]}: ${entry.content}`)
     .join('\n\n')
 
-  // Get recipient's preferences from profile
-  const loveLanguages = recipientProfile?.love_language_ranking?.join(', ') || 'unknown'
-  const communicationStyle = recipientProfile?.communication_style || 'unknown'
+  // CORRECTED: Access love languages from actual database structure
+  // How the RECIPIENT naturally gives love
+  let recipientGivesLove: string[] = ['acts_of_service'] // Default
   
-  const prompt = `You are an expert relationship coach analyzing private journal entries to generate actionable suggestions for a partner. Your goal is to help them support their partner's needs without revealing the private journal content.
+  if (recipientProfile) {
+    // First try ai_profile_data if it exists and has the right structure
+    if (recipientProfile.ai_profile_data?.love_language_profile?.partnerGuidance && 
+        Array.isArray(recipientProfile.ai_profile_data.love_language_profile.partnerGuidance)) {
+      recipientGivesLove = recipientProfile.ai_profile_data.love_language_profile.partnerGuidance
+    }
+    // Fallback to direct love_language_ranking column
+    else if (recipientProfile.love_language_ranking && 
+             Array.isArray(recipientProfile.love_language_ranking) && 
+             recipientProfile.love_language_ranking.length > 0) {
+      recipientGivesLove = recipientProfile.love_language_ranking
+    }
+  }
+  
+  const recipientCommunicationStyle = recipientProfile?.communication_style || 'thoughtful'
+  
+  // How the WRITER (journal author) likes to RECEIVE love  
+  let writerReceivesLove: string[] = ['quality_time'] // Default
+  
+  if (journalWriterProfile) {
+    // Use direct love_language_ranking column from database
+    if (journalWriterProfile.love_language_ranking && 
+        Array.isArray(journalWriterProfile.love_language_ranking) && 
+        journalWriterProfile.love_language_ranking.length > 0) {
+      writerReceivesLove = journalWriterProfile.love_language_ranking
+    }
+  }
+
+  // ENHANCED: Show exactly what we found
+  console.log(`🔍 FIXED DEBUG: Recipient ${recipient.user_name} gives love via: ${recipientGivesLove.join(', ')}`)
+  console.log(`🔍 FIXED DEBUG: Writer receives love via: ${writerReceivesLove.join(', ')}`)
+  console.log(`🔍 FIXED DEBUG: Recipient profile exists: ${!!recipientProfile}`)
+  console.log(`🔍 FIXED DEBUG: Writer profile exists: ${!!journalWriterProfile}`)
+  
+  if (recipientProfile) {
+    console.log(`🔍 FIXED DEBUG: Recipient love_language_ranking from DB:`, recipientProfile.love_language_ranking)
+    console.log(`🔍 FIXED DEBUG: Recipient ai_profile_data keys:`, Object.keys(recipientProfile.ai_profile_data || {}))
+  }
+  
+  if (journalWriterProfile) {
+    console.log(`🔍 FIXED DEBUG: Writer love_language_ranking from DB:`, journalWriterProfile.love_language_ranking)  
+    console.log(`🔍 FIXED DEBUG: Writer ai_profile_data keys:`, Object.keys(journalWriterProfile.ai_profile_data || {}))
+  }
+  
+  const enhancedPrompt = `You are an expert relationship coach creating personalized suggestions that bridge love language preferences.
 
 PRIVATE JOURNAL CONTENT (DO NOT REVEAL DIRECTLY):
 ${journalContent}
 
-RECIPIENT CONTEXT:
+SUGGESTION RECIPIENT (Person who will ACT on this suggestion):
 - Name: ${recipient.user_name}
-- Preferred Love Languages: ${loveLanguages}
-- Communication Style: ${communicationStyle}
+- How they naturally GIVE love: ${recipientGivesLove.join(', ')}
+- Communication style: ${recipientCommunicationStyle}
 
-TASK: Generate ${maxSuggestions} specific, actionable suggestions for ${recipient.user_name} that would help them support their partner based on the patterns and needs you detect in the journal entries.
+JOURNAL WRITER (Person who expressed the need):
+- How they prefer to RECEIVE love: ${writerReceivesLove.join(', ')}
 
-REQUIREMENTS:
-1. DO NOT quote or reference the journal content directly
-2. Focus on actionable behaviors and gestures
-3. Consider the recipient's love language preferences
-4. Make suggestions feel natural and non-demanding
-5. Ensure suggestions are specific and practical
-6. Maintain complete privacy of the journal content
+CORRECTED TASK: Generate ${maxSuggestions} suggestions for ${recipient.user_name} that tell them how to support their partner by:
 
-Return ONLY a JSON array with exactly this structure:
+1. Identifying the underlying needs from the journal entries
+2. Suggesting actions that match how the WRITER likes to RECEIVE love: ${writerReceivesLove[0]}
+3. Phrasing the suggestion in a way that feels natural to the RECIPIENT's giving style: ${recipientGivesLove[0]}
+4. Creating actionable steps the recipient can take
+
+CORRECTED BRIDGING EXAMPLES:
+- If writer receives "quality time" and recipient gives "acts of service": "Handle their daily tasks so you can spend focused time together"
+- If writer receives "words of affirmation" and recipient gives "acts of service": "Do helpful things while expressing specific appreciation for what they mean to you"
+- If writer receives "physical touch" and recipient gives "quality time": "Plan focused time together that includes physical closeness like cuddling during conversation"
+
+The suggestion should help ${recipient.user_name} give love in a way that ${writerReceivesLove[0].replace('_', ' ')} their partner, using ${recipient.user_name}'s natural ${recipientGivesLove[0].replace('_', ' ')} approach.
+
+Return ONLY a valid JSON array:
 [
   {
-    "suggestion_type": "quality_time|words_of_affirmation|physical_touch|acts_of_service|receiving_gifts|emotional_support|communication|stress_support",
-    "suggestion_text": "Specific actionable suggestion (2-3 sentences max)",
-    "anonymized_context": "Brief explanation of why this would be helpful (without revealing journal content)",
-    "priority_score": 1-10,
-    "confidence_score": 0.1-1.0,
-    "source_need_intensity": 1-10
+    "suggestion_type": "${writerReceivesLove[0]}",
+    "suggestion_text": "Specific actionable suggestion for ${recipient.user_name} to help their partner using the partner's preferred receiving style",
+    "anonymized_context": "Why this approach works: bridges ${recipient.user_name}'s giving style with their partner's receiving needs",
+    "priority_score": 8,
+    "confidence_score": 0.8,
+    "source_need_intensity": 7
   }
 ]`
 
   try {
     if (!process.env.XAI_API_KEY) {
-      console.log('⚠️ No XAI_API_KEY found, using rule-based fallback')
-      return generateRuleBasedSuggestions(journalEntries, recipient, maxSuggestions)
+      console.log('⚠️ No XAI_API_KEY found, using enhanced rule-based fallback')
+      return generateEnhancedRuleBasedSuggestions(
+        journalEntries, 
+        recipient, 
+        recipientGivesLove,
+        writerReceivesLove,
+        maxSuggestions
+      )
     }
 
-    console.log('🤖 Calling xAI Grok API for suggestion generation...')
+    console.log('🤖 Calling xAI Grok API for CORRECTED suggestion generation...')
     
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -308,156 +357,243 @@ Return ONLY a JSON array with exactly this structure:
         messages: [
           {
             role: 'system',
-            content: 'You are a professional relationship coach specializing in partner support strategies. Always respond with valid JSON only. Focus on actionable, practical suggestions that protect privacy while helping partners connect.'
+            content: 'You are a professional relationship coach specializing in love language compatibility. Always respond with valid JSON only. Focus on helping people give love in ways their partners can best receive it.'
           },
           {
             role: 'user',
-            content: prompt
+            content: enhancedPrompt
           }
         ],
         model: 'grok-4',
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 1200
       })
     })
 
     if (!response.ok) {
+      console.error(`❌ xAI API HTTP error: ${response.status} ${response.statusText}`)
       throw new Error(`xAI API error: ${response.statusText}`)
     }
 
     const data = await response.json()
-    const aiSuggestions = JSON.parse(data.choices[0].message.content)
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      console.error('❌ xAI API returned malformed response:', data)
+      throw new Error('xAI API returned malformed response')
+    }
 
-    console.log(`✅ Generated ${aiSuggestions.length} AI suggestions`)
-    return aiSuggestions
+    const rawContent = data.choices[0].message.content.trim()
+    console.log('🔍 Raw AI response:', rawContent.substring(0, 200) + '...')
+
+    let cleanContent = rawContent
+    cleanContent = cleanContent.replace(/```json\s*/g, '').replace(/```\s*/g, '')
+    
+    const jsonMatch = cleanContent.match(/\[[\s\S]*\]/)
+    if (jsonMatch) {
+      cleanContent = jsonMatch[0]
+    }
+
+    let aiSuggestions
+    try {
+      aiSuggestions = JSON.parse(cleanContent)
+    } catch (parseError) {
+      console.error('❌ JSON parse error. Raw content:', rawContent)
+      throw new Error(`JSON parse failed: ${parseError}`)
+    }
+
+    if (!Array.isArray(aiSuggestions)) {
+      console.error('❌ AI response is not an array:', aiSuggestions)
+      throw new Error('AI response is not an array')
+    }
+
+    const validSuggestions = aiSuggestions.filter(s => 
+      s.suggestion_type && 
+      s.suggestion_text && 
+      s.anonymized_context &&
+      typeof s.priority_score === 'number' &&
+      typeof s.confidence_score === 'number'
+    )
+
+    if (validSuggestions.length === 0) {
+      console.error('❌ No valid suggestions in AI response:', aiSuggestions)
+      throw new Error('No valid suggestions generated')
+    }
+
+    console.log(`✅ Generated ${validSuggestions.length} CORRECTED AI suggestions with proper love language bridging`)
+    return validSuggestions
 
   } catch (error) {
-    console.error('❌ xAI API error, falling back to rule-based suggestions:', error)
-    return generateRuleBasedSuggestions(journalEntries, recipient, maxSuggestions)
+    console.error('❌ xAI API error, falling back to enhanced rule-based suggestions:', error)
+    return generateEnhancedRuleBasedSuggestions(
+      journalEntries, 
+      recipient, 
+      recipientGivesLove,
+      writerReceivesLove,
+      maxSuggestions
+    )
   }
 }
 
-// Fallback rule-based suggestion generation
-function generateRuleBasedSuggestions(
+// FIXED: TypeScript safe rule-based fallback
+function generateEnhancedRuleBasedSuggestions(
   journalEntries: JournalEntry[],
   recipient: RelationshipMember,
+  recipientGivesLove: string[],
+  writerReceivesLove: string[],
   maxSuggestions: number
 ): GeneratedSuggestion[] {
   
   const allContent = journalEntries.map(e => e.content.toLowerCase()).join(' ')
   const suggestions: GeneratedSuggestion[] = []
+  
+  const primaryGive = recipientGivesLove[0] || 'acts_of_service'
+  const primaryReceive = writerReceivesLove[0] || 'quality_time'
 
-  // Analyze content for common patterns
+  console.log(`🔍 RULE-BASED: ${recipient.user_name} gives via ${primaryGive}, writer receives via ${primaryReceive}`)
+
   if (allContent.includes('tired') || allContent.includes('stressed') || allContent.includes('overwhelmed')) {
-    suggestions.push({
-      suggestion_type: 'acts_of_service',
-      suggestion_text: 'Consider offering to help with daily tasks or household responsibilities to give your partner some breathing room.',
-      anonymized_context: 'Your partner might benefit from some practical support right now',
-      priority_score: 8,
-      confidence_score: 0.8,
-      source_need_intensity: 7
-    })
+    
+    if (primaryReceive === 'quality_time' && primaryGive === 'acts_of_service') {
+      suggestions.push({
+        suggestion_type: 'quality_time',
+        suggestion_text: 'Handle their daily responsibilities so you can spend some focused, uninterrupted time together. Say: "Let me take care of these tasks so we can just relax together."',
+        anonymized_context: 'They need quality time support, delivered through your service-oriented approach',
+        priority_score: 9,
+        confidence_score: 0.9,
+        source_need_intensity: 8
+      })
+    } else if (primaryReceive === 'words_of_affirmation' && primaryGive === 'acts_of_service') {
+      suggestions.push({
+        suggestion_type: 'words_of_affirmation',
+        suggestion_text: 'Express specific appreciation while helping: "I can see how hard you\'re working, and I want you to know how much I admire your dedication. Let me help with this."',
+        anonymized_context: 'They need verbal encouragement, which you can give while being helpful',
+        priority_score: 9,
+        confidence_score: 0.9,
+        source_need_intensity: 8
+      })
+    } else {
+      suggestions.push({
+        suggestion_type: primaryReceive,
+        suggestion_text: `Your partner is stressed and would benefit from ${primaryReceive.replace('_', ' ')}. Consider offering support in this specific way since it matches how they best receive care.`,
+        anonymized_context: `They need ${primaryReceive.replace('_', ' ')} support right now`,
+        priority_score: 8,
+        confidence_score: 0.8,
+        source_need_intensity: 7
+      })
+    }
   }
 
   if (allContent.includes('miss') || allContent.includes('time together') || allContent.includes('connect')) {
-    suggestions.push({
-      suggestion_type: 'quality_time',
-      suggestion_text: 'Plan some dedicated one-on-one time together without distractions - perhaps a walk, shared meal, or activity you both enjoy.',
-      anonymized_context: 'Quality time and connection would strengthen your bond right now',
-      priority_score: 9,
-      confidence_score: 0.9,
-      source_need_intensity: 8
-    })
+    
+    if (primaryReceive === 'quality_time') {
+      suggestions.push({
+        suggestion_type: 'quality_time',
+        suggestion_text: 'Plan some dedicated one-on-one time together doing something you both enjoy, with phones away and full attention on each other.',
+        anonymized_context: 'They\'re craving connection and quality time is their primary love language',
+        priority_score: 10,
+        confidence_score: 0.95,
+        source_need_intensity: 9
+      })
+    } else if (primaryReceive === 'physical_touch') {
+      suggestions.push({
+        suggestion_type: 'physical_touch',
+        suggestion_text: 'Suggest spending time together with intentional physical closeness - maybe cuddling while watching something, giving a massage, or simply holding hands during conversation.',
+        anonymized_context: 'They\'re missing connection and respond best to physical expressions of love',
+        priority_score: 9,
+        confidence_score: 0.9,
+        source_need_intensity: 8
+      })
+    }
   }
 
   if (allContent.includes('appreciate') || allContent.includes('grateful') || allContent.includes('thank')) {
-    suggestions.push({
-      suggestion_type: 'words_of_affirmation',
-      suggestion_text: 'Express specific appreciation for something your partner has done recently that made a difference in your life.',
-      anonymized_context: 'Your partner values recognition and verbal appreciation',
-      priority_score: 7,
-      confidence_score: 0.7,
-      source_need_intensity: 6
-    })
-  }
-
-  if (allContent.includes('physical') || allContent.includes('hug') || allContent.includes('touch')) {
-    suggestions.push({
-      suggestion_type: 'physical_touch',
-      suggestion_text: 'Offer more physical affection through hugs, gentle touches, or cuddling during relaxing moments together.',
-      anonymized_context: 'Physical connection and affection would be meaningful to your partner',
-      priority_score: 8,
-      confidence_score: 0.8,
-      source_need_intensity: 7
-    })
-  }
-
-  // Default suggestion if no patterns detected
-  if (suggestions.length === 0) {
-    suggestions.push({
-      suggestion_type: 'communication',
-      suggestion_text: 'Check in with your partner about how they\'re feeling and ask if there\'s any way you can support them today.',
-      anonymized_context: 'Open communication strengthens your relationship foundation',
-      priority_score: 6,
-      confidence_score: 0.6,
-      source_need_intensity: 5
-    })
+    
+    if (primaryReceive === 'words_of_affirmation') {
+      suggestions.push({
+        suggestion_type: 'words_of_affirmation',
+        suggestion_text: 'Express specific, heartfelt appreciation for something meaningful they\'ve done recently. Be detailed about how their actions impacted you positively.',
+        anonymized_context: 'They\'re in an appreciative mood and words of affirmation are their primary way of feeling loved',
+        priority_score: 9,
+        confidence_score: 0.9,
+        source_need_intensity: 7
+      })
+    } else if (primaryReceive === 'receiving_gifts' && primaryGive === 'quality_time') {
+      suggestions.push({
+        suggestion_type: 'receiving_gifts',
+        suggestion_text: 'Consider giving them a small, thoughtful gift that shows you\'ve been paying attention to their interests, and present it during focused time together.',
+        anonymized_context: 'Bridges their appreciation for thoughtful gifts with your preference for spending quality time',
+        priority_score: 8,
+        confidence_score: 0.8,
+        source_need_intensity: 6
+      })
+    }
   }
 
   return suggestions.slice(0, maxSuggestions)
 }
 
-// Helper function: Get relationship context
+// Helper function: Get relationship context with partner profiles
 async function getRelationshipContext(supabase: any, relationshipId: string): Promise<RelationshipContext> {
-  console.log('🔍 Getting relationship context for:', relationshipId)
-
   try {
-    // Get relationship members with user data
+    // Get relationship members
     const { data: members, error: membersError } = await supabase
       .from('relationship_members')
       .select(`
         user_id,
         role,
         users (
-          id,
-          email,
-          full_name
+          full_name,
+          email
         )
       `)
       .eq('relationship_id', relationshipId)
 
-    if (membersError) {
+    if (membersError || !members || members.length === 0) {
       console.error('❌ Error fetching relationship members:', membersError)
       return { isValid: false, partners: [], partnerProfiles: [] }
     }
 
-    if (!members || members.length < 2) {
-      console.log(`❌ Insufficient relationship members: ${members?.length || 0}`)
-      return { isValid: false, partners: [], partnerProfiles: [] }
-    }
-
-    // Build partners array
     const partners: RelationshipMember[] = members.map((member: any) => ({
       user_id: member.user_id,
-      user_name: member.users?.full_name || member.users?.email || `User ${member.user_id.substring(0, 8)}`,
-      role: member.role
+      user_name: member.users?.full_name || member.users?.email || 'Unknown',
+      role: member.role || null
     }))
 
-    // Get partner profiles
+    // CORRECTED: Access actual database columns directly
     const userIds = partners.map(p => p.user_id)
-    const { data: profiles } = await supabase
+    const { data: profiles, error: profilesError } = await supabase
       .from('enhanced_onboarding_responses')
-      .select('user_id, responses')
+      .select(`
+        user_id, 
+        love_language_ranking,
+        communication_style,
+        ai_profile_data,
+        expression_preferences,
+        intimacy_priorities,
+        primary_goals
+      `)
       .in('user_id', userIds)
+
+    if (profilesError) {
+      console.error('❌ Error fetching profiles:', profilesError)
+    }
 
     const partnerProfiles: PartnerProfile[] = (profiles || []).map((profile: any) => ({
       user_id: profile.user_id,
-      ai_profile_data: profile.responses,
-      love_language_ranking: profile.responses?.loveLanguageReceive || [],
-      communication_style: profile.responses?.communicationStyle || 'unknown'
+      ai_profile_data: profile.ai_profile_data || {},
+      // CORRECTED: Use direct column access instead of nested responses
+      love_language_ranking: profile.love_language_ranking || [],
+      communication_style: profile.communication_style || 'unknown'
     }))
 
     console.log(`✅ Valid relationship context: ${partners.length} members, ${partnerProfiles.length} profiles`)
+    
+    // ENHANCED: Debug actual data structure
+    partnerProfiles.forEach(profile => {
+      console.log(`🔍 FIXED Profile ${profile.user_id}: love_language_ranking = ${JSON.stringify(profile.love_language_ranking)}`)
+      console.log(`🔍 FIXED Profile ${profile.user_id}: communication_style = ${profile.communication_style}`)
+      console.log(`🔍 FIXED Profile ${profile.user_id}: ai_profile_data = ${profile.ai_profile_data ? 'exists' : 'null'}`)
+    })
 
     return {
       isValid: true,
@@ -488,13 +624,13 @@ async function saveSuggestionsToDatabase(
     suggestion_text: s.suggestion_text,
     anonymized_context: s.anonymized_context,
     priority_score: s.priority_score,
-    confidence_score: Math.round(s.confidence_score * 10), // Convert to integer
-    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+    confidence_score: Math.round(s.confidence_score * 10),
+    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     validation_passed: true,
     created_at: new Date().toISOString()
   }))
 
-  console.log(`💾 Saving ${suggestionInserts.length} AI-generated suggestions to database...`)
+  console.log(`💾 Saving ${suggestionInserts.length} ENHANCED AI-generated suggestions to database...`)
 
   const { data: savedSuggestions, error } = await supabase
     .from('partner_suggestions')
@@ -506,7 +642,7 @@ async function saveSuggestionsToDatabase(
     throw new Error(`Failed to save suggestions: ${error.message}`)
   }
 
-  console.log(`✅ Successfully saved ${savedSuggestions?.length || 0} AI-generated suggestions`)
+  console.log(`✅ Successfully saved ${savedSuggestions?.length || 0} ENHANCED AI-generated suggestions`)
   return savedSuggestions || []
 }
 
@@ -521,7 +657,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }, { status: 400 })
   }
 
-  // Trigger suggestion generation for testing
   return POST(new NextRequest(request.url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
