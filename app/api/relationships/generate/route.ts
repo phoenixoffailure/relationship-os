@@ -235,8 +235,8 @@ async function getRecentJournalEntries(
 
 // FIXED: TypeScript safe version with better data access
 async function generateEnhancedAISuggestions(
-  journalEntries: JournalEntry[],
-  recipient: RelationshipMember,
+  journalEntries: any[],
+  recipient: any, 
   recipientProfile: PartnerProfile | undefined,
   journalWriterProfile: PartnerProfile | undefined,
   maxSuggestions: number
@@ -246,17 +246,13 @@ async function generateEnhancedAISuggestions(
     .map(entry => `Entry from ${entry.created_at.split('T')[0]}: ${entry.content}`)
     .join('\n\n')
 
-  // CORRECTED: Access love languages from actual database structure
-  // How the RECIPIENT naturally gives love
-  let recipientGivesLove: string[] = ['acts_of_service'] // Default
-  
+  // Get love language preferences (existing logic preserved)
+  let recipientGivesLove: string[] = ['acts_of_service']
   if (recipientProfile) {
-    // First try ai_profile_data if it exists and has the right structure
     if (recipientProfile.ai_profile_data?.love_language_profile?.partnerGuidance && 
         Array.isArray(recipientProfile.ai_profile_data.love_language_profile.partnerGuidance)) {
       recipientGivesLove = recipientProfile.ai_profile_data.love_language_profile.partnerGuidance
     }
-    // Fallback to direct love_language_ranking column
     else if (recipientProfile.love_language_ranking && 
              Array.isArray(recipientProfile.love_language_ranking) && 
              recipientProfile.love_language_ranking.length > 0) {
@@ -266,11 +262,8 @@ async function generateEnhancedAISuggestions(
   
   const recipientCommunicationStyle = recipientProfile?.communication_style || 'thoughtful'
   
-  // How the WRITER (journal author) likes to RECEIVE love  
-  let writerReceivesLove: string[] = ['quality_time'] // Default
-  
+  let writerReceivesLove: string[] = ['quality_time']
   if (journalWriterProfile) {
-    // Use direct love_language_ranking column from database
     if (journalWriterProfile.love_language_ranking && 
         Array.isArray(journalWriterProfile.love_language_ranking) && 
         journalWriterProfile.love_language_ranking.length > 0) {
@@ -294,45 +287,66 @@ async function generateEnhancedAISuggestions(
     console.log(`🔍 FIXED DEBUG: Writer ai_profile_data keys:`, Object.keys(journalWriterProfile.ai_profile_data || {}))
   }
   
-  const enhancedPrompt = `You are an expert relationship coach creating personalized suggestions that bridge love language preferences.
+    const enhancedPrompt = `You are an expert relationship coach creating personalized suggestions using the four-pillar framework. Generate suggestions that bridge love language preferences and are categorized by relationship coaching pillars.
 
-PRIVATE JOURNAL CONTENT (DO NOT REVEAL DIRECTLY):
-${journalContent}
+    PRIVATE JOURNAL CONTENT (DO NOT REVEAL DIRECTLY):
+    ${journalContent}
 
-SUGGESTION RECIPIENT (Person who will ACT on this suggestion):
-- Name: ${recipient.user_name}
-- How they naturally GIVE love: ${recipientGivesLove.join(', ')}
-- Communication style: ${recipientCommunicationStyle}
+    SUGGESTION RECIPIENT (Person who will ACT on this suggestion):
+    - Name: ${recipient.user_name}
+    - How they naturally GIVE love: ${recipientGivesLove.join(', ')}
+    - Communication style: ${recipientCommunicationStyle}
 
-JOURNAL WRITER (Person who expressed the need):
-- How they prefer to RECEIVE love: ${writerReceivesLove.join(', ')}
+    JOURNAL WRITER (Person who expressed the need):
+    - How they prefer to RECEIVE love: ${writerReceivesLove.join(', ')}
 
-CORRECTED TASK: Generate ${maxSuggestions} suggestions for ${recipient.user_name} that tell them how to support their partner by:
+    FOUR-PILLAR FRAMEWORK:
+    Generate suggestions using these pillar types (select 2-3 most relevant):
 
-1. Identifying the underlying needs from the journal entries
-2. Suggesting actions that match how the WRITER likes to RECEIVE love: ${writerReceivesLove[0]}
-3. Phrasing the suggestion in a way that feels natural to the RECIPIENT's giving style: ${recipientGivesLove[0]}
-4. Creating actionable steps the recipient can take
+    🏛️ PILLAR 1 - PATTERN ANALYSIS ("What's happening"):
+    - Identify patterns in their partner's needs or relationship dynamics
+    - Help them understand recurring themes or situations
+    - Example: "Notice when your partner tends to need more quality time"
 
-CORRECTED BRIDGING EXAMPLES:
-- If writer receives "quality time" and recipient gives "acts of service": "Handle their daily tasks so you can spend focused time together"
-- If writer receives "words of affirmation" and recipient gives "acts of service": "Do helpful things while expressing specific appreciation for what they mean to you"
-- If writer receives "physical touch" and recipient gives "quality time": "Plan focused time together that includes physical closeness like cuddling during conversation"
+    🏛️ PILLAR 2 - ACTION STEPS ("What to do"):
+    - Specific, actionable recommendations they can implement
+    - Bridge their giving style with partner's receiving preferences
+    - Example: "Plan 30 minutes of focused conversation after dinner"
 
-The suggestion should help ${recipient.user_name} give love in a way that ${writerReceivesLove[0].replace('_', ' ')} their partner, using ${recipient.user_name}'s natural ${recipientGivesLove[0].replace('_', ' ')} approach.
+    🏛️ PILLAR 3 - GRATITUDE & STRENGTHS ("What's working"):
+    - Acknowledge what they're already doing well
+    - Celebrate positive patterns or growth
+    - Example: "Your thoughtful gestures are making a real difference"
 
-Return ONLY a valid JSON array:
-[
-  {
-    "suggestion_type": "${writerReceivesLove[0]}",
-    "suggestion_text": "Specific actionable suggestion for ${recipient.user_name} to help their partner using the partner's preferred receiving style",
-    "anonymized_context": "Why this approach works: bridges ${recipient.user_name}'s giving style with their partner's receiving needs",
-    "priority_score": 8,
-    "confidence_score": 0.8,
-    "source_need_intensity": 7
-  }
-]`
+    🏛️ PILLAR 4 - PROGRESS & ACHIEVEMENTS ("How far you've come"):
+    - ONLY include IF there's genuine milestone or significant progress
+    - Celebrate meaningful relationship achievements
+    - Example: "You've both grown so much in handling stress together"
 
+    LOVE LANGUAGE BRIDGING EXAMPLES:
+    - If writer receives "quality time" and recipient gives "acts of service": "Handle their daily tasks so you can spend focused time together" (ACTION pillar)
+    - If writer receives "words of affirmation" and recipient gives "quality time": "During your time together, focus on expressing specific appreciation" (ACTION pillar)
+    - Pattern recognition: "You've noticed they withdraw when stressed - this shows great awareness" (PATTERN pillar)
+
+    TASK: Generate ${maxSuggestions} suggestions for ${recipient.user_name} that:
+    1. Address underlying needs without revealing journal content
+    2. Match how the WRITER likes to RECEIVE love: ${writerReceivesLove[0]}
+    3. Feel natural to the RECIPIENT's giving style: ${recipientGivesLove[0]}
+    4. Are categorized by the most relevant pillars (2-3 pillars total)
+    5. Only include MILESTONE pillar if there's genuine progress to celebrate
+
+    Return ONLY a valid JSON array:
+    [
+      {
+        "pillar_type": "pattern|action|gratitude|milestone",
+        "suggestion_type": "${writerReceivesLove[0]}",
+        "suggestion_text": "Specific actionable suggestion with pillar context",
+        "anonymized_context": "Why this approach works (pillar-aware explanation)",
+        "priority_score": 8,
+        "confidence_score": 0.8,
+        "source_need_intensity": 7
+      }
+    ]`;
   try {
     if (!process.env.XAI_API_KEY) {
       console.log('⚠️ No XAI_API_KEY found, using enhanced rule-based fallback')
