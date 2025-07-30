@@ -1,5 +1,5 @@
 // components/insights/EnhancedInsightsLayout.tsx
-// Improved insights organization with clear categories
+// Fixed version with pillar integration
 
 'use client'
 
@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
 import { PartnerSuggestions } from '@/components/dashboard/PartnerSuggestions'
+import { getPillarConfig, formatPillarTitle } from '@/lib/insights/pillar-helpers'
 
 interface InsightsLayoutProps {
   user: any
@@ -53,7 +54,7 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
         .select('*')
         .eq('generated_for_user', userId)
         .order('created_at', { ascending: false })
-        .limit(MAX_INSIGHTS_DISPLAY) // Add limit here
+        .limit(MAX_INSIGHTS_DISPLAY)
 
       if (data && !error) {
         setInsights(data)
@@ -71,7 +72,7 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
         .eq('recipient_user_id', userId)
         .gte('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
-        .limit(MAX_SUGGESTIONS_DISPLAY) // Add limit here
+        .limit(MAX_SUGGESTIONS_DISPLAY)
 
       if (data && !error) {
         setPartnerSuggestions(data)
@@ -189,6 +190,49 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
     return date.toLocaleDateString()
   }
 
+  // Enhanced pillar insight rendering
+  const renderPillarInsight = (insight: any) => {
+    const pillarConfig = getPillarConfig(insight.insight_type)
+    
+    return (
+      <div key={insight.id} className={`${pillarConfig.bgColor} ${pillarConfig.borderColor} border rounded-lg p-4 hover:shadow-md transition-shadow`}>
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-start space-x-3 flex-1">
+            <div className={`w-3 h-3 rounded-full mt-2 ${getPriorityColor(insight.priority)}`} />
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-2">
+                {/* Pillar indicator badge */}
+                <span className={`text-xs font-medium ${pillarConfig.textColor} bg-white px-2 py-1 rounded-full border ${pillarConfig.borderColor}`}>
+                  {pillarConfig.icon} {pillarConfig.name}
+                </span>
+                {!insight.is_read && (
+                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">New</span>
+                )}
+              </div>
+              <h4 className={`font-semibold ${pillarConfig.textColor} text-sm mb-1`}>
+                {insight.title}
+              </h4>
+              <p className="text-gray-600 text-xs mb-2">{formatInsightTime(insight.created_at)}</p>
+              <p className={`${pillarConfig.textColor} text-sm leading-relaxed`}>
+                {insight.description}
+              </p>
+            </div>
+          </div>
+          {!insight.is_read && (
+            <Button
+              onClick={() => markAsRead(insight.id)}
+              size="sm"
+              variant="outline"
+              className={`${pillarConfig.borderColor} ${pillarConfig.textColor} hover:${pillarConfig.bgColor}`}
+            >
+              Mark Read
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const unreadInsights = insights.filter(i => !i.is_read).length
   const newSuggestions = partnerSuggestions.filter(s => !s.delivered_at).length
 
@@ -296,37 +340,9 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
               <p className="text-gray-500">No personal insights yet. Write in your journal to get started!</p>
             </div>
           ) : (
-            insights.map((insight) => (
-              <div key={insight.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <div className={`w-3 h-3 rounded-full mt-2 ${getPriorityColor(insight.priority)}`} />
-                    <div className="mt-1">{getInsightTypeIcon(insight.insight_type)}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h4 className="font-semibold text-gray-900">{insight.title}</h4>
-                        {!insight.is_read && (
-                          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">New</span>
-                        )}
-                        <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Personal</span>
-                      </div>
-                      <p className="text-gray-600 text-sm mb-2">{formatInsightTime(insight.created_at)}</p>
-                      <p className="text-gray-700">{insight.description}</p>
-                    </div>
-                  </div>
-                  {!insight.is_read && (
-                    <Button
-                      onClick={() => markAsRead(insight.id)}
-                      size="sm"
-                      variant="outline"
-                      className="border-green-300 text-green-700"
-                    >
-                      Mark Read
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))
+            <div className="space-y-4">
+              {insights.map((insight) => renderPillarInsight(insight))}
+            </div>
           )}
         </div>
       )}
@@ -365,23 +381,29 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
               </div>
             </div>
 
-            {insights.slice(0, 3).map((insight) => (
-              <div key={insight.id} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start space-x-3">
-                  <div className={`w-2 h-2 rounded-full mt-2 ${getPriorityColor(insight.priority)}`} />
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h4 className="font-medium text-gray-900 text-sm">{insight.title}</h4>
-                      {!insight.is_read && (
-                        <span className="bg-green-100 text-green-800 text-xs px-1 py-0.5 rounded">New</span>
-                      )}
+            {insights.slice(0, 3).map((insight) => {
+              const pillarConfig = getPillarConfig(insight.insight_type)
+              return (
+                <div key={insight.id} className={`${pillarConfig.bgColor} ${pillarConfig.borderColor} border rounded-lg p-3 hover:shadow-md transition-shadow`}>
+                  <div className="flex items-start space-x-3">
+                    <div className={`w-2 h-2 rounded-full mt-2 ${getPriorityColor(insight.priority)}`} />
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="text-xs">{pillarConfig.icon}</span>
+                        <h4 className={`font-medium ${pillarConfig.textColor} text-sm`}>
+                          {insight.title}
+                        </h4>
+                        {!insight.is_read && (
+                          <span className="bg-green-100 text-green-800 text-xs px-1 py-0.5 rounded">New</span>
+                        )}
+                      </div>
+                      <p className="text-gray-600 text-xs mb-2">{formatInsightTime(insight.created_at)}</p>
+                      <p className={`${pillarConfig.textColor} text-sm line-clamp-2`}>{insight.description}</p>
                     </div>
-                    <p className="text-gray-600 text-xs mb-2">{formatInsightTime(insight.created_at)}</p>
-                    <p className="text-gray-700 text-sm line-clamp-2">{insight.description}</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {insights.length > 3 && (
               <Button

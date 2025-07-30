@@ -4,6 +4,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getPillarConfig, formatPillarTitle } from '@/lib/insights/pillar-helpers'
 
 export async function POST(request: Request) {
   console.log('🔍 Starting enhanced Grok insights generation with relationship context...')
@@ -329,6 +330,11 @@ function analyzePatterns(journals: any[], checkins: any[], relationshipContext: 
   return patterns
 }
 
+function validatePillarType(type: string): string {
+  const validTypes = ['pattern', 'suggestion', 'appreciation', 'milestone']
+  return validTypes.includes(type) ? type : 'suggestion'
+}
+
 // STEP 2: Replace the getRelationshipStage function in app/api/insights/generate/route.ts
 // Replace the getRelationshipStage function in app/api/insights/generate/route.ts
 
@@ -474,57 +480,135 @@ async function callEnhancedGrokAPI(context: any) {
     return null
   }
 
-  const relationshipAwarePrompt = `You are an expert relationship coach AI analyzing user data to provide personalized insights. Based on the following relationship context and patterns, generate 2-4 specific, actionable insights that consider their relationship status and partner dynamics.
+  function validateAndStructureInsights(insights: any[]) {
+  const requiredTypes = ['pattern', 'suggestion', 'appreciation']
+  const structuredInsights = []
+  
+  // Ensure we have one of each required type
+  for (const requiredType of requiredTypes) {
+    const insight = insights.find(i => i.type === requiredType)
+    if (insight) {
+      structuredInsights.push(insight)
+    } else {
+      // Generate fallback if missing
+      console.log(`⚠️ Missing ${requiredType} insight, adding fallback`)
+      structuredInsights.push(generateFallbackInsight(requiredType))
+    }
+  }
+  
+  // Add milestone if present and valid
+  const milestoneInsight = insights.find(i => i.type === 'milestone')
+  if (milestoneInsight && milestoneInsight.description.length > 50) {
+    structuredInsights.push(milestoneInsight)
+  }
+  
+  console.log('🎯 Structured insights distribution:', {
+    pattern: structuredInsights.filter(i => i.type === 'pattern').length,
+    suggestion: structuredInsights.filter(i => i.type === 'suggestion').length, 
+    appreciation: structuredInsights.filter(i => i.type === 'appreciation').length,
+    milestone: structuredInsights.filter(i => i.type === 'milestone').length
+  })
+  
+  return structuredInsights
+}
+
+function generateFallbackInsight(type: string) {
+  const fallbacks = {
+    pattern: {
+      type: 'pattern',
+      priority: 'medium',
+      title: 'Relationship Engagement Pattern',
+      description: 'Your consistent use of this relationship tracking tool shows a pattern of intentional relationship investment. This proactive approach to relationship health is a positive indicator.'
+    },
+    suggestion: {
+      type: 'suggestion', 
+      priority: 'medium',
+      title: 'Continue Building Connection',
+      description: 'Focus on one small act of connection today - whether it\'s a thoughtful text, a moment of physical affection, or simply asking how your partner\'s day went.'
+    },
+    appreciation: {
+      type: 'appreciation',
+      priority: 'low', 
+      title: 'Growth Mindset Recognition',
+      description: 'Your commitment to relationship growth through tracking and reflection demonstrates emotional maturity and genuine care for your relationship\'s wellbeing.'
+    }
+  }
+  
+  return fallbacks[type as keyof typeof fallbacks] || fallbacks.suggestion
+}
+
+  // Structured 3+1 prompt for consistent insight generation
+  const structuredPrompt = `You are an expert relationship coach AI. Generate exactly 3 core insights plus 1 optional milestone insight based on the user's data.
 
 USER & RELATIONSHIP CONTEXT:
 - Relationship stage: ${context.relationshipStage}
-- Has active partnership: ${context.hasActivePartnership}
-- Partner count: ${context.partnerCount}
-- Relationship types: ${context.relationshipTypes?.join(', ') || 'none'}
-- Communication style: ${context.conflictStyle} conflict approach, ${context.stressResponse} when stressed
-- Shows love through: ${context.loveLanguageGive?.join(' and ') || 'unknown'}
-- Receives love through: ${context.loveLanguageReceive?.join(' and ') || 'unknown'}
-- Primary goals: ${context.relationshipGoals?.join(', ') || 'general improvement'}
-${context.additionalGoals ? `- Additional focus: ${context.additionalGoals}` : ''}
+- Partnership status: ${context.hasActivePartnership ? 'Partnered' : 'Single'}
+- Communication style: ${context.conflictStyle} conflict approach
+- Love languages: Give ${context.loveLanguageGive?.join(' & ') || 'unknown'} | Receive ${context.loveLanguageReceive?.join(' & ') || 'unknown'}
+- Connection score: ${context.avgConnectionScore}/10 (trend: ${context.trend > 0 ? 'improving' : context.trend < 0 ? 'declining' : 'stable'})
+- Mood: ${context.avgMoodFromCheckins}/10
+- Activity: ${context.totalActivity} entries, ${context.gratitudeCount} gratitudes, ${context.challengeCount} challenges
 
-CURRENT PATTERNS & ACTIVITY:
-- Overall connection score: ${context.avgConnectionScore}/10 (recent trend: ${context.trend > 0 ? 'improving' : context.trend < 0 ? 'declining' : 'stable'})
-- Relationship-specific connection: ${context.avgRelationshipConnection ? `${context.avgRelationshipConnection}/10` : 'not tracked'}
-- Average mood: ${context.avgMoodFromCheckins}/10
-- Relationship check-ins: ${context.relationshipCheckinsCount} | Solo check-ins: ${context.soloCheckinsCount}
-- Recent gratitudes: ${context.recentGratitudes?.length || 0} noted
-- Recent challenges: ${context.recentChallenges?.length || 0} noted
-- Total activity: ${context.totalActivity} entries
+REQUIRED STRUCTURE - Generate exactly these 3 insights + 1 optional:
 
-RELATIONSHIP STAGE GUIDANCE:
-${context.relationshipStage === 'single' ? '- Focus on self-development and preparing for future relationships' : ''}
-${context.relationshipStage === 'new' ? '- Focus on building trust, establishing communication patterns, and learning about each other' : ''}
-${context.relationshipStage === 'developing' ? '- Focus on deepening intimacy, navigating conflicts constructively, and aligning future goals' : ''}
-${context.relationshipStage === 'established' ? '- Focus on maintaining connection, managing routine, and continuing growth together' : ''}
-${context.relationshipStage === 'longterm' ? '- Focus on rekindling romance, navigating life changes, and celebrating your journey together' : ''}
+1. PATTERN INSIGHT (type: "pattern") - REQUIRED
+   - Analyze their relationship data patterns and trends
+   - Reference their connection scores, mood trends, or behavioral patterns
+   - Focus on "what's happening" - objective observation
 
-Generate personalized insights that:
-1. Consider their specific relationship stage and partnership status
-2. Reference their communication style and love languages
-3. Address their stated relationship goals
-4. Are actionable and specific (not generic advice)
-5. Consider their current patterns and mood trends
-6. If they have partners, suggest ways to strengthen the partnership
-7. If they're single, focus on self-development and relationship readiness
+2. ACTION INSIGHT (type: "suggestion") - REQUIRED  
+   - Specific actionable step for improvement
+   - Reference their love languages and communication style
+   - Focus on "what to do" - concrete next steps
 
-Return only a JSON array of 2-4 insights with this exact structure:
+3. WINS INSIGHT (type: "appreciation") - REQUIRED
+   - Recognize positive patterns and strengths
+   - Celebrate what's working well in their relationship/personal growth
+   - Focus on "what's working" - positive reinforcement
+
+4. MILESTONE INSIGHT (type: "milestone") - ONLY IF APPLICABLE
+   - Include ONLY if they have significant progress to celebrate
+   - Examples: consistent tracking, improvement trends, relationship anniversaries
+   - Skip this if no clear milestone exists
+
+Generate insights that consider their ${context.relationshipStage} relationship stage and ${context.hasActivePartnership ? 'partnered' : 'single'} status.
+
+Return valid JSON array with exactly 3-4 insights:
 [
   {
-    "type": "suggestion|appreciation|milestone|pattern",
-    "priority": "high|medium|low", 
-    "title": "Brief descriptive title",
-    "description": "Specific actionable insight considering their relationship status and preferences",
+    "type": "pattern",
+    "priority": "high|medium|low",
+    "title": "Brief pattern analysis title",
+    "description": "Data-driven insight about their relationship patterns",
+    "relationship_id": null
+  },
+  {
+    "type": "suggestion", 
+    "priority": "high|medium|low",
+    "title": "Specific action step title",
+    "description": "Actionable recommendation considering their context",
+    "relationship_id": null
+  },
+  {
+    "type": "appreciation",
+    "priority": "medium|low",
+    "title": "Positive recognition title", 
+    "description": "Celebration of their strengths and positive patterns",
+    "relationship_id": null
+  },
+  {
+    "type": "milestone",
+    "priority": "low",
+    "title": "Progress celebration title",
+    "description": "Recognition of significant progress or achievement",
     "relationship_id": null
   }
-]`
+]
+
+Only include the milestone insight if there is genuine progress to celebrate.`
 
   try {
-    console.log('🤖 Calling enhanced xAI Grok API with relationship context...')
+    console.log('🤖 Calling structured 3+1 pillar Grok API...')
     
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -536,77 +620,66 @@ Return only a JSON array of 2-4 insights with this exact structure:
         messages: [
           {
             role: 'system',
-            content: 'You are a professional relationship coach with expertise in couples therapy, attachment theory, and relationship dynamics. Always respond with valid JSON only. Be specific and reference the user\'s relationship stage, communication style, and love languages in your insights.'
+            content: 'You are a professional relationship coach specializing in structured insight delivery. Always generate exactly 1 pattern + 1 action + 1 wins insight, plus 1 optional milestone. Respond with valid JSON only.'
           },
           {
             role: 'user',
-            content: relationshipAwarePrompt
+            content: structuredPrompt
           }
         ],
         model: 'grok-4',
-        temperature: 0.8,
-        max_tokens: 1200,
+        temperature: 0.7,
+        max_tokens: 1000,
         stream: false
       }),
     })
 
-    console.log('📡 Enhanced API Response status:', response.status, response.statusText)
-
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('❌ Enhanced Grok API error response:', errorText)
-      throw new Error(`Enhanced Grok API error: ${response.status} ${response.statusText}`)
+      throw new Error(`Structured Grok API error: ${response.status}`)
     }
 
     const data = await response.json()
-    console.log('🤖 Enhanced Grok API response received successfully')
     
-    if (data.choices && data.choices[0] && data.choices[0].message) {
+    if (data.choices?.[0]?.message?.content) {
       const content = data.choices[0].message.content.trim()
-      console.log('📝 Raw enhanced Grok response:', content.substring(0, 300) + '...')
       
       try {
-        // Clean and parse the response
         let jsonContent = content
         if (content.includes('```json')) {
           jsonContent = content.split('```json')[1].split('```')[0].trim()
-        } else if (content.includes('```')) {
-          jsonContent = content.split('```')[1].split('```')[0].trim()
         } else if (content.includes('[')) {
           const startIndex = content.indexOf('[')
           const endIndex = content.lastIndexOf(']') + 1
           jsonContent = content.substring(startIndex, endIndex)
         }
         
-        console.log('🔧 Cleaned enhanced JSON content:', jsonContent.substring(0, 200) + '...')
-        
         const insights = JSON.parse(jsonContent)
         
-        if (Array.isArray(insights) && insights.length > 0) {
-          console.log('✅ Successfully parsed', insights.length, 'enhanced relationship-aware insights')
-          return insights.slice(0, 4).map((insight: any) => ({
-            type: insight.type || 'suggestion',
+        if (Array.isArray(insights) && insights.length >= 3) {
+          console.log('✅ Generated structured 3+1 insights:', insights.length)
+          
+          // Validate structure: ensure we have pattern, suggestion, appreciation
+          const processedInsights = validateAndStructureInsights(insights)
+          
+          return processedInsights.map((insight: any) => ({
+            type: validatePillarType(insight.type),
             priority: insight.priority || 'medium',
-            title: insight.title || 'Relationship Insight',
-            description: insight.description || 'Continue building your relationship.',
+            title: insight.title || 'Personal Growth Insight',
+            description: insight.description || 'Continue developing your relationship skills.',
             relationship_id: insight.relationship_id || null,
-            category: 'enhanced-grok-4-generated'
+            category: 'structured-grok-generated'
           }))
-        } else {
-          console.log('⚠️ Enhanced parsed response is not a valid array:', insights)
-          return null
         }
       } catch (parseError) {
-        console.error('❌ Failed to parse enhanced Grok JSON response:', parseError)
-        return extractInsightsFromText(content)
+        console.error('❌ Failed to parse structured Grok response:', parseError)
+        return null
       }
-    } else {
-      console.error('❌ Unexpected enhanced API response structure:', data)
-      return null
     }
     
+    return null
+    
   } catch (error) {
-    console.error('❌ Enhanced Grok API call failed:', error)
+    console.error('❌ Structured Grok API call failed:', error)
     throw error
   }
 }
@@ -629,83 +702,146 @@ function extractInsightsFromText(content: string) {
 }
 
 function generateEnhancedRelationshipInsights(patterns: any, onboarding: any, relationshipContext: any) {
-  console.log('🔧 Generating enhanced relationship-aware rule-based insights')
+  console.log('🔧 Generating structured 3+1 rule-based insights')
   
   const insights = []
 
-  // Single vs partnered insights
-  if (!patterns.hasActivePartnership) {
-    // Single person insights
-    if (patterns.avgMoodFromCheckins >= 7 && patterns.gratitudeCount > 0) {
-      insights.push({
-        type: 'appreciation',
-        priority: 'medium',
-        title: 'Building Relationship Readiness',
-        description: `Your positive mood (${patterns.avgMoodFromCheckins}/10) and gratitude practice are excellent foundations for future relationships. Consider reflecting on what qualities you'd want in a partner and what you bring to a relationship.`,
-        relationship_id: null,
-        category: 'enhanced-rule-based'
-      })
-    }
+  // 1. PATTERN INSIGHT - Always generate
+  insights.push(generatePatternInsight(patterns, onboarding, relationshipContext))
+  
+  // 2. ACTION INSIGHT - Always generate  
+  insights.push(generateActionInsight(patterns, onboarding, relationshipContext))
+  
+  // 3. WINS INSIGHT - Always generate
+  insights.push(generateWinsInsight(patterns, onboarding, relationshipContext))
+  
+  // 4. MILESTONE INSIGHT - Only if applicable
+  const milestoneInsight = generateMilestoneInsight(patterns, onboarding, relationshipContext)
+  if (milestoneInsight) {
+    insights.push(milestoneInsight)
+  }
 
-    if (onboarding.relationshipGoals?.includes('communication')) {
-      insights.push({
-        type: 'suggestion',
-        priority: 'high',
-        title: 'Communication Skills Development',
-        description: `Since you want to improve communication and prefer ${onboarding.conflictStyle || 'thoughtful'} approaches to conflict, consider practicing active listening and expressing needs clearly. These skills will serve you well in future relationships.`,
-        relationship_id: null,
-        category: 'enhanced-rule-based'
-      })
+  console.log('🔧 Generated structured insights:', {
+    total: insights.length,
+    types: insights.map(i => i.type)
+  })
+  
+  return insights
+}
+
+function getLoveLanguageAction(loveLanguage: string): string {
+  const actions = {
+    physical_touch: 'Plan more hugs, hand-holding, or physical affection moments.',
+    quality_time: 'Schedule uninterrupted one-on-one time or meaningful conversations.',
+    words_of_affirmation: 'Practice giving specific compliments and expressing appreciation verbally.',
+    acts_of_service: 'Look for ways to help with tasks or do something thoughtful.',
+    receiving_gifts: 'Consider small, meaningful tokens of appreciation or surprise gestures.'
+  }
+  return actions[loveLanguage as keyof typeof actions] || 'Focus on expressing care in meaningful ways.'
+}
+
+// REPLACE/ADD these specific insight generators:
+function generatePatternInsight(patterns: any, onboarding: any, relationshipContext: any) {
+  const connectionTrend = patterns.trend > 0 ? 'improving' : patterns.trend < 0 ? 'declining' : 'stable'
+  const activityLevel = patterns.totalActivity > 10 ? 'high' : patterns.totalActivity > 5 ? 'moderate' : 'emerging'
+  
+  return {
+    type: 'pattern',
+    priority: patterns.avgConnectionScore < 6 ? 'high' : 'medium',
+    title: `${connectionTrend.charAt(0).toUpperCase() + connectionTrend.slice(1)} Connection Pattern`,
+    description: `Analysis of your relationship data shows ${connectionTrend} connection scores (${patterns.avgConnectionScore}/10) with ${activityLevel} engagement levels. ${
+      patterns.hasActivePartnership 
+        ? `Your ${patterns.relationshipStage} relationship shows ${patterns.relationshipCheckinsCount} relationship check-ins vs ${patterns.soloCheckinsCount} personal ones, indicating ${patterns.relationshipCheckinsCount > patterns.soloCheckinsCount ? 'strong partnership focus' : 'balanced individual and couple growth'}.`
+        : `Your personal growth tracking shows ${patterns.totalActivity} entries, indicating ${activityLevel} self-awareness development.`
+    }`,
+    relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
+    category: 'structured-rule-based'
+  }
+}
+
+function generateActionInsight(patterns: any, onboarding: any, relationshipContext: any) {
+  const primaryLoveLanguage = onboarding?.love_language_ranking?.[0] || 'quality_time'
+  const communicationStyle = onboarding?.communication_style || 'thoughtful'
+  
+  if (patterns.hasActivePartnership) {
+    return {
+      type: 'suggestion',
+      priority: patterns.avgConnectionScore < 6 ? 'high' : 'medium',
+      title: `Strengthen Connection Through ${primaryLoveLanguage.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}`,
+      relationship_id: relationshipContext.relationships[0]?.id || null,
+      category: 'structured-rule-based'
     }
   } else {
-    // Partnered insights
-    const relationshipStageAdvice = getStageSpecificAdvice(patterns.relationshipStage, onboarding)
-    if (relationshipStageAdvice) {
-      insights.push(relationshipStageAdvice)
-    }
-
-    // Connection score insights for partners
-    if (patterns.avgRelationshipConnection && patterns.avgRelationshipConnection < 6) {
-      const loveLanguage = onboarding.loveLanguageReceive?.[0] || 'quality time'
-      insights.push({
-        type: 'suggestion',
-        priority: 'high',
-        title: 'Strengthening Partnership Connection',
-        description: `Your relationship connection score (${patterns.avgRelationshipConnection}/10) suggests room for improvement. Since your partner's love language includes ${loveLanguage.replace('_', ' ')}, try focusing on that area this week.`,
-        relationship_id: relationshipContext.relationships[0]?.id || null,
-        category: 'enhanced-rule-based'
-      })
-    }
-
-    // Trend-based partner insights
-    if (patterns.trend > 1.5) {
-      insights.push({
-        type: 'appreciation',
-        priority: 'medium',
-        title: 'Partnership Momentum',
-        description: `Your relationship is on a positive trajectory! Your connection scores are improving. This is a great time to plan something special together or discuss future goals as a couple.`,
-        relationship_id: relationshipContext.relationships[0]?.id || null,
-        category: 'enhanced-rule-based'
-      })
-    }
-  }
-
-  // Ensure we always have at least one insight
-  if (insights.length === 0) {
-    insights.push({
+    return {
       type: 'suggestion',
-      priority: 'medium',
-      title: patterns.hasActivePartnership ? 'Continue Your Partnership Journey' : 'Continue Your Personal Growth',
-      description: patterns.hasActivePartnership 
-        ? 'You\'re building great habits with regular check-ins. Keep focusing on communication and connection with your partner.'
-        : 'You\'re developing excellent self-awareness through journaling and check-ins. This emotional intelligence will serve you well in all relationships.',
-      relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
-      category: 'enhanced-rule-based'
-    })
+      priority: 'medium', 
+      title: 'Develop Relationship Readiness Skills',
+      description: `Focus on strengthening your ${primaryLoveLanguage.replace('_', ' ')} expression skills and ${communicationStyle} communication approach. ${getLoveLanguageAction(primaryLoveLanguage)} These self-awareness practices will enhance your readiness for meaningful relationships.`,
+      relationship_id: null,
+      category: 'structured-rule-based'
+    }
   }
+}
 
-  console.log('🔧 Generated', insights.length, 'enhanced relationship-aware rule-based insights')
-  return insights.slice(0, 4)
+function generateWinsInsight(patterns: any, onboarding: any, relationshipContext: any) {
+  // Find the best positive pattern to celebrate
+  const positives = []
+  
+  if (patterns.gratitudeCount > 0) {
+    positives.push(`${patterns.gratitudeCount} gratitude practices`)
+  }
+  if (patterns.avgMoodFromCheckins >= 7) {
+    positives.push(`maintaining ${patterns.avgMoodFromCheckins}/10 mood scores`)
+  }
+  if (patterns.totalActivity >= 5) {
+    positives.push(`consistent engagement with ${patterns.totalActivity} total entries`)
+  }
+  if (patterns.trend > 0) {
+    positives.push('improving connection trends')
+  }
+  
+  const mainPositive = positives[0] || 'commitment to relationship growth'
+  
+  return {
+    type: 'appreciation',
+    priority: 'medium',
+    title: 'Positive Growth Recognition', 
+    description: `Celebrating your ${mainPositive}${positives.length > 1 ? ` and ${positives[1]}` : ''}. ${
+      patterns.hasActivePartnership 
+        ? 'This positive energy and intentional effort is strengthening your relationship foundation and creating lasting positive patterns.'
+        : 'This emotional wellness and self-awareness foundation will serve you exceptionally well in current and future relationships.'
+    }`,
+    relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
+    category: 'structured-rule-based'
+  }
+}
+
+function generateMilestoneInsight(patterns: any, onboarding: any, relationshipContext: any) {
+  // Only generate if there's a genuine milestone to celebrate
+  if (patterns.totalActivity >= 15) {
+    return {
+      type: 'milestone',
+      priority: 'low',
+      title: 'Consistency Milestone Achieved',
+      description: `Congratulations on reaching ${patterns.totalActivity} total relationship tracking entries! This level of consistent engagement demonstrates real commitment to relationship growth and self-awareness. ${patterns.hasActivePartnership ? 'Your partnership is benefiting from this dedicated effort.' : 'This foundation will serve you well in building meaningful relationships.'}`,
+      relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
+      category: 'structured-rule-based'
+    }
+  }
+  
+  if (patterns.trend > 2) {
+    return {
+      type: 'milestone',
+      priority: 'low', 
+      title: 'Connection Improvement Milestone',
+      description: `Milestone achievement: Your connection scores have improved significantly (trend: +${patterns.trend.toFixed(1)})! This meaningful progress shows that your relationship efforts are creating real positive change. Keep building on this momentum.`,
+      relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
+      category: 'structured-rule-based'
+    }
+  }
+  
+  // No milestone if no significant progress
+  return null
 }
 
 function getStageSpecificAdvice(stage: string, onboarding: any) {
@@ -752,4 +888,7 @@ function getStageSpecificAdvice(stage: string, onboarding: any) {
     default:
       return null
   }
+
+  
+
 }
