@@ -70,7 +70,7 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
         .from('partner_suggestions')
         .select('*')
         .eq('recipient_user_id', userId)
-        .gte('expires_at', new Date().toISOString())
+        .or('expires_at.is.null,expires_at.gte.' + new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(MAX_SUGGESTIONS_DISPLAY)
 

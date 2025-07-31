@@ -316,7 +316,7 @@ export function PartnerSuggestions() {
                   <div className={`w-2 h-2 rounded-full ${getPriorityColor(suggestion.priority_score)}`}></div>
                   {suggestion.confidence_score && (
                     <span className="text-xs text-gray-500">
-                      {Math.round(suggestion.confidence_score * 10)}/10
+                      {suggestion.confidence_score}/10
                     </span>
                   )}
                 </div>
