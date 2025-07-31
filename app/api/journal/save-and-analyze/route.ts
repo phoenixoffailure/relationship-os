@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       // Step 3: Trigger partner suggestion generation for each relationship (async)
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
       
-      relationships.forEach(async (rel) => {
+        await Promise.all(relationships.map(async (rel) => {
         try {
           const response = await fetch(`${baseUrl}/api/relationships/generate`, {
             method: 'POST',
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           console.error(`❌ Error generating suggestions for relationship ${rel.relationship_id}:`, error)
         }
-      })
+      }))
     } else {
       console.log('ℹ️ No relationships found, skipping partner suggestion generation')
     }
