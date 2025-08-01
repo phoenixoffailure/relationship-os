@@ -1,8 +1,10 @@
-// middleware.ts - Complete integration (no separate files needed)
+// middleware.ts - CONSERVATIVE ENHANCEMENT
+// Adds minimal onboarding check without changing existing logic
+
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Define admin emails here (for development)
+// Existing admin emails (unchanged)
 const ADMIN_EMAILS = [
   'jwalkwithyou@gmail.com' // Replace with your actual email
 ]
@@ -37,13 +39,12 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // Admin routes protection (integrated directly)
+  // EXISTING: Admin routes protection (unchanged)
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!session) {
       return NextResponse.redirect(new URL('/login?message=Admin access requires login', request.url))
     }
 
-    // Check if user is admin
     const isAdminUser = ADMIN_EMAILS.includes(session.user.email || '')
     
     if (!isAdminUser) {
@@ -51,14 +52,36 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect unauthenticated users from protected routes
+  // EXISTING: Redirect unauthenticated users from protected routes (unchanged)
   if (!session && request.nextUrl.pathname.startsWith('/dashboard')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect authenticated users from auth pages
+  // EXISTING: Redirect authenticated users from auth pages (unchanged)
   if (session && (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup'))) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // NEW: Simple onboarding check for dashboard access only
+  if (session && request.nextUrl.pathname === '/dashboard') {
+    try {
+      const { data: onboardingData } = await supabase
+        .from('enhanced_onboarding_responses')
+        .select('completed_at')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      const hasCompletedOnboarding = onboardingData?.completed_at != null
+
+      if (!hasCompletedOnboarding) {
+        return NextResponse.redirect(new URL('/onboarding', request.url))
+      }
+    } catch (error) {
+      // On error, allow access to prevent auth loops
+      console.warn('Could not check onboarding status in middleware:', error)
+    }
   }
 
   return supabaseResponse

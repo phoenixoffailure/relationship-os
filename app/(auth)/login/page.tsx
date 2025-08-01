@@ -3,18 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const router = useRouter()
+  const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,8 +28,8 @@ export default function LoginPage() {
       if (error) {
         setMessage(error.message)
       } else if (data.user) {
-        // Redirect to dashboard on success
-        window.location.href = '/dashboard'
+        // FIXED: Use router.push instead of window.location
+        router.push('/dashboard')
       }
     } catch (error) {
       setMessage('An unexpected error occurred')
@@ -107,27 +105,10 @@ export default function LoginPage() {
         <div className="mt-8 text-center text-sm text-gray-600">
           <p>
             Don't have an account?{' '}
-            <Link href="/signup" className="text-calm-600 hover:text-calm-700 font-medium">
+            <Link href="/signup" className="text-calm-600 hover:text-calm-700 font-medium underline">
               Sign up here
             </Link>
           </p>
-          <p className="mt-2">
-            <Link href="/forgot-password" className="text-calm-600 hover:text-calm-700">
-              Forgot your password?
-            </Link>
-          </p>
-        </div>
-
-        {/* Privacy Notice */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-start space-x-2">
-            <svg className="w-5 h-5 text-calm-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <p className="text-xs text-gray-600">
-              <strong>Privacy-First:</strong> Your personal data and journal entries remain completely private to you. We never share or sell your information.
-            </p>
-          </div>
         </div>
       </div>
     </div>
