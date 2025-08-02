@@ -52,16 +52,95 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Custom calming colors for Relationship OS
+        // NEW BRANDING: RelationshipOS Brand Colors
+        brand: {
+          // Primary Brand Colors
+          'teal': '#4AB9B8',
+          'dark-teal': '#257A7A', 
+          'coral-pink': '#FF8A9B',
+          'soft-teal': '#78B3B3',
+          'light-coral': '#FFB3C1',
+          'warm-peach': '#FFCB8A',
+          'deep-teal': '#206B65',
+          
+          // Accent Colors
+          'highlight': '#FFDEEB',
+          'warm-white': '#FFF8FB',
+          'cool-gray': '#F5F7F7',
+          'mint-green': '#B6F4F4',
+          
+          // Neutral Colors
+          'charcoal': '#2A2D34',
+          'slate': '#6E7288',
+          'light-gray': '#E5E7EB',
+        },
+        
+        // UPDATED: Four-Pillar System Colors (aligned with new branding)
+        pillar: {
+          // Pattern Analysis - Teal theme
+          'pattern': {
+            50: '#F0FDFC',
+            100: '#CCFBF1', 
+            200: '#99F6E4',
+            300: '#5EEAD4',
+            400: '#2DD4BF',
+            500: '#14B8A6', // Main teal
+            600: '#0D9488',
+            700: '#0F766E',
+            800: '#115E59',
+            900: '#134E4A',
+          },
+          // Action Steps - Coral theme
+          'action': {
+            50: '#FEF2F2',
+            100: '#FEE2E2',
+            200: '#FECACA',
+            300: '#FCA5A5',
+            400: '#F87171',
+            500: '#EF4444', // Main coral
+            600: '#DC2626',
+            700: '#B91C1C',
+            800: '#991B1B',
+            900: '#7F1D1D',
+          },
+          // Gratitude - Warm Peach theme  
+          'gratitude': {
+            50: '#FFFBEB',
+            100: '#FEF3C7',
+            200: '#FDE68A',
+            300: '#FCD34D',
+            400: '#FBBF24',
+            500: '#F59E0B', // Main peach
+            600: '#D97706',
+            700: '#B45309',
+            800: '#92400E',
+            900: '#78350F',
+          },
+          // Milestones - Deep Teal theme
+          'milestone': {
+            50: '#ECFEFF',
+            100: '#CFFAFE',
+            200: '#A5F3FC',
+            300: '#67E8F9',
+            400: '#22D3EE',
+            500: '#06B6D4', // Main deep teal
+            600: '#0891B2',
+            700: '#0E7490',
+            800: '#155E75',
+            900: '#164E63',
+          },
+        },
+        
+        // LEGACY SUPPORT: Keep existing calm/mint for smooth transition
         calm: {
           50: '#F0F9FF',
           100: '#E0F2FE', 
           200: '#BAE6FD',
           300: '#7DD3FC',
           400: '#38BDF8',
-          500: '#0EA5E9',
-          600: '#0284C7',
-          700: '#0369A1',
+          500: '#4AB9B8', // Updated to new teal
+          600: '#257A7A', // Updated to dark teal
+          700: '#206B65', // Updated to deep teal
           800: '#075985',
           900: '#0C4A6E',
         },
@@ -71,8 +150,8 @@ const config: Config = {
           200: '#BBF7D0',
           300: '#86EFAC', 
           400: '#4ADE80',
-          500: '#22C55E',
-          600: '#16A34A',
+          500: '#B6F4F4', // Updated to mint green
+          600: '#78B3B3', // Updated to soft teal
           700: '#15803D',
           800: '#166534',
           900: '#14532D',

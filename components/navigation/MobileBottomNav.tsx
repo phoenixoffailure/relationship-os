@@ -72,10 +72,10 @@ export function MobileBottomNav({ userEmail }: { userEmail?: string }) {
 
   return (
     <>
-      {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden">
+      {/* Bottom Navigation Bar - UPDATED: Brand colors */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-brand-teal/20 z-50 md:hidden shadow-lg">
         <div className="grid grid-cols-5 h-16">
-          {/* Main Navigation Items */}
+          {/* Main Navigation Items - UPDATED: Brand colors */}
           {mainNavItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
@@ -86,20 +86,20 @@ export function MobileBottomNav({ userEmail }: { userEmail?: string }) {
                 href={item.href}
                 className={`flex flex-col items-center justify-center space-y-1 transition-colors ${
                   active
-                    ? 'text-calm-600 bg-calm-50'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'text-brand-dark-teal bg-brand-teal/10'
+                    : 'text-gray-500 hover:text-brand-dark-teal hover:bg-brand-teal/5'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? 'text-calm-600' : ''}`} />
+                <Icon className={`w-5 h-5 ${active ? 'text-brand-dark-teal' : ''}`} />
                 <span className="text-xs font-medium">{item.label}</span>
               </Link>
             )
           })}
 
-          {/* More Menu Button */}
+          {/* More Menu Button - UPDATED: Brand colors */}
           <button 
             onClick={() => setIsMoreOpen(!isMoreOpen)}
-            className="flex flex-col items-center justify-center space-y-1 text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex flex-col items-center justify-center space-y-1 text-gray-500 hover:text-brand-dark-teal hover:bg-brand-teal/5 transition-colors"
           >
             <MoreHorizontal className="w-5 h-5" />
             <span className="text-xs font-medium">More</span>
@@ -107,19 +107,22 @@ export function MobileBottomNav({ userEmail }: { userEmail?: string }) {
         </div>
       </div>
 
-      {/* More Menu Overlay */}
+      {/* More Menu Overlay - UPDATED: Brand colors */}
       {isMoreOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] md:hidden" onClick={() => setIsMoreOpen(false)}>
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-lg p-6 z-[70]" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-lg p-6 z-[70] border-t border-brand-teal/20" onClick={(e) => e.stopPropagation()}>
+            {/* Header - UPDATED: Brand colors */}
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">More Options</h3>
-              <button onClick={() => setIsMoreOpen(false)} className="p-2">
-                <X className="w-5 h-5" />
+              <h3 className="text-lg font-semibold text-brand-charcoal">More Options</h3>
+              <button 
+                onClick={() => setIsMoreOpen(false)} 
+                className="p-2 hover:bg-brand-teal/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-brand-charcoal" />
               </button>
             </div>
 
-            {/* Menu Items */}
+            {/* Menu Items - UPDATED: Brand colors */}
             <div className="grid gap-4">
               {/* Secondary Navigation */}
               {secondaryNavItems.map((item) => {
@@ -133,44 +136,47 @@ export function MobileBottomNav({ userEmail }: { userEmail?: string }) {
                     onClick={() => setIsMoreOpen(false)}
                     className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
                       active
-                        ? 'bg-calm-50 text-calm-700'
-                        : 'hover:bg-gray-50'
+                        ? 'bg-brand-teal/10 text-brand-dark-teal border border-brand-teal/20'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className={`w-5 h-5 ${active ? 'text-brand-dark-teal' : 'text-gray-400'}`} />
                     <span className="font-medium">{item.label}</span>
                   </Link>
                 )
               })}
-
-              {/* Admin Link (if applicable) */}
+              
+              {/* Admin Link - UPDATED: Brand orange colors */}
               {isAdmin && (
                 <Link
                   href="/admin/users"
                   onClick={() => setIsMoreOpen(false)}
-                  className="flex items-center space-x-3 p-3 rounded-lg hover:bg-orange-50 text-orange-600"
+                  className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                    isActive('/admin/users')
+                      ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                      : 'text-orange-600 hover:bg-orange-50'
+                  }`}
                 >
                   <Shield className="w-5 h-5" />
-                  <span className="font-medium">Admin</span>
+                  <span className="font-medium">🛠️ Admin</span>
                 </Link>
               )}
 
-              {/* Logout */}
-              <Button
-                variant="ghost"
+              {/* Divider */}
+              <div className="border-t border-brand-teal/20 my-2"></div>
+              
+              {/* Logout - UPDATED: Brand coral for destructive action */}
+              <button
                 onClick={handleLogout}
-                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-red-50 text-red-600 justify-start h-auto"
+                className="flex items-center space-x-3 p-3 rounded-lg transition-colors text-brand-coral-pink hover:bg-brand-coral-pink/10 border border-transparent hover:border-brand-coral-pink/20"
               >
                 <LogOut className="w-5 h-5" />
                 <span className="font-medium">Logout</span>
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Spacer to prevent content from being hidden behind fixed nav */}
-      <div className="h-16 md:hidden" />
     </>
   )
 }

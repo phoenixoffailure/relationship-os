@@ -75,13 +75,13 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
+            {/* Logo - UPDATED: New brand gradient */}
             <div className="flex items-center">
               <Link href="/dashboard" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-calm-500 to-mint-500 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-brand-gradient rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">R</span>
                 </div>
-                <span className="text-xl font-bold text-calm-800 hidden sm:block">
+                <span className="text-xl font-bold text-brand-charcoal hidden sm:block">
                   RelationshipOS
                 </span>
               </Link>
@@ -103,7 +103,7 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
               </Button>
             </div>
 
-            {/* Desktop Navigation */}
+            {/* Desktop Navigation - UPDATED: New brand colors */}
             <nav className="hidden md:flex items-center space-x-6">
               {desktopNavItems.map((item) => {
                 const active = isActive(item.href)
@@ -113,7 +113,7 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
                     href={item.href}
                     className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       active
-                        ? 'text-calm-700 bg-calm-50'
+                        ? 'text-brand-dark-teal bg-brand-teal/10 border border-brand-teal/20'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                   >
@@ -122,13 +122,13 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
                 )
               })}
               
-              {/* Admin Link (if applicable) */}
+              {/* Admin Link - UPDATED: Brand orange colors */}
               {isAdmin && (
                 <Link
                   href="/admin/users"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive('/admin/users')
-                      ? 'text-orange-700 bg-orange-50'
+                      ? 'text-orange-700 bg-orange-50 border border-orange-200'
                       : 'text-orange-600 hover:text-orange-700 hover:bg-orange-50'
                   }`}
                 >
@@ -136,12 +136,12 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
                 </Link>
               )}
               
-              {/* Logout */}
+              {/* Logout - UPDATED: Coral accent for destructive action */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600"
+                className="text-gray-600 hover:text-brand-coral-pink hover:bg-brand-coral-pink/10"
               >
                 Logout
               </Button>
@@ -150,19 +150,22 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
         </div>
       </header>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu Overlay - UPDATED: Brand colors */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
           <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg z-60" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Menu</h2>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
-                <X className="w-5 h-5" />
+            <div className="flex items-center justify-between p-4 border-b border-brand-teal/20">
+              <h2 className="text-lg font-semibold text-brand-charcoal">Menu</h2>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)} 
+                className="p-2 hover:bg-brand-teal/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-brand-charcoal" />
               </button>
             </div>
 
-            {/* Navigation Items */}
+            {/* Navigation Items - UPDATED: Brand colors */}
             <nav className="flex flex-col p-4 space-y-2">
               {desktopNavItems.map((item) => {
                 const active = isActive(item.href)
@@ -173,7 +176,7 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`px-4 py-3 rounded-lg transition-colors ${
                       active
-                        ? 'bg-calm-50 text-calm-700 font-medium'
+                        ? 'bg-brand-teal/10 text-brand-dark-teal font-medium border border-brand-teal/20'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
@@ -182,14 +185,14 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
                 )
               })}
               
-              {/* Admin Link (if applicable) */}
+              {/* Admin Link - UPDATED: Brand colors */}
               {isAdmin && (
                 <Link
                   href="/admin/users"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`px-4 py-3 rounded-lg transition-colors ${
                     isActive('/admin/users')
-                      ? 'bg-orange-50 text-orange-700 font-medium'
+                      ? 'bg-orange-50 text-orange-700 font-medium border border-orange-200'
                       : 'text-orange-600 hover:bg-orange-50'
                   }`}
                 >
@@ -197,11 +200,11 @@ export function ResponsiveHeader({ userEmail, currentPageTitle }: HeaderProps) {
                 </Link>
               )}
               
-              {/* Logout */}
+              {/* Logout - UPDATED: Brand coral for destructive action */}
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className="justify-start px-4 py-3 h-auto text-red-600 hover:bg-red-50"
+                className="justify-start px-4 py-3 h-auto text-brand-coral-pink hover:bg-brand-coral-pink/10 border border-transparent hover:border-brand-coral-pink/20"
               >
                 Logout
               </Button>
