@@ -3,16 +3,18 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { createBrowserClient } from '@supabase/ssr'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const router = useRouter()
-  const supabase = createClient()
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,12 +26,11 @@ export default function LoginPage() {
         email,
         password,
       })
-
+      
       if (error) {
         setMessage(error.message)
       } else if (data.user) {
-        // FIXED: Use router.push instead of window.location
-        router.push('/dashboard')
+        window.location.href = '/dashboard'
       }
     } catch (error) {
       setMessage('An unexpected error occurred')
@@ -39,25 +40,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-brand-cool-gray to-brand-warm-white flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-        {/* Header */}
+        {/* Header - UPDATED: Brand typography and colors */}
         <div className="text-center mb-8">
-          <Link href="/" className="text-2xl font-bold text-calm-800">
-            Relationship OS
+          <Link href="/" className="text-2xl font-heading font-bold text-brand-charcoal">
+            RelationshipOS
           </Link>
-          <h2 className="text-xl font-semibold text-gray-900 mt-4">
+          <h2 className="text-heading-lg text-brand-charcoal mt-4 font-heading">
             Welcome Back
           </h2>
-          <p className="text-gray-600 mt-2">
-            Sign in to your account to continue your relationship journey
+          <p className="text-brand-slate mt-2 font-inter">
+            Sign in to your relationship intelligence dashboard
           </p>
         </div>
 
-        {/* Login Form */}
+        {/* Login Form - UPDATED: Brand colors and typography */}
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="block text-ui-base font-medium text-brand-charcoal mb-2 font-inter">
               Email Address
             </label>
             <input
@@ -66,13 +67,13 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-calm-500 focus:border-calm-500 transition-colors"
+              className="w-full px-4 py-3 border border-brand-light-gray rounded-lg focus:ring-2 focus:ring-brand-teal focus:border-brand-teal transition-colors font-inter"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-ui-base font-medium text-brand-charcoal mb-2 font-inter">
               Password
             </label>
             <input
@@ -81,13 +82,13 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-calm-500 focus:border-calm-500 transition-colors"
+              className="w-full px-4 py-3 border border-brand-light-gray rounded-lg focus:ring-2 focus:ring-brand-teal focus:border-brand-teal transition-colors font-inter"
               placeholder="Enter your password"
             />
           </div>
 
           {message && (
-            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+            <div className="text-ui-base text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 font-inter">
               {message}
             </div>
           )}
@@ -95,17 +96,17 @@ export default function LoginPage() {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-calm-600 hover:bg-calm-700 text-white py-3 text-base"
+            className="w-full bg-brand-teal hover:bg-brand-dark-teal text-white py-3 text-ui-lg font-inter"
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </Button>
         </form>
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-600">
+        {/* Footer - UPDATED: Brand colors and typography */}
+        <div className="mt-8 text-center text-ui-base text-brand-slate font-inter">
           <p>
             Don't have an account?{' '}
-            <Link href="/signup" className="text-calm-600 hover:text-calm-700 font-medium underline">
+            <Link href="/signup" className="text-brand-teal hover:text-brand-dark-teal font-medium underline">
               Sign up here
             </Link>
           </p>

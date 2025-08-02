@@ -1,142 +1,219 @@
-// Enhanced journal page with need analysis feedback
-// Replace your current page.tsx with this version
+// app/(protected)/journal/page.tsx
+// Updated with brand colors and typography
 
 'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createBrowserClient } from '@supabase/ssr'
+import { 
+  PlusCircle, 
+  Calendar, 
+  Heart, 
+  Trash2, 
+  Edit3,
+  Save,
+  X,
+  BookOpen,
+  Smile,
+  Meh,
+  Frown
+} from 'lucide-react'
+
+interface JournalEntry {
+  id: string
+  title: string
+  content: string
+  mood_score: number | null
+  created_at: string
+  updated_at: string
+  tags?: string[]
+  is_private: boolean
+  ai_analysis?: any
+}
 
 export default function JournalPage() {
-  const [content, setContent] = useState('')
-  const [moodScore, setMoodScore] = useState(5)
-  const [loading, setLoading] = useState(false)
-  const [analyzingNeeds, setAnalyzingNeeds] = useState(false)
-  const [message, setMessage] = useState('')
-  const [entries, setEntries] = useState<any[]>([])
   const [user, setUser] = useState<any>(null)
+  const [entries, setEntries] = useState<JournalEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  
+  // New entry form
+  const [showNewEntryForm, setShowNewEntryForm] = useState(false)
+  const [newEntry, setNewEntry] = useState({
+    title: '',
+    content: '',
+    mood_score: 5,
+    is_private: true,
+    tags: ''
+  })
+  
+  // Edit entry
+  const [editingEntry, setEditingEntry] = useState<string | null>(null)
+  const [editEntry, setEditEntry] = useState<Partial<JournalEntry>>({})
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/'
-  }
-
-  // Get current user and load journal entries
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUser(user)
-        loadJournalEntries(user.id)
+        await loadEntries(user.id)
       }
+      setLoading(false)
     }
     getUser()
   }, [])
 
-  const loadJournalEntries = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('journal_entries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+  const loadEntries = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
 
-    if (data) {
-      setEntries(data)
+      if (error) throw error
+
+      setEntries(data || [])
+    } catch (error) {
+      console.error('Error loading journal entries:', error)
+      setMessage('Error loading journal entries')
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user || !content.trim()) return
+  const saveNewEntry = async () => {
+    if (!user || !newEntry.title.trim() || !newEntry.content.trim()) return
 
-    setLoading(true)
+    setSaving(true)
     setMessage('')
 
     try {
-      console.log('💾 Saving journal entry...')
-      
-      // Step 1: Save journal entry
+      const tags = newEntry.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+
       const { data, error } = await supabase
         .from('journal_entries')
-        .insert([
-          {
-            user_id: user.id,
-            content: content.trim(),
-            mood_score: moodScore,
-          }
-        ])
+        .insert([{
+          user_id: user.id,
+          title: newEntry.title.trim(),
+          content: newEntry.content.trim(),
+          mood_score: newEntry.mood_score,
+          is_private: newEntry.is_private,
+          tags: tags.length > 0 ? tags : null
+        }])
         .select()
 
-      if (error) {
-        setMessage(`Error: ${error.message}`)
-        setLoading(false)
-        return
-      }
+      if (error) throw error
 
-      console.log('✅ Journal entry saved:', data[0].id)
-
-      // Step 2: UI Updates
-      setMessage('📝 Entry saved! Analyzing for relationship insights...')
-      setContent('')
-      setMoodScore(5)
-      loadJournalEntries(user.id)
-
-      // Step 3: Need Analysis
-      setAnalyzingNeeds(true)
-      const savedEntryId = data[0].id
+      setMessage('✅ Journal entry saved successfully!')
+      setNewEntry({
+        title: '',
+        content: '',
+        mood_score: 5,
+        is_private: true,
+        tags: ''
+      })
+      setShowNewEntryForm(false)
       
-      try {
-        console.log('🧠 Starting need analysis...')
-        const analysisResponse = await fetch('/api/journal/analyze-needs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            journalEntryId: savedEntryId,
-            userId: user.id 
-          }),
-        })
-
-        if (analysisResponse.ok) {
-          const analysisResult = await analysisResponse.json()
-          console.log('✅ Need analysis result:', analysisResult)
-          
-          if (analysisResult.analysis?.needs?.length > 0) {
-            const needsCount = analysisResult.analysis.needs.length
-            const immediateNeeds = analysisResult.nextSteps?.immediateNeeds || 0
-            
-            if (immediateNeeds > 0) {
-              setMessage(`✅ Analysis complete! Found ${needsCount} insights, ${immediateNeeds} high-priority for your partner! 💕`)
-            } else {
-              setMessage(`✅ Analysis complete! Found ${needsCount} relationship insights.`)
-            }
-          } else {
-            setMessage('✅ Entry analyzed - no specific relationship needs detected this time.')
-          }
-        } else {
-          console.warn('⚠️ Analysis failed:', await analysisResponse.text())
-          setMessage('📝 Entry saved successfully!')
-        }
-      } catch (analysisError) {
-        console.error('❌ Analysis error:', analysisError)
-        setMessage('📝 Entry saved successfully!')
-      } finally {
-        setAnalyzingNeeds(false)
-        // Clear message after 5 seconds
-        setTimeout(() => setMessage(''), 5000)
-      }
+      // Reload entries
+      await loadEntries(user.id)
       
-    } catch (error) {
-      console.error('❌ Unexpected error:', error)
-      setMessage('An unexpected error occurred')
+      setTimeout(() => setMessage(''), 3000)
+    } catch (error: any) {
+      console.error('Error saving journal entry:', error)
+      setMessage(`❌ Error saving entry: ${error.message}`)
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
+  }
+
+  const updateEntry = async () => {
+    if (!editingEntry || !editEntry.title?.trim() || !editEntry.content?.trim()) return
+
+    setSaving(true)
+    setMessage('')
+
+    try {
+      const { error } = await supabase
+        .from('journal_entries')
+        .update({
+          title: editEntry.title.trim(),
+          content: editEntry.content.trim(),
+          mood_score: editEntry.mood_score,
+          is_private: editEntry.is_private,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingEntry)
+
+      if (error) throw error
+
+      setMessage('✅ Journal entry updated successfully!')
+      setEditingEntry(null)
+      setEditEntry({})
+      
+      // Reload entries
+      await loadEntries(user.id)
+      
+      setTimeout(() => setMessage(''), 3000)
+    } catch (error: any) {
+      console.error('Error updating journal entry:', error)
+      setMessage(`❌ Error updating entry: ${error.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const deleteEntry = async (entryId: string) => {
+    if (!confirm('Are you sure you want to delete this journal entry? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('journal_entries')
+        .delete()
+        .eq('id', entryId)
+
+      if (error) throw error
+
+      setMessage('✅ Journal entry deleted successfully!')
+      await loadEntries(user.id)
+      setTimeout(() => setMessage(''), 3000)
+    } catch (error: any) {
+      console.error('Error deleting journal entry:', error)
+      setMessage(`❌ Error deleting entry: ${error.message}`)
+    }
+  }
+
+  const startEditing = (entry: JournalEntry) => {
+    setEditingEntry(entry.id)
+    setEditEntry({
+      title: entry.title,
+      content: entry.content,
+      mood_score: entry.mood_score,
+      is_private: entry.is_private
+    })
+  }
+
+  const cancelEditing = () => {
+    setEditingEntry(null)
+    setEditEntry({})
+  }
+
+  const getMoodIcon = (mood: number | null) => {
+    if (!mood) return <Meh className="w-5 h-5 text-brand-slate" />
+    if (mood <= 3) return <Frown className="w-5 h-5 text-red-500" />
+    if (mood <= 7) return <Meh className="w-5 h-5 text-brand-warm-peach" />
+    return <Smile className="w-5 h-5 text-green-500" />
   }
 
   const formatDate = (dateString: string) => {
@@ -150,163 +227,372 @@ export default function JournalPage() {
     })
   }
 
-  const getMoodEmoji = (score: number) => {
-    if (score >= 9) return '🌟'
-    if (score >= 7) return '😊'
-    if (score >= 5) return '😌'
-    if (score >= 3) return '😔'
-    return '😢'
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-brand-light-gray border-t-brand-teal rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-brand-slate font-inter">Loading your journal...</p>
+        </div>
+      </div>
+    )
   }
 
-return (
-  <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Enhanced Privacy Notice */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border-l-4 border-calm-500">
-          <div className="flex items-start space-x-3">
-            <svg className="w-6 h-6 text-calm-600 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Your Private Space with AI Insights</h4>
-              <p className="text-gray-600 text-sm">
-                Everything you write here is completely private to you. Our AI analyzes patterns to identify relationship needs and will generate helpful suggestions for your partner - without sharing your actual words or personal details.
-              </p>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-teal to-brand-dark-teal rounded-2xl shadow-lg mb-4">
+              <BookOpen className="w-8 h-8 text-white" />
             </div>
+            <h1 className="text-heading-xl font-bold text-brand-charcoal mb-2 font-heading">Personal Journal</h1>
+            <p className="text-brand-slate font-inter">Your private space for thoughts and reflections</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              onClick={() => setShowNewEntryForm(true)}
+              className="bg-brand-teal hover:bg-brand-dark-teal text-white"
+            >
+              <PlusCircle className="w-5 h-5 mr-2" />
+              New Entry
+            </Button>
+            <Link href="/insights">
+              <Button variant="outline" className="border-brand-coral-pink/30 text-brand-coral-pink hover:bg-brand-coral-pink/10">
+                <Heart className="w-5 h-5 mr-2" />
+                View AI Insights
+              </Button>
+            </Link>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* New Entry Form */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">New Journal Entry</h2>
-            
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Mood Score */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  How are you feeling right now? {getMoodEmoji(moodScore)} ({moodScore}/10)
-                </label>
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-500">😢 1</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={moodScore}
-                    onChange={(e) => setMoodScore(parseInt(e.target.value))}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <span className="text-sm text-gray-500">10 🌟</span>
-                </div>
-              </div>
+        {/* Status Message */}
+        {message && (
+          <div className={`mb-6 p-4 rounded-xl border ${
+            message.includes('❌') || message.includes('Error')
+              ? 'bg-red-50 text-red-700 border-red-200' 
+              : 'bg-brand-teal/10 border-brand-teal/30 text-brand-dark-teal'
+          }`}>
+            <div className="flex items-center">
+              <span className="text-sm font-medium font-inter">{message}</span>
+            </div>
+          </div>
+        )}
 
-              {/* Journal Content */}
+        {/* New Entry Form */}
+        {showNewEntryForm && (
+          <Card className="mb-8 border-brand-light-gray bg-white/90 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="font-heading text-brand-charcoal">Write New Entry</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNewEntryForm(false)}
+                  className="text-brand-slate hover:text-brand-charcoal"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-                  What's on your mind?
+                <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                  Entry Title
                 </label>
-                <textarea
-                  id="content"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={8}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-calm-500 focus:border-calm-500 transition-colors resize-none"
-                  placeholder="Write about your thoughts, feelings, relationship experiences, or anything else on your mind. The more you share, the better insights we can provide..."
-                  required
+                <Input
+                  value={newEntry.title}
+                  onChange={(e) => setNewEntry({ ...newEntry, title: e.target.value })}
+                  placeholder="What's on your mind today?"
+                  className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20"
                 />
-                <div className="mt-2 text-sm text-gray-500">
-                  {content.length} characters
-                </div>
               </div>
 
-              {/* Enhanced Message Display */}
-              {message && (
-                <div className={`text-sm p-4 rounded-lg border ${
-                  message.includes('Error') 
-                    ? 'text-red-600 bg-red-50 border-red-200' 
-                    : message.includes('high-priority')
-                      ? 'text-purple-600 bg-purple-50 border-purple-200'
-                      : message.includes('insights')
-                        ? 'text-blue-600 bg-blue-50 border-blue-200'
-                        : 'text-mint-600 bg-mint-50 border-mint-200'
-                }`}>
-                  <div className="flex items-center space-x-2">
-                    {analyzingNeeds && (
-                      <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
-                    )}
-                    <span>{message}</span>
+              <div>
+                <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                  Your Thoughts
+                </label>
+                <Textarea
+                  value={newEntry.content}
+                  onChange={(e) => setNewEntry({ ...newEntry, content: e.target.value })}
+                  placeholder="Express your thoughts, feelings, and experiences..."
+                  rows={6}
+                  className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                    Mood Score (1-10)
+                  </label>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={newEntry.mood_score}
+                      onChange={(e) => setNewEntry({ ...newEntry, mood_score: parseInt(e.target.value) })}
+                      className="flex-1 h-2 bg-brand-light-gray rounded-lg appearance-none cursor-pointer slider"
+                      style={{
+                        background: `linear-gradient(to right, #FF8A9B 0%, #FFCB8A 50%, #4AB9B8 100%)`
+                      }}
+                    />
+                    <div className="flex items-center space-x-2">
+                      {getMoodIcon(newEntry.mood_score)}
+                      <span className="text-sm font-medium text-brand-charcoal font-inter">
+                        {newEntry.mood_score}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              <Button
-                type="submit"
-                disabled={loading || !content.trim() || analyzingNeeds}
-                className="w-full bg-calm-600 hover:bg-calm-700 text-white py-3 text-base"
-              >
-                {loading 
-                  ? 'Saving...' 
-                  : analyzingNeeds 
-                    ? 'Analyzing for insights...' 
-                    : 'Save Entry'
-                }
-              </Button>
-
-              {/* Analysis Status */}
-              {analyzingNeeds && (
-                <div className="flex items-center justify-center space-x-2 text-sm text-gray-600 py-2">
-                  <div className="animate-pulse w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <div className="animate-pulse w-2 h-2 bg-blue-500 rounded-full" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="animate-pulse w-2 h-2 bg-blue-500 rounded-full" style={{ animationDelay: '0.2s' }}></div>
-                  <span className="ml-2">Analyzing relationship patterns...</span>
+                <div>
+                  <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                    Tags (optional)
+                  </label>
+                  <Input
+                    value={newEntry.tags}
+                    onChange={(e) => setNewEntry({ ...newEntry, tags: e.target.value })}
+                    placeholder="love, growth, challenges..."
+                    className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20"
+                  />
+                  <p className="text-xs text-brand-slate mt-1 font-inter">Separate with commas</p>
                 </div>
-              )}
-            </form>
-          </div>
-
-          {/* Previous Entries */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Journal History</h2>
-            
-            {entries.length === 0 ? (
-              <div className="text-center py-8">
-                <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <p className="text-gray-500">No journal entries yet. Start writing to begin your journey!</p>
               </div>
-            ) : (
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {entries.map((entry) => (
-                  <div key={entry.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">{getMoodEmoji(entry.mood_score)}</span>
-                        <span className="text-sm font-medium text-gray-900">
-                          Mood: {entry.mood_score}/10
-                        </span>
-                        {/* Show analysis indicator */}
-                        {entry.ai_analysis?.need_analysis && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                            ✨ Analyzed
+
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="is_private"
+                  checked={newEntry.is_private}
+                  onChange={(e) => setNewEntry({ ...newEntry, is_private: e.target.checked })}
+                  className="w-4 h-4 text-brand-teal bg-brand-cool-gray border-brand-light-gray rounded focus:ring-brand-teal/20"
+                />
+                <label htmlFor="is_private" className="text-sm text-brand-charcoal font-inter">
+                  Keep this entry private (recommended)
+                </label>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <Button
+                  onClick={saveNewEntry}
+                  disabled={saving || !newEntry.title.trim() || !newEntry.content.trim()}
+                  className="bg-brand-teal hover:bg-brand-dark-teal text-white"
+                >
+                  {saving ? (
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Saving...
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Entry
+                    </div>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowNewEntryForm(false)}
+                  className="border-brand-light-gray"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Journal Entries */}
+        <div className="space-y-6">
+          {entries.length === 0 ? (
+            <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
+              <CardContent className="text-center py-12">
+                <div className="w-16 h-16 bg-brand-teal/10 rounded-full mx-auto mb-4 flex items-center justify-center">
+                  <BookOpen className="w-8 h-8 text-brand-teal" />
+                </div>
+                <h3 className="text-lg font-semibold text-brand-charcoal mb-2 font-heading">Start Your Journey</h3>
+                <p className="text-brand-slate mb-4 font-inter">
+                  Begin documenting your thoughts and feelings. Your journal is completely private and secure.
+                </p>
+                <Button
+                  onClick={() => setShowNewEntryForm(true)}
+                  className="bg-brand-teal hover:bg-brand-dark-teal text-white"
+                >
+                  <PlusCircle className="w-5 h-5 mr-2" />
+                  Write Your First Entry
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            entries.map((entry) => (
+              <Card key={entry.id} className="border-brand-light-gray bg-white/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      {editingEntry === entry.id ? (
+                        <Input
+                          value={editEntry.title || ''}
+                          onChange={(e) => setEditEntry({ ...editEntry, title: e.target.value })}
+                          className="text-lg font-semibold border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 font-heading"
+                        />
+                      ) : (
+                        <CardTitle className="text-lg font-semibold text-brand-charcoal font-heading">
+                          {entry.title}
+                        </CardTitle>
+                      )}
+                      <div className="flex items-center space-x-4 mt-2">
+                        <div className="flex items-center space-x-1">
+                          <Calendar className="w-4 h-4 text-brand-slate" />
+                          <span className="text-sm text-brand-slate font-inter">
+                            {formatDate(entry.created_at)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          {getMoodIcon(entry.mood_score)}
+                          <span className="text-sm text-brand-slate font-inter">
+                            Mood: {entry.mood_score || 'Not rated'}
+                          </span>
+                        </div>
+                        {entry.is_private && (
+                          <span className="text-xs bg-brand-teal/10 text-brand-teal px-2 py-1 rounded-full font-inter">
+                            Private
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {formatDate(entry.created_at)}
-                      </span>
                     </div>
-                    <p className="text-gray-700 text-sm leading-relaxed line-clamp-3">
-                      {entry.content}
-                    </p>
+                    <div className="flex items-center space-x-2 ml-4">
+                      {editingEntry === entry.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={updateEntry}
+                            disabled={saving}
+                            className="bg-brand-teal hover:bg-brand-dark-teal text-white"
+                          >
+                            <Save className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={cancelEditing}
+                            className="border-brand-light-gray"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => startEditing(entry)}
+                            className="border-brand-light-gray hover:bg-brand-cool-gray"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteEntry(entry.id)}
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </CardHeader>
+                <CardContent>
+                  {editingEntry === entry.id ? (
+                    <div className="space-y-4">
+                      <Textarea
+                        value={editEntry.content || ''}
+                        onChange={(e) => setEditEntry({ ...editEntry, content: e.target.value })}
+                        rows={6}
+                        className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
+                      />
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <label className="text-sm font-medium text-brand-charcoal font-inter">Mood:</label>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={editEntry.mood_score || 5}
+                            onChange={(e) => setEditEntry({ ...editEntry, mood_score: parseInt(e.target.value) })}
+                            className="w-24 h-2 bg-brand-light-gray rounded-lg appearance-none cursor-pointer"
+                          />
+                          <span className="text-sm font-medium text-brand-charcoal font-inter">
+                            {editEntry.mood_score || 5}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={editEntry.is_private}
+                            onChange={(e) => setEditEntry({ ...editEntry, is_private: e.target.checked })}
+                            className="w-4 h-4 text-brand-teal bg-brand-cool-gray border-brand-light-gray rounded focus:ring-brand-teal/20"
+                          />
+                          <label className="text-sm text-brand-charcoal font-inter">Private</label>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="prose prose-sm max-w-none text-brand-charcoal font-inter leading-relaxed">
+                        {entry.content.split('\n').map((paragraph, index) => (
+                          <p key={index} className="mb-3 last:mb-0">
+                            {paragraph || '\u00A0'}
+                          </p>
+                        ))}
+                      </div>
+                      
+                      {entry.tags && entry.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          {entry.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="px-2 py-1 bg-brand-coral-pink/10 text-brand-coral-pink text-xs rounded-full font-inter"
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {entry.ai_analysis && (
+                        <div className="mt-4 p-3 bg-brand-teal/5 border border-brand-teal/20 rounded-lg">
+                          <h4 className="font-medium text-brand-dark-teal mb-2 font-inter">AI Insights</h4>
+                          <p className="text-sm text-brand-slate font-inter">
+                            This entry may have generated personalized insights in your dashboard.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
+
+        {/* Bottom Actions */}
+        {entries.length > 0 && !showNewEntryForm && (
+          <div className="mt-8 text-center">
+            <Button
+              onClick={() => setShowNewEntryForm(true)}
+              className="bg-brand-teal hover:bg-brand-dark-teal text-white"
+            >
+              <PlusCircle className="w-5 h-5 mr-2" />
+              Write Another Entry
+            </Button>
+          </div>
+        )}
       </main>
     </div>
   )

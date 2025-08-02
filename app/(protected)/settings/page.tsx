@@ -1,5 +1,5 @@
 // app/(protected)/settings/page.tsx
-// Fixed for mobile responsiveness and unified calm/mint color scheme
+// Fixed yellow colors and applied brand colors throughout
 
 'use client'
 
@@ -277,26 +277,26 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-3 border-calm-300 border-t-calm-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-calm-600 font-medium">Loading settings...</p>
+          <div className="w-12 h-12 border-3 border-brand-light-gray border-t-brand-teal rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-brand-dark-teal font-medium font-inter">Loading settings...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50">
+    <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray">
       <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-calm-500 to-mint-500 rounded-2xl shadow-lg mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-teal to-brand-dark-teal rounded-2xl shadow-lg mb-4">
               <SettingsIcon className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-            <p className="text-gray-600">Manage your account and preferences</p>
+            <h1 className="text-heading-xl font-bold text-brand-charcoal mb-2 font-heading">Settings</h1>
+            <p className="text-brand-slate font-inter">Manage your account and preferences</p>
           </div>
         </div>
 
@@ -305,7 +305,7 @@ export default function SettingsPage() {
           <div className={`mb-6 p-4 rounded-xl border ${
             message.includes('Error') || message.includes('error')
               ? 'bg-red-50 text-red-700 border-red-200' 
-              : 'bg-mint-50 text-mint-700 border-mint-200'
+              : 'bg-brand-teal/10 border-brand-teal/30 text-brand-dark-teal'
           }`}>
             <div className="flex items-center">
               {message.includes('Error') ? (
@@ -322,87 +322,88 @@ export default function SettingsPage() {
 
         <div className="space-y-6 sm:space-y-8">
           {/* Profile Settings */}
-          <Card className="border-calm-200 bg-white/80 backdrop-blur-sm">
+          <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="w-6 h-6 text-calm-600 mr-2" />
-                Profile Settings
+              <CardTitle className="flex items-center font-heading">
+                <User className="w-6 h-6 text-brand-teal mr-2" />
+                Profile Information
               </CardTitle>
-              <CardDescription>Update your personal information</CardDescription>
+              <CardDescription className="font-inter">Update your personal information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name</Label>
+                  <Label htmlFor="full_name" className="font-inter text-ui-base font-medium text-brand-charcoal">Full Name</Label>
                   <Input
                     id="full_name"
                     value={profile.full_name}
                     onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
                     placeholder="Your full name"
-                    className="border-gray-300 focus:border-calm-500 focus:ring-calm-500"
+                    className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 font-inter"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="font-inter text-ui-base font-medium text-brand-charcoal">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     value={profile.email}
                     onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                     placeholder="your.email@example.com"
-                    className="border-gray-300 focus:border-calm-500 focus:ring-calm-500"
+                    className="border-brand-light-gray bg-brand-cool-gray focus:border-brand-teal focus:ring-brand-teal/20 font-inter"
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
+                <Label htmlFor="bio" className="font-inter text-ui-base font-medium text-brand-charcoal">Bio</Label>
                 <Textarea
                   id="bio"
                   value={profile.bio}
                   onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                   placeholder="Tell us a bit about yourself..."
                   rows={3}
-                  className="border-gray-300 focus:border-calm-500 focus:ring-calm-500 resize-none"
+                  className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none font-inter"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Relationship Settings */}
-          <Card className="border-calm-200 bg-white/80 backdrop-blur-sm">
+          <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Heart className="w-6 h-6 text-red-500 mr-2" />
+              <CardTitle className="flex items-center font-heading">
+                <Heart className="w-6 h-6 text-brand-coral-pink mr-2" />
                 Relationship Settings
               </CardTitle>
-              <CardDescription>Configure your relationship details</CardDescription>
+              <CardDescription className="font-inter">Configure your relationship details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="anniversary_date">Anniversary Date</Label>
+                  <Label htmlFor="anniversary_date" className="font-inter text-ui-base font-medium text-brand-charcoal">Anniversary Date</Label>
                   <Input
                     id="anniversary_date"
                     type="date"
                     value={profile.anniversary_date}
                     onChange={(e) => setProfile({ ...profile, anniversary_date: e.target.value })}
-                    className="border-gray-300 focus:border-calm-500 focus:ring-calm-500"
+                    className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 font-inter"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="relationship_stage">Relationship Stage</Label>
+                  <Label htmlFor="relationship_stage" className="font-inter text-ui-base font-medium text-brand-charcoal">Relationship Stage</Label>
                   <select
                     id="relationship_stage"
                     value={profile.relationship_stage}
                     onChange={(e) => setProfile({ ...profile, relationship_stage: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-calm-500 focus:ring-calm-500 focus:outline-none"
+                    className="w-full px-3 py-2 border border-brand-light-gray rounded-md focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal transition-colors font-inter"
                   >
-                    <option value="">Select stage...</option>
-                    <option value="new">New (0-6 months)</option>
-                    <option value="exploring">Exploring (6-18 months)</option>
-                    <option value="committed">Committed (1.5-3 years)</option>
-                    <option value="longterm">Long-term (3+ years)</option>
+                    <option value="">Select stage</option>
+                    <option value="dating">Dating</option>
+                    <option value="committed">Committed Relationship</option>
+                    <option value="engaged">Engaged</option>
+                    <option value="married">Married</option>
+                    <option value="long_term">Long-term Partnership</option>
                   </select>
                 </div>
               </div>
@@ -410,20 +411,20 @@ export default function SettingsPage() {
           </Card>
 
           {/* Notification Preferences */}
-          <Card className="border-calm-200 bg-white/80 backdrop-blur-sm">
+          <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Bell className="w-6 h-6 text-mint-600 mr-2" />
+              <CardTitle className="flex items-center font-heading">
+                <Bell className="w-6 h-6 text-brand-teal mr-2" />
                 Notification Preferences
               </CardTitle>
-              <CardDescription>Choose what notifications you'd like to receive</CardDescription>
+              <CardDescription className="font-inter">Choose how you want to be notified</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Daily Reminders</p>
-                    <p className="text-xs text-gray-500">Get reminded to complete your daily check-in</p>
+                    <p className="text-ui-base font-medium text-brand-charcoal font-inter">Daily Reminders</p>
+                    <p className="text-ui-sm text-brand-slate font-inter">Gentle reminders to check in and journal</p>
                   </div>
                   <Switch
                     checked={profile.notification_preferences?.daily_reminders}
@@ -436,13 +437,14 @@ export default function SettingsPage() {
                         }
                       })
                     }
+                    className="data-[state=checked]:bg-brand-teal data-[state=unchecked]:bg-brand-light-gray"
                   />
                 </div>
                 
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Partner Suggestions</p>
-                    <p className="text-xs text-gray-500">Receive AI-generated suggestions for your partner</p>
+                    <p className="text-ui-base font-medium text-brand-charcoal font-inter">Partner Suggestions</p>
+                    <p className="text-ui-sm text-brand-slate font-inter">Receive AI-generated suggestions for your partner</p>
                   </div>
                   <Switch
                     checked={profile.notification_preferences?.partner_suggestions}
@@ -455,13 +457,14 @@ export default function SettingsPage() {
                         }
                       })
                     }
+                    className="data-[state=checked]:bg-brand-teal data-[state=unchecked]:bg-brand-light-gray"
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Relationship Insights</p>
-                    <p className="text-xs text-gray-500">Get notified when new insights are available</p>
+                    <p className="text-ui-base font-medium text-brand-charcoal font-inter">Relationship Insights</p>
+                    <p className="text-ui-sm text-brand-slate font-inter">Get notified when new insights are available</p>
                   </div>
                   <Switch
                     checked={profile.notification_preferences?.relationship_insights}
@@ -474,13 +477,14 @@ export default function SettingsPage() {
                         }
                       })
                     }
+                    className="data-[state=checked]:bg-brand-teal data-[state=unchecked]:bg-brand-light-gray"
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Email Notifications</p>
-                    <p className="text-xs text-gray-500">Receive notifications via email</p>
+                    <p className="text-ui-base font-medium text-brand-charcoal font-inter">Email Notifications</p>
+                    <p className="text-ui-sm text-brand-slate font-inter">Receive notifications via email</p>
                   </div>
                   <Switch
                     checked={profile.notification_preferences?.email_notifications}
@@ -493,6 +497,7 @@ export default function SettingsPage() {
                         }
                       })
                     }
+                    className="data-[state=checked]:bg-brand-teal data-[state=unchecked]:bg-brand-light-gray"
                   />
                 </div>
               </div>
@@ -500,21 +505,21 @@ export default function SettingsPage() {
           </Card>
 
           {/* Privacy & Data */}
-          <Card className="border-calm-200 bg-white/80 backdrop-blur-sm">
+          <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="w-6 h-6 text-blue-600 mr-2" />
+              <CardTitle className="flex items-center font-heading">
+                <Shield className="w-6 h-6 text-brand-teal mr-2" />
                 Privacy & Data
               </CardTitle>
-              <CardDescription>Manage your data and privacy settings</CardDescription>
+              <CardDescription className="font-inter">Manage your data and privacy settings</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="bg-gradient-to-r from-calm-50 to-mint-50 p-4 rounded-xl border border-calm-100">
+              <div className="bg-gradient-to-r from-brand-teal/10 to-brand-coral-pink/10 p-4 rounded-xl border border-brand-teal/20">
                 <div className="flex items-start space-x-3">
-                  <Lock className="w-5 h-5 text-calm-600 mt-0.5 flex-shrink-0" />
+                  <Lock className="w-5 h-5 text-brand-teal mt-0.5 flex-shrink-0" />
                   <div>
-                    <h4 className="text-sm font-semibold text-calm-700 mb-1">Your Privacy is Protected</h4>
-                    <p className="text-xs text-gray-700 leading-relaxed">
+                    <h4 className="text-ui-base font-semibold text-brand-charcoal mb-1 font-inter">Your Privacy is Protected</h4>
+                    <p className="text-ui-sm text-brand-slate leading-relaxed font-inter">
                       Your journal entries and personal data remain completely private. We use advanced anonymization 
                       techniques to generate partner suggestions without exposing your private thoughts.
                     </p>
@@ -522,22 +527,14 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <Button
                   onClick={exportData}
                   variant="outline"
-                  className="flex-1 border-calm-300 text-calm-700 hover:bg-calm-50"
+                  className="flex items-center border-brand-light-gray hover:bg-brand-teal/10 hover:border-brand-teal/50 font-inter"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Export My Data
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
-                  disabled
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import Data (Coming Soon)
                 </Button>
               </div>
             </CardContent>
@@ -548,7 +545,7 @@ export default function SettingsPage() {
             <Button
               onClick={updateProfile}
               disabled={saving}
-              className="flex-1 bg-gradient-to-r from-calm-600 to-mint-600 hover:from-calm-700 hover:to-mint-700 text-white py-3 font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+              className="bg-brand-teal hover:bg-brand-dark-teal text-white font-inter"
             >
               {saving ? (
                 <div className="flex items-center justify-center">
@@ -565,13 +562,13 @@ export default function SettingsPage() {
           </div>
 
           {/* Danger Zone */}
-          <Card className="border-red-200 bg-red-50/50 backdrop-blur-sm">
+          <Card className="border-red-200 bg-red-50/50">
             <CardHeader>
-              <CardTitle className="flex items-center text-red-700">
-                <AlertTriangle className="w-6 h-6 text-red-600 mr-2" />
+              <CardTitle className="flex items-center text-red-700 font-heading">
+                <AlertTriangle className="w-6 h-6 mr-2" />
                 Danger Zone
               </CardTitle>
-              <CardDescription className="text-red-600">
+              <CardDescription className="text-red-600 font-inter">
                 Irreversible actions that will permanently affect your account
               </CardDescription>
             </CardHeader>
@@ -592,11 +589,12 @@ export default function SettingsPage() {
                     Delete Account
                   </Button>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-red-700">
+                  <div className="space-y-4">
+                    <p className="text-red-800 font-semibold mb-2 font-inter">⚠️ This action cannot be undone!</p>
+                    <p className="text-red-700 text-ui-sm font-inter">
                       Are you absolutely sure? This cannot be undone.
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <Button
                         onClick={deleteAccount}
                         disabled={saving}

@@ -1,4 +1,4 @@
-// STEP 3: Replace the ENTIRE contents of app/(protected)/calendar/page.tsx with this
+// EXACT SAME FUNCTIONALITY - ONLY BRANDING CHANGES
 
 'use client'
 
@@ -293,30 +293,36 @@ export default function CalendarPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-cool-gray to-brand-warm-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your relationship calendar...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-teal mx-auto mb-4"></div>
+          <p className="text-brand-slate font-inter">Loading your relationship calendar...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-brand-cool-gray to-brand-warm-white">
+      {/* Header - UPDATED: Brand colors and typography */}
+      <header className="bg-white shadow-sm border-b border-brand-light-gray">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Relationship Calendar</h1>
-              <p className="mt-1 text-sm text-gray-500">Important dates and milestone planning</p>
+              <h1 className="text-heading-xl text-brand-charcoal font-heading">Relationship Calendar</h1>
+              <p className="mt-1 text-ui-base text-brand-slate font-inter">Important dates and milestone planning</p>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/dashboard">
-                <Button variant="outline">Dashboard</Button>
+                <Button variant="outline" className="border-brand-teal/20 text-brand-dark-teal hover:bg-brand-teal/10">
+                  Dashboard
+                </Button>
               </Link>
-              <Button variant="outline" onClick={handleLogout}>
+              <Button 
+                variant="outline" 
+                onClick={handleLogout}
+                className="border-brand-coral-pink/20 text-brand-coral-pink hover:bg-brand-coral-pink/10"
+              >
                 Sign Out
               </Button>
             </div>
@@ -327,11 +333,11 @@ export default function CalendarPage() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           
-          {/* Timeline Data Source Info */}
+          {/* Timeline Data Source Info - UPDATED: Brand colors */}
           {onboardingData && (
-            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-blue-900 mb-2">Timeline Data Source</h3>
-              <div className="text-sm text-blue-700">
+            <div className="mb-6 bg-brand-teal/5 border border-brand-teal/20 rounded-lg p-4">
+              <h3 className="text-ui-lg font-medium text-brand-dark-teal mb-2 font-inter">Timeline Data Source</h3>
+              <div className="text-ui-base text-brand-dark-teal font-inter">
                 {onboardingData.anniversary_date && (
                   <p>✅ Using your anniversary date: {new Date(onboardingData.anniversary_date).toLocaleDateString()}</p>
                 )}
@@ -346,21 +352,21 @@ export default function CalendarPage() {
           )}
 
           {!onboardingData && relationships.length > 0 && (
-            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-yellow-900 mb-2">Timeline Data Missing</h3>
-              <p className="text-sm text-yellow-700">
+            <div className="mb-6 bg-brand-warm-peach/10 border border-brand-warm-peach/30 rounded-lg p-4">
+              <h3 className="text-ui-lg font-medium text-orange-700 mb-2 font-inter">Timeline Data Missing</h3>
+              <p className="text-ui-base text-orange-600 font-inter">
                 ⚠️ Using database creation dates. For accurate relationship stages, please complete your onboarding with anniversary information.
               </p>
               <Link href="/onboarding">
-                <Button size="sm" className="mt-2">Update Timeline Info</Button>
+                <Button size="sm" className="mt-2 bg-brand-teal hover:bg-brand-dark-teal">Update Timeline Info</Button>
               </Link>
             </div>
           )}
 
-          {/* Upcoming Milestones */}
-          <div className="bg-white shadow rounded-lg mb-6">
+          {/* Upcoming Milestones - UPDATED: Brand styling */}
+          <div className="bg-white shadow rounded-lg mb-6 border border-brand-light-gray">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Upcoming Milestones</h3>
+              <h3 className="text-heading-md text-brand-charcoal mb-4 font-heading">Upcoming Milestones</h3>
               
               {milestones.length > 0 ? (
                 <div className="space-y-4">
@@ -368,41 +374,41 @@ export default function CalendarPage() {
                     .filter(milestone => milestone.daysUntil && milestone.daysUntil <= 90)
                     .sort((a, b) => (a.daysUntil || 0) - (b.daysUntil || 0))
                     .map((milestone) => (
-                      <div key={milestone.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div key={milestone.id} className="flex items-center justify-between p-4 border border-brand-light-gray rounded-lg bg-gradient-to-r from-white to-brand-teal/5 hover:shadow-md transition-all">
                         <div className="flex items-center space-x-4">
                           <span className="text-2xl">💕</span>
                           <div>
-                            <h4 className="font-semibold text-gray-900">{milestone.title}</h4>
-                            <p className="text-sm text-gray-600">
+                            <h4 className="font-semibold text-brand-charcoal font-inter">{milestone.title}</h4>
+                            <p className="text-ui-base text-brand-slate font-inter">
                               {milestone.nextDate && formatDate(milestone.nextDate)}
                               {milestone.dataSource === 'database_fallback' && (
-                                <span className="ml-2 text-yellow-600">(estimated from database)</span>
+                                <span className="ml-2 text-orange-600">(estimated from database)</span>
                               )}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-lg font-semibold text-purple-600">
+                          <div className="text-lg font-semibold text-brand-teal font-inter">
                             {milestone.daysUntil} days
                           </div>
-                          <div className="text-sm text-gray-500">until anniversary</div>
+                          <div className="text-ui-sm text-brand-slate font-inter">until anniversary</div>
                         </div>
                       </div>
                     ))
                   }
                 </div>
               ) : (
-                <div className="text-center py-6 text-gray-500">
+                <div className="text-center py-6 text-brand-slate font-inter">
                   <p>No upcoming milestones in the next 90 days</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Relationship Timeline */}
-          <div className="bg-white shadow rounded-lg mb-6">
+          {/* Relationship Timeline - UPDATED: Brand colors */}
+          <div className="bg-white shadow rounded-lg mb-6 border border-brand-light-gray">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-6">Relationship Timeline</h3>
+              <h3 className="text-heading-md text-brand-charcoal mb-6 font-heading">Relationship Timeline</h3>
               
               <div className="space-y-6">
                 {relationships.map((relationship) => {
@@ -410,23 +416,23 @@ export default function CalendarPage() {
                   const stage = getRelationshipStage(relationship)
                   const stageColors: { [key: string]: string } = {
                     'new': 'bg-green-100 text-green-800',
-                    'developing': 'bg-blue-100 text-blue-800', 
-                    'established': 'bg-purple-100 text-purple-800',
-                    'longterm': 'bg-yellow-100 text-yellow-800'
+                    'developing': 'bg-brand-teal/10 text-brand-dark-teal', 
+                    'established': 'bg-brand-warm-peach/10 text-orange-700',
+                    'longterm': 'bg-brand-coral-pink/10 text-rose-700'
                   }
                   
                   return (
-                    <div key={relationship.id} className="border-l-4 border-purple-300 pl-6">
+                    <div key={relationship.id} className="border-l-4 border-brand-teal/30 pl-6">
                       <div className="flex items-center space-x-3 mb-2">
                         <span className="text-2xl">💕</span>
                         <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900">{relationship.name}</h4>
-                          <p className="text-sm text-gray-600">
+                          <h4 className="font-semibold text-brand-charcoal font-inter">{relationship.name}</h4>
+                          <p className="text-ui-base text-brand-slate font-inter">
                             {milestone ? (
                               <>
                                 Started {formatDate(new Date(milestone.date))} • {milestone.yearsAgo || 0} years ago
                                 {milestone.dataSource === 'database_fallback' && (
-                                  <span className="ml-2 text-yellow-600">(estimated)</span>
+                                  <span className="ml-2 text-orange-600">(estimated)</span>
                                 )}
                               </>
                             ) : (
@@ -434,12 +440,12 @@ export default function CalendarPage() {
                             )}
                           </p>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${stageColors[stage] || 'bg-gray-100 text-gray-800'}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium font-inter ${stageColors[stage] || 'bg-gray-100 text-gray-800'}`}>
                           {stage} relationship
                         </span>
                       </div>
                       
-                      <div className="text-sm text-gray-600">
+                      <div className="text-ui-base text-brand-charcoal font-inter bg-brand-highlight/20 rounded-lg p-4 mt-3">
                         <p>
                           {stage === 'new' && 'You\'re in the exciting early phase! Focus on getting to know each other and building trust.'}
                           {stage === 'developing' && 'Your relationship is growing stronger. This is a great time to deepen your connection and navigate challenges together.'}
@@ -454,24 +460,27 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Date Ideas Based on Relationship Stage */}
-          <div className="bg-white shadow rounded-lg">
+          {/* Date Ideas - UPDATED: Brand styling */}
+          <div className="bg-white shadow rounded-lg border border-brand-light-gray">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+              <h3 className="text-heading-md text-brand-charcoal mb-4 font-heading">
                 Date Ideas for Your Relationship Stage
               </h3>
               
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {dateIdeas.map((idea, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors">
+                  <div 
+                    key={index} 
+                    className="border border-brand-light-gray rounded-lg p-4 hover:border-brand-teal/50 hover:shadow-md transition-all duration-200 bg-gradient-to-br from-white to-brand-teal/5"
+                  >
                     <div className="flex items-center space-x-3 mb-2">
                       <span className="text-2xl">{idea.icon}</span>
                       <div>
-                        <h4 className="font-semibold text-gray-900">{idea.title}</h4>
-                        <span className="text-xs text-purple-600 font-medium">{idea.category}</span>
+                        <h4 className="font-semibold text-brand-charcoal font-inter">{idea.title}</h4>
+                        <span className="text-xs text-brand-teal font-medium font-inter bg-brand-teal/10 px-2 py-1 rounded-full">{idea.category}</span>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600">{idea.description}</p>
+                    <p className="text-ui-base text-brand-slate font-inter">{idea.description}</p>
                   </div>
                 ))}
               </div>

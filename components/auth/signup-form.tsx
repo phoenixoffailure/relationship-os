@@ -1,5 +1,4 @@
-{
-  ;`'use client'
+'use client'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,7 +26,7 @@ export function SignupForm() {
         data: {
           full_name: fullName,
         },
-        emailRedirectTo: \`\${location.origin}/auth/callback\`,
+        emailRedirectTo: `${location.origin}/auth/callback`,
       },
     })
 
@@ -43,7 +42,9 @@ export function SignupForm() {
   return (
     <form onSubmit={handleSignUp} className="grid gap-4">
       <div className="grid gap-2">
-        <Label htmlFor="full-name">Full Name</Label>
+        <Label htmlFor="full-name" className="font-inter text-ui-base font-medium text-brand-charcoal">
+          Full Name
+        </Label>
         <Input
           id="full-name"
           type="text"
@@ -51,10 +52,13 @@ export function SignupForm() {
           required
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
+          className="border-brand-light-gray focus:ring-brand-teal focus:border-brand-teal font-inter"
         />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email" className="font-inter text-ui-base font-medium text-brand-charcoal">
+          Email
+        </Label>
         <Input
           id="email"
           type="email"
@@ -62,23 +66,29 @@ export function SignupForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className="border-brand-light-gray focus:ring-brand-teal focus:border-brand-teal font-inter"
         />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password" className="font-inter text-ui-base font-medium text-brand-charcoal">
+          Password
+        </Label>
         <Input
           id="password"
           type="password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          className="border-brand-light-gray focus:ring-brand-teal focus:border-brand-teal font-inter"
         />
       </div>
-      <Button type="submit" className="w-full bg-calm-500 hover:bg-calm-600" disabled={loading}>
+      <Button 
+        type="submit" 
+        className="w-full bg-brand-teal hover:bg-brand-dark-teal text-white font-inter" 
+        disabled={loading}
+      >
         {loading ? 'Signing up...' : 'Sign Up'}
       </Button>
     </form>
   )
-}
-`
 }

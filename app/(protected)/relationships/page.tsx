@@ -471,513 +471,514 @@ export default function RelationshipsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-calm-300 border-t-calm-600 rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand-light-gray border-t-brand-teal rounded-full animate-spin"></div>
       </div>
     )
   }
 
-return (
-  <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900">Your Relationships</h2>
-              <p className="text-gray-600 mt-2">
-                Connect with partners using invitation codes
-              </p>
-            </div>
-            <Button 
-              onClick={() => setShowInviteForm(true)}
-              className="bg-calm-600 hover:bg-calm-700"
-            >
-              + Create Invitation
-            </Button>
-          </div>
-
-          {/* Success/Error Messages */}
-          {message && (
-            <div className={`mb-6 p-4 rounded-lg ${
-              message.includes('Error') || message.includes('error') || message.includes('Invalid') || message.includes('expired')
-                ? 'bg-red-50 text-red-700 border border-red-200' 
-                : 'bg-green-50 text-green-700 border border-green-200'
-            }`}>
-              {message}
-            </div>
-          )}
-        </div>
-
-        {/* Join by Code Section */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
-          <h3 className="text-lg font-semibold text-blue-900 mb-4">
-            💝 Have an invitation code?
-          </h3>
-          <div className="flex space-x-3">
-            <input
-              type="text"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              placeholder="Enter 6-character code"
-              maxLength={6}
-              className="flex-1 px-4 py-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase tracking-wider text-center text-lg font-semibold"
-            />
-            <Button
-              onClick={acceptInvitationByCode}
-              disabled={inviteCode.length !== 6}
-              className="bg-blue-600 hover:bg-blue-700 px-6"
-            >
-              Join Relationship
-            </Button>
-          </div>
-          <p className="text-sm text-blue-700 mt-2">
-            Your partner can share their invitation code with you to connect your accounts
-          </p>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Connected Relationships */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Connected Relationships</h3>
-            
-            {relationships.length === 0 ? (
-              <div className="text-center py-8">
-                <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                <p className="text-gray-500 mb-4">No connected relationships yet</p>
-                <p className="text-sm text-gray-400 mb-4">
-                  Create an invitation code to connect with your partner
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-heading-xl font-bold text-brand-charcoal font-heading">Your Relationships</h2>
+                <p className="text-brand-slate mt-2 font-inter">
+                  Connect with partners using invitation codes
                 </p>
-                <Button 
-                  onClick={() => setShowInviteForm(true)}
-                  className="bg-calm-600 hover:bg-calm-700"
-                >
-                  Create Your First Invitation
-                </Button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {relationships.map((relationship) => (
-                  <div key={relationship.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">{getRelationshipTypeIcon(relationship.relationship_type)}</span>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{relationship.name}</h4>
-                          <p className="text-sm text-gray-600">{getRelationshipTypeLabel(relationship.relationship_type)}</p>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        relationship.myRole === 'admin' 
-                          ? 'bg-purple-100 text-purple-700' 
-                          : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {relationship.myRole}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">Connected since:</span> {formatDate(relationship.joinedAt)}
-                      </div>
-                      
-                      {relationship.otherMembers.length > 0 && (
-                        <div className="text-sm text-gray-600">
-                          <span className="font-medium">Partners:</span>
-                          <div className="mt-1 space-y-1">
-                            {relationship.otherMembers.map((member: any) => (
-                              <div key={member.user_id} className="flex items-center space-x-2">
-                                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                                <span>{member.users?.full_name || member.users?.email}</span>
-                                <span className="text-xs text-gray-500">({member.role})</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+              <Button 
+                onClick={() => setShowInviteForm(true)}
+                className="bg-brand-teal hover:bg-brand-dark-teal"
+              >
+                + Create Invitation
+              </Button>
+            </div>
 
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <div className="flex space-x-2">
-                        <Link href={`/insights?relationship=${relationship.id}`}>
-                          <Button size="sm" variant="outline" className="border-calm-300 text-calm-700">
-                            View Shared Insights
-                          </Button>
-                        </Link>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="border-gray-300"
-                          onClick={() => openRelationshipSettings(relationship)}
-                        >
-                          Settings
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            {/* Success/Error Messages */}
+            {message && (
+              <div className={`mb-6 p-4 rounded-lg ${
+                message.includes('Error') || message.includes('error') || message.includes('Invalid') || message.includes('expired')
+                  ? 'bg-red-50 text-red-700 border border-red-200' 
+                  : 'bg-green-50 text-green-700 border border-green-200'
+              }`}>
+                <span className="font-inter">{message}</span>
               </div>
             )}
           </div>
 
-          {/* Invitation Management */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Invitation Codes</h3>
-            
-            {sentInvites.length === 0 ? (
-              <div className="text-center py-8">
-                <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-gray-500">No invitation codes created yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sentInvites.map((invitation) => (
-                  <div key={invitation.id} className="border border-gray-200 rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h5 className="font-medium text-gray-900">{invitation.relationship_name}</h5>
-                        <p className="text-sm text-gray-600">Code: <span className="font-mono font-bold">{invitation.invite_code}</span></p>
-                        <p className="text-xs text-gray-500">
-                          Created {formatDate(invitation.created_at)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          invitation.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                          invitation.status === 'accepted' ? 'bg-green-100 text-green-700' :
-                          invitation.status === 'declined' ? 'bg-red-100 text-red-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {invitation.status}
-                        </span>
-                        {invitation.status === 'pending' && (
-                          <Button
-                            onClick={() => navigator.clipboard.writeText(invitation.invite_code)}
-                            size="sm"
-                            variant="ghost"
-                            className="mt-1 text-xs"
-                          >
-                            📋 Copy
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">How Invitation Codes Work</h4>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li className="flex items-start space-x-2">
-                  <span className="text-calm-600">•</span>
-                  <span>Create a unique 6-character code</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-calm-600">•</span>
-                  <span>Share the code with your partner</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-calm-600">•</span>
-                  <span>They enter it above to connect</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-calm-600">•</span>
-                  <span>Codes expire after 7 days</span>
-                </li>
-              </ul>
+          {/* Join by Code Section */}
+          <div className="bg-brand-teal/10 border border-brand-teal/30 rounded-xl p-6 mb-8">
+            <h3 className="text-lg font-semibold text-brand-dark-teal mb-4 font-heading">
+              💝 Have an invitation code?
+            </h3>
+            <div className="flex space-x-3">
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                placeholder="Enter 6-character code"
+                maxLength={6}
+                className="flex-1 px-4 py-3 border border-brand-teal/30 rounded-lg focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal uppercase tracking-wider text-center text-lg font-semibold font-inter bg-white"
+              />
+              <Button
+                onClick={acceptInvitationByCode}
+                disabled={inviteCode.length !== 6}
+                className="bg-brand-teal hover:bg-brand-dark-teal px-6"
+              >
+                Join Relationship
+              </Button>
             </div>
+            <p className="text-sm text-brand-dark-teal mt-2 font-inter">
+              Your partner can share their invitation code with you to connect your accounts
+            </p>
           </div>
-        </div>
 
-        {/* Invite Form Modal */}
-        {showInviteForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Create Invitation Code</h3>
-                <button
-                  onClick={() => setShowInviteForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Connected Relationships */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-brand-light-gray">
+              <h3 className="text-xl font-bold text-brand-charcoal mb-6 font-heading">Connected Relationships</h3>
+              
+              {relationships.length === 0 ? (
+                <div className="text-center py-8">
+                  <svg className="w-16 h-16 text-brand-light-gray mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="partnerName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Partner's Name (Optional)
-                  </label>
-                  <input
-                    id="partnerName"
-                    type="text"
-                    value={inviteData.partnerName}
-                    onChange={(e) => setInviteData(prev => ({ ...prev, partnerName: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-calm-500 focus:border-calm-500"
-                    placeholder="Your partner's name"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="relationshipName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Relationship Name
-                  </label>
-                  <input
-                    id="relationshipName"
-                    type="text"
-                    value={inviteData.relationshipName}
-                    onChange={(e) => setInviteData(prev => ({ ...prev, relationshipName: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-calm-500 focus:border-calm-500"
-                    placeholder="Our Relationship"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="relationshipType" className="block text-sm font-medium text-gray-700 mb-2">
-                    Relationship Type
-                  </label>
-                  <select
-                    id="relationshipType"
-                    value={inviteData.relationshipType}
-                    onChange={(e) => setInviteData(prev => ({ ...prev, relationshipType: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-calm-500 focus:border-calm-500"
-                  >
-                    <option value="couple">💕 Romantic Partnership</option>
-                    <option value="family">👨‍👩‍👧‍👦 Family Relationship</option>
-                    <option value="friends">👫 Friendship</option>
-                    <option value="poly">💖 Polyamorous</option>
-                    <option value="custom">❤️ Custom</option>
-                  </select>
-                </div>
-
-                <div className="bg-calm-50 border border-calm-200 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <svg className="w-5 h-5 text-calm-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div className="text-sm">
-                      <p className="font-medium text-calm-800 mb-1">How This Works</p>
-                      <p className="text-calm-700">
-                        We'll generate a unique code you can share with your partner. 
-                        No emails needed - just share the code!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                    onClick={generateInviteCode}
-                    disabled={inviteLoading || !inviteData.relationshipName}
-                    className="flex-1 bg-calm-600 hover:bg-calm-700"
-                  >
-                    {inviteLoading ? 'Generating...' : 'Generate Code'}
-                  </Button>
-                  <Button
-                    onClick={() => setShowInviteForm(false)}
-                    variant="outline"
-                    className="flex-1 border-gray-300"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Code Display Modal */}
-        {showCodeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Invitation Code Generated!</h3>
-                <p className="text-gray-600 mb-6">Share this code with your partner to connect</p>
-                
-                <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                  <div className="text-3xl font-bold font-mono text-calm-600 tracking-wider mb-2">
-                    {generatedCode}
-                  </div>
-                  <Button
-                    onClick={() => navigator.clipboard.writeText(generatedCode)}
-                    variant="outline"
-                    size="sm"
-                    className="border-calm-300 text-calm-700"
-                  >
-                    📋 Copy Code
-                  </Button>
-                </div>
-
-                <div className="text-sm text-gray-600 mb-6">
-                  <p>✅ Code expires in 7 days</p>
-                  <p>✅ Can only be used once</p>
-                  <p>✅ Your partner enters this code to connect</p>
-                </div>
-
-                <Button
-                  onClick={() => setShowCodeModal(false)}
-                  className="w-full bg-calm-600 hover:bg-calm-700"
-                >
-                  Done
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Settings Modal */}
-        {showSettingsModal && selectedRelationship && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Relationship Settings</h3>
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Relationship Info */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3 mb-2">
-                  <span className="text-2xl">{getRelationshipTypeIcon(selectedRelationship.relationship_type)}</span>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{selectedRelationship.name}</h4>
-                    <p className="text-sm text-gray-600">{getRelationshipTypeLabel(selectedRelationship.relationship_type)}</p>
-                  </div>
-                </div>
-                <div className="text-sm text-gray-600">
-                  <p>Your role: <span className="font-medium">{selectedRelationship.myRole}</span></p>
-                  <p>Connected: {formatDate(selectedRelationship.joinedAt)}</p>
-                  <p>Partners: {selectedRelationship.otherMembers.length}</p>
-                </div>
-              </div>
-
-              {!showDeleteConfirm ? (
-                <div className="space-y-4">
-                  {/* View Insights */}
-                  <Link href={`/insights?relationship=${selectedRelationship.id}`}>
-                    <Button className="w-full bg-calm-600 hover:bg-calm-700 justify-start">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                      View Shared Insights
-                    </Button>
-                  </Link>
-
-                  {/* Privacy Settings */}
+                  <p className="text-brand-slate mb-4 font-inter">No connected relationships yet</p>
+                  <p className="text-sm text-brand-slate mb-4 font-inter">
+                    Create an invitation code to connect with your partner
+                  </p>
                   <Button 
-                    variant="outline" 
-                    className="w-full border-gray-300 justify-start"
-                    onClick={() => {
-                      setShowSettingsModal(false)
-                      // Navigate to settings with relationship context
-                      window.location.href = `/settings?relationship=${selectedRelationship.id}`
-                    }}
+                    onClick={() => setShowInviteForm(true)}
+                    className="bg-brand-teal hover:bg-brand-dark-teal"
                   >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    Privacy & Sharing Settings
+                    Create Your First Invitation
                   </Button>
-
-                  {/* Danger Zone */}
-                  <div className="pt-4 border-t border-gray-200">
-                    <h4 className="font-medium text-gray-900 mb-3">Danger Zone</h4>
-                    
-                    {selectedRelationship.myRole === 'admin' ? (
-                      <Button
-                        onClick={() => setShowDeleteConfirm(true)}
-                        variant="outline"
-                        className="w-full border-red-300 text-red-700 hover:bg-red-50 justify-start"
-                      >
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Delete Entire Relationship
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={leaveRelationship}
-                        disabled={deleteLoading}
-                        variant="outline"
-                        className="w-full border-orange-300 text-orange-700 hover:bg-orange-50 justify-start"
-                      >
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        {deleteLoading ? 'Leaving...' : 'Leave Relationship'}
-                      </Button>
-                    )}
-                  </div>
                 </div>
               ) : (
-                /* Delete Confirmation */
                 <div className="space-y-4">
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-red-900 mb-2">⚠️ Permanent Deletion</h4>
-                    <p className="text-sm text-red-700 mb-3">
-                      This will permanently delete "{selectedRelationship.name}" and remove all members, insights, and data. This action cannot be undone.
-                    </p>
-                  </div>
+                  {relationships.map((relationship) => (
+                    <div key={relationship.id} className="border border-brand-light-gray rounded-lg p-4 hover:bg-brand-cool-gray transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl">{getRelationshipTypeIcon(relationship.relationship_type)}</span>
+                          <div>
+                            <h4 className="font-semibold text-brand-charcoal font-inter">{relationship.name}</h4>
+                            <p className="text-sm text-brand-slate font-inter">{getRelationshipTypeLabel(relationship.relationship_type)}</p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium font-inter ${
+                          relationship.myRole === 'admin' 
+                            ? 'bg-brand-coral-pink/20 text-brand-coral-pink' 
+                            : 'bg-brand-teal/20 text-brand-teal'
+                        }`}>
+                          {relationship.myRole}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="text-sm text-brand-slate font-inter">
+                          <span className="font-medium">Connected since:</span> {formatDate(relationship.joinedAt)}
+                        </div>
+                        
+                        {relationship.otherMembers.length > 0 && (
+                          <div className="text-sm text-brand-slate font-inter">
+                            <span className="font-medium">Partners:</span>
+                            <div className="mt-1 space-y-1">
+                              {relationship.otherMembers.map((member: any) => (
+                                <div key={member.user_id} className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                                  <span>{member.users?.full_name || member.users?.email}</span>
+                                  <span className="text-xs text-brand-slate">({member.role})</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
+                      <div className="mt-4 pt-4 border-t border-brand-light-gray">
+                        <div className="flex space-x-2">
+                          <Link href={`/insights?relationship=${relationship.id}`}>
+                            <Button size="sm" variant="outline" className="border-brand-teal/30 text-brand-teal hover:bg-brand-teal/10">
+                              View Shared Insights
+                            </Button>
+                          </Link>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="border-brand-light-gray hover:bg-brand-cool-gray"
+                            onClick={() => openRelationshipSettings(relationship)}
+                          >
+                            Settings
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Invitation Management */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-brand-light-gray">
+              <h3 className="text-xl font-bold text-brand-charcoal mb-6 font-heading">Invitation Codes</h3>
+              
+              {sentInvites.length === 0 ? (
+                <div className="text-center py-8">
+                  <svg className="w-12 h-12 text-brand-light-gray mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-brand-slate font-inter">No invitation codes created yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sentInvites.map((invitation) => (
+                    <div key={invitation.id} className="border border-brand-light-gray rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="font-medium text-brand-charcoal font-inter">{invitation.relationship_name}</h5>
+                          <p className="text-sm text-brand-slate font-inter">Code: <span className="font-mono font-bold">{invitation.invite_code}</span></p>
+                          <p className="text-xs text-brand-slate font-inter">
+                            Created {formatDate(invitation.created_at)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium font-inter ${
+                            invitation.status === 'pending' ? 'bg-brand-warm-peach/20 text-orange-700' :
+                            invitation.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                            invitation.status === 'declined' ? 'bg-red-100 text-red-700' :
+                            'bg-brand-light-gray text-brand-slate'
+                          }`}>
+                            {invitation.status}
+                          </span>
+                          {invitation.status === 'pending' && (
+                            <Button
+                              onClick={() => navigator.clipboard.writeText(invitation.invite_code)}
+                              size="sm"
+                              variant="ghost"
+                              className="mt-1 text-xs hover:bg-brand-teal/10"
+                            >
+                              📋 Copy
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 pt-6 border-t border-brand-light-gray">
+                <h4 className="font-semibold text-brand-charcoal mb-3 font-inter">How Invitation Codes Work</h4>
+                <ul className="text-sm text-brand-slate space-y-2 font-inter">
+                  <li className="flex items-start space-x-2">
+                    <span className="text-brand-teal">•</span>
+                    <span>Create a unique 6-character code</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-brand-teal">•</span>
+                    <span>Share the code with your partner</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-brand-teal">•</span>
+                    <span>They enter it above to connect</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-brand-teal">•</span>
+                    <span>Codes expire after 7 days</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Invite Form Modal */}
+          {showInviteForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-brand-charcoal font-heading">Create Invitation Code</h3>
+                  <button
+                    onClick={() => setShowInviteForm(false)}
+                    className="text-brand-slate hover:text-brand-charcoal"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Type "DELETE" to confirm
+                    <label htmlFor="partnerName" className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                      Partner's Name (Optional)
                     </label>
                     <input
+                      id="partnerName"
                       type="text"
-                      value={deleteConfirmText}
-                      onChange={(e) => setDeleteConfirmText(e.target.value)}
-                      className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      placeholder="DELETE"
+                      value={inviteData.partnerName}
+                      onChange={(e) => setInviteData(prev => ({ ...prev, partnerName: e.target.value }))}
+                      className="w-full px-4 py-3 border border-brand-light-gray rounded-lg focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal font-inter"
+                      placeholder="Your partner's name"
                     />
                   </div>
 
-                  <div className="flex space-x-3">
-                    <Button
-                      onClick={deleteRelationship}
-                      disabled={deleteLoading || deleteConfirmText !== 'DELETE'}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  <div>
+                    <label htmlFor="relationshipName" className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                      Relationship Name
+                    </label>
+                    <input
+                      id="relationshipName"
+                      type="text"
+                      value={inviteData.relationshipName}
+                      onChange={(e) => setInviteData(prev => ({ ...prev, relationshipName: e.target.value }))}
+                      className="w-full px-4 py-3 border border-brand-light-gray rounded-lg focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal font-inter"
+                      placeholder="Our Relationship"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="relationshipType" className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                      Relationship Type
+                    </label>
+                    <select
+                      id="relationshipType"
+                      value={inviteData.relationshipType}
+                      onChange={(e) => setInviteData(prev => ({ ...prev, relationshipType: e.target.value }))}
+                      className="w-full px-4 py-3 border border-brand-light-gray rounded-lg focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal font-inter"
                     >
-                      {deleteLoading ? 'Deleting...' : 'Delete Permanently'}
+                      <option value="couple">💕 Romantic Partnership</option>
+                      <option value="family">👨‍👩‍👧‍👦 Family Relationship</option>
+                      <option value="friends">👫 Friendship</option>
+                      <option value="poly">💖 Polyamorous</option>
+                      <option value="custom">❤️ Custom</option>
+                    </select>
+                  </div>
+
+                  <div className="bg-brand-teal/10 border border-brand-teal/20 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <svg className="w-5 h-5 text-brand-teal mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="text-sm">
+                        <p className="font-medium text-brand-dark-teal mb-1 font-inter">How This Works</p>
+                        <p className="text-brand-dark-teal font-inter">
+                          We'll generate a unique code you can share with your partner. 
+                          No emails needed - just share the code!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3 pt-4">
+                    <Button
+                      onClick={generateInviteCode}
+                      disabled={inviteLoading || !inviteData.relationshipName}
+                      className="flex-1 bg-brand-teal hover:bg-brand-dark-teal"
+                    >
+                      {inviteLoading ? 'Generating...' : 'Generate Code'}
                     </Button>
                     <Button
-                      onClick={() => {
-                        setShowDeleteConfirm(false)
-                        setDeleteConfirmText('')
-                      }}
+                      onClick={() => setShowInviteForm(false)}
                       variant="outline"
-                      className="flex-1 border-gray-300"
+                      className="flex-1 border-brand-light-gray"
                     >
                       Cancel
                     </Button>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        )}
-      </main>
+          )}
+
+          {/* Code Display Modal */}
+          {showCodeModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-brand-charcoal mb-2 font-heading">Invitation Code Generated!</h3>
+                  <p className="text-brand-slate mb-6 font-inter">Share this code with your partner to connect</p>
+                  
+                  <div className="bg-brand-cool-gray rounded-lg p-6 mb-6">
+                    <div className="text-3xl font-bold font-mono text-brand-teal tracking-wider mb-2">
+                      {generatedCode}
+                    </div>
+                    <Button
+                      onClick={() => navigator.clipboard.writeText(generatedCode)}
+                      variant="outline"
+                      size="sm"
+                      className="border-brand-teal/30 text-brand-teal hover:bg-brand-teal/10"
+                    >
+                      📋 Copy Code
+                    </Button>
+                  </div>
+
+                  <div className="text-sm text-brand-slate mb-6 font-inter">
+                    <p>✅ Code expires in 7 days</p>
+                    <p>✅ Can only be used once</p>
+                    <p>✅ Your partner enters this code to connect</p>
+                  </div>
+
+                  <Button
+                    onClick={() => setShowCodeModal(false)}
+                    className="w-full bg-brand-teal hover:bg-brand-dark-teal"
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Settings Modal */}
+          {showSettingsModal && selectedRelationship && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-brand-charcoal font-heading">Relationship Settings</h3>
+                  <button
+                    onClick={() => setShowSettingsModal(false)}
+                    className="text-brand-slate hover:text-brand-charcoal"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Relationship Info */}
+                <div className="mb-6 p-4 bg-brand-cool-gray rounded-lg">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className="text-2xl">{getRelationshipTypeIcon(selectedRelationship.relationship_type)}</span>
+                    <div>
+                      <h4 className="font-semibold text-brand-charcoal font-inter">{selectedRelationship.name}</h4>
+                      <p className="text-sm text-brand-slate font-inter">{getRelationshipTypeLabel(selectedRelationship.relationship_type)}</p>
+                    </div>
+                  </div>
+                  <div className="text-sm text-brand-slate font-inter">
+                    <p>Your role: <span className="font-medium">{selectedRelationship.myRole}</span></p>
+                    <p>Connected: {formatDate(selectedRelationship.joinedAt)}</p>
+                    <p>Partners: {selectedRelationship.otherMembers.length}</p>
+                  </div>
+                </div>
+
+                {!showDeleteConfirm ? (
+                  <div className="space-y-4">
+                    {/* View Insights */}
+                    <Link href={`/insights?relationship=${selectedRelationship.id}`}>
+                      <Button className="w-full bg-brand-teal hover:bg-brand-dark-teal justify-start">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        View Shared Insights
+                      </Button>
+                    </Link>
+
+                    {/* Privacy Settings */}
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-brand-light-gray justify-start hover:bg-brand-cool-gray"
+                      onClick={() => {
+                        setShowSettingsModal(false)
+                        // Navigate to settings with relationship context
+                        window.location.href = `/settings?relationship=${selectedRelationship.id}`
+                      }}
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Privacy & Sharing Settings
+                    </Button>
+
+                    {/* Danger Zone */}
+                    <div className="pt-4 border-t border-brand-light-gray">
+                      <h4 className="font-medium text-brand-charcoal mb-3 font-inter">Danger Zone</h4>
+                      
+                      {selectedRelationship.myRole === 'admin' ? (
+                        <Button
+                          onClick={() => setShowDeleteConfirm(true)}
+                          variant="outline"
+                          className="w-full border-red-300 text-red-700 hover:bg-red-50 justify-start"
+                        >
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete Entire Relationship
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={leaveRelationship}
+                          disabled={deleteLoading}
+                          variant="outline"
+                          className="w-full border-orange-300 text-orange-700 hover:bg-orange-50 justify-start"
+                        >
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                          {deleteLoading ? 'Leaving...' : 'Leave Relationship'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Delete Confirmation */
+                  <div className="space-y-4">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-red-900 mb-2 font-inter">⚠️ Permanent Deletion</h4>
+                      <p className="text-sm text-red-700 mb-3 font-inter">
+                        This will permanently delete "{selectedRelationship.name}" and remove all members, insights, and data. This action cannot be undone.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                        Type "DELETE" to confirm
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-inter"
+                        placeholder="DELETE"
+                      />
+                    </div>
+
+                    <div className="flex space-x-3">
+                      <Button
+                        onClick={deleteRelationship}
+                        disabled={deleteLoading || deleteConfirmText !== 'DELETE'}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        {deleteLoading ? 'Deleting...' : 'Delete Permanently'}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setShowDeleteConfirm(false)
+                          setDeleteConfirmText('')
+                        }}
+                        variant="outline"
+                        className="flex-1 border-brand-light-gray"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
