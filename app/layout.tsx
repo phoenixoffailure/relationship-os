@@ -18,6 +18,14 @@ const merriweather = Merriweather({
   display: 'swap',
 })
 
+// Add this ABOVE your metadata export in app/layout.tsx
+export const viewport = {
+  themeColor: '#4AB9B8',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+}
+
 export const metadata: Metadata = {
   title: 'RelationshipOS - Privacy-First AI Relationship Coaching',
   description: 'Strengthen your relationship with AI-powered insights and partner suggestions. Privacy-first journaling and relationship coaching platform.',
@@ -121,11 +129,6 @@ export const metadata: Metadata = {
     },
   },
   
-  // Theme colors
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#4AB9B8' },
-    { media: '(prefers-color-scheme: dark)', color: '#78B3B3' },
-  ],
   
   // Verification
   verification: {

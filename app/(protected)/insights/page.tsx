@@ -1,5 +1,5 @@
 // app/(protected)/insights/page.tsx
-// Updated to use the new EnhancedInsightsLayout
+// Updated to use the new EnhancedInsightsLayout with brand colors
 
 'use client'
 
@@ -63,9 +63,8 @@ export default function InsightsPage() {
 
   const unreadCount = 0 // This will be calculated inside EnhancedInsightsLayout
 
-return (
-  <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray">
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Use the new EnhancedInsightsLayout component */}
         {user ? (
@@ -76,8 +75,8 @@ return (
           />
         ) : (
           <div className="text-center py-12">
-            <div className="w-8 h-8 border-2 border-calm-300 border-t-calm-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-500">Loading...</p>
+            <div className="w-8 h-8 border-2 border-brand-light-gray border-t-brand-teal rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-brand-slate font-inter">Loading...</p>
           </div>
         )}
       </main>
