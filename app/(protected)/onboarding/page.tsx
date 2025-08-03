@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic'
 
 // Dynamic import to avoid SSR issues with the wizard component
 const EnhancedOnboardingWizard = dynamic(
-  () => import('@/components/onboarding/EnhancedOnboardingWizard.tsx'),
+  () => import('@/components/onboarding/EnhancedOnboardingWizard'),
   {
     ssr: false,
     loading: () => (

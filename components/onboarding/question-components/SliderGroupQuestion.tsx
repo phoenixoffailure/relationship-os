@@ -76,7 +76,7 @@ export const SliderGroupQuestion: React.FC<SliderGroupQuestionProps> = ({
         const valueLabel = getValueLabel(currentValue, sliderConfig.min, sliderConfig.max)
         
         return (
-          <div key={sliderConfig.key} className="space-y-3 p-4 border rounded-lg bg-white">
+          <div key={sliderConfig.key} className="space-y-3 p-4 border rounded-lg bg-brand-warm-white">
             <div className="flex justify-between items-center">
               <Label className="font-medium text-base">{sliderConfig.label}</Label>
               <div className="flex items-center space-x-2">

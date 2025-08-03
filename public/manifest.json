@@ -1,50 +1,89 @@
 {
   "name": "RelationshipOS",
-  "short_name": "RelationshipOS", 
-  "description": "AI-Powered Relationship Intelligence Platform",
-  "start_url": "/",
+  "short_name": "RelationshipOS",
+  "description": "Privacy-first AI relationship coaching that helps you understand patterns, improve communication, and deepen your connection",
+  "start_url": "/dashboard",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#FFF8FB",
   "theme_color": "#4AB9B8",
-  "orientation": "portrait-primary",
-  "scope": "/",
-  "categories": ["lifestyle", "health"],
-  "lang": "en",
   "dir": "ltr",
+  "lang": "en-US",
+  "categories": ["lifestyle", "health", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/favicon-192.png",
-      "sizes": "192x192", 
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/favicon-512.png",
-      "sizes": "512x512",
-      "type": "image/png", 
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/apple-touch-icon.png",
-      "sizes": "180x180",
+      "src": "/favicon-48.png",
+      "sizes": "48x48",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/favicon-64.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Journal Entry",
+      "short_name": "Journal",
+      "description": "Create a new journal entry",
+      "url": "/journal",
+      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Daily Check-in",
+      "short_name": "Check-in",
+      "description": "Complete your daily check-in",
+      "url": "/checkin",
+      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "View Insights",
+      "short_name": "Insights",
+      "description": "View your relationship insights",
+      "url": "/insights",
+      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
     }
   ],
   "screenshots": [
     {
-      "src": "/screenshot-mobile.png",
-      "sizes": "375x812",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshot-desktop.png",
-      "sizes": "1200x800", 
+      "src": "/screenshots/dashboard.png",
+      "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide"
+    },
+    {
+      "src": "/screenshots/mobile-dashboard.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow"
     }
-  ],
-  "prefer_related_applications": false,
-  "related_applications": []
+  ]
 }

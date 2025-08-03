@@ -87,7 +87,7 @@ export const RankingQuestion: React.FC<RankingQuestionProps> = ({
               className={`p-4 transition-all duration-200 hover:shadow-md ${
                 rank <= 2 ? 'border-brand-teal/30 bg-brand-teal/5' : 
                 rank <= 4 ? 'border-brand-coral-pink/30 bg-brand-coral-pink/5' : 
-                'border-gray-200 bg-white'
+                'border-brand-cool-gray bg-brand-warm-white'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -130,7 +130,7 @@ export const RankingQuestion: React.FC<RankingQuestionProps> = ({
                   className={`text-lg font-bold min-w-[2rem] justify-center ${
                     rank <= 2 ? 'bg-brand-teal text-white' : 
                     rank <= 4 ? 'bg-brand-coral-pink text-white' : 
-                    'bg-white text-gray-600 border'
+                    'bg-brand-warm-white text-brand-cool-gray border'
                   }`}
                 >
                   {rank}

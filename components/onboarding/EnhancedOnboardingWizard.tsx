@@ -180,7 +180,7 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
             <div key={stepNumber} className="flex items-center">
               <div className={`
                 flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-medium
-                ${isCompleted ? 'bg-gradient-to-br from-gray-50 to-white' : 
+                ${isCompleted ? 'bg-gradient-to-br from-brand-gr to-white' : 
                   isCurrent ? 'bg-brand-teal border-brand-teal text-white' : 
                   'bg-gray-100 border-gray-300 text-gray-500'}
               `}>

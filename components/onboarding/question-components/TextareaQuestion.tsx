@@ -36,7 +36,7 @@ export const TextareaQuestion: React.FC<TextareaQuestionProps> = ({
         rows={4}
         className="resize-none"
       />
-      <div className="flex justify-between text-xs text-gray-500">
+      <div className="flex justify-between text-xs text-brand-cool-gray">
         <span>{value.length} characters</span>
         {question.minLength && (
           <span className={value.length >= question.minLength ? 'text-green-600' : 'text-red-600'}>
