@@ -2,9 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===============================
+   MOBILE YELLOW ELIMINATION
+   =============================== */
+
+/* CRITICAL: Prevent any yellow from appearing in mobile browsers */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  /* Force remove any potential yellow backgrounds */
+  background-color: inherit !important;
+}
+
+/* Force consistent backgrounds on root elements */
+html {
+  background-color: rgb(255, 248, 251) !important; /* brand-warm-white */
+  /* Prevent overscroll yellow on iOS Safari */
+  overscroll-behavior: none;
+  /* Prevent zoom yellow flash */
+  -webkit-text-size-adjust: 100%;
+  /* Remove iOS Safari bounce and yellow */
+  -webkit-overflow-scrolling: touch;
+  /* Ensure consistent mobile viewport */
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
+  background-color: rgb(255, 248, 251) !important; /* brand-warm-white */
+  /* Prevent mobile overscroll yellow */
+  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
+  /* Remove any potential margin/padding that could show yellow */
+  margin: 0 !important;
+  padding: 0 !important;
+  /* Ensure full viewport coverage */
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
+  width: 100%;
+  position: relative;
 }
+
+/* MOBILE SAFARI SPECIFIC FIXES */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific overrides */
+  html {
+    background-color: rgb(255, 248, 251) !important;
+    /* Prevent any yellow during orientation changes */
+    -webkit-background-size: 100% 100%;
+    background-attachment: fixed;
+  }
+  
+  body {
+    background-color: rgb(255, 248, 251) !important;
+    /* Prevent rubber band yellow */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    /* Force viewport stability */
+    position: relative;
+    width: 100vw;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+  
+  /* Prevent yellow during URL bar hide/show */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -100px;
+    left: 0;
+    right: 0;
+    height: calc(100vh + 200px);
+    background-color: rgb(255, 248, 251) !important;
+    z-index: -1000;
+    pointer-events: none;
+  }
+}
+
+/* CHROME MOBILE SPECIFIC */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  html, body {
+    background-color: rgb(255, 248, 251) !important;
+    overscroll-behavior: none;
+  }
+}
+
+/* VIEWPORT CONTAINER FIXES */
+#__next,
+[data-nextjs-scroll-focus-boundary],
+main {
+  background-color: rgb(255, 248, 251) !important;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  position: relative;
+}
+
+/* ===============================
+   TYPOGRAPHY UTILITIES
+   =============================== */
 
 @layer utilities {
   .text-balance {
@@ -99,6 +199,10 @@ body {
     line-height: 1.6;
   }
 }
+
+/* ===============================
+   BRAND COLOR SYSTEM
+   =============================== */
 
 @layer base {
   :root {
@@ -215,7 +319,10 @@ body {
   }
 }
 
-/* BRAND GRADIENT UTILITIES */
+/* ===============================
+   BRAND GRADIENT UTILITIES
+   =============================== */
+
 @layer utilities {
   .bg-brand-gradient {
     background: linear-gradient(135deg, #4AB9B8, #FF8A9B);
@@ -233,23 +340,43 @@ body {
   }
 }
 
-/* FIXED: Autofill styling - Use brand colors instead of yellow */
+/* ===============================
+   ENHANCED AUTOFILL FIXES
+   =============================== */
+
+/* AGGRESSIVE: Autofill styling - Use brand colors instead of yellow */
 input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
 textarea:-webkit-autofill,
-select:-webkit-autofill {
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
   box-shadow: 0 0 0px 1000px rgb(245 247 247) inset !important; /* brand-cool-gray */
   -webkit-text-fill-color: rgb(42 45 52) !important; /* brand-charcoal */
   border-color: rgb(74 185 184) !important; /* brand-teal */
+  background-color: rgb(245 247 247) !important; /* Force brand color */
+  background-image: none !important; /* Remove any yellow gradients */
+  transition: background-color 5000s ease-in-out 0s !important; /* Prevent yellow flash */
 }
 
-input:-webkit-autofill:focus,
-textarea:-webkit-autofill:focus,
-select:-webkit-autofill:focus {
-  box-shadow: 0 0 0px 1000px rgb(245 247 247) inset, 0 0 0 2px rgba(74, 185, 184, 0.2) !important; /* brand-cool-gray + teal ring */
+/* ENHANCED: Focus states with brand colors */
+input:focus,
+textarea:focus,
+select:focus,
+button:focus {
+  outline: none !important;
   border-color: rgb(74 185 184) !important; /* brand-teal */
+  box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important; /* brand-teal with opacity */
+  background-color: rgb(245 247 247) !important; /* Ensure no yellow */
 }
 
-/* FIXED: Switch/Toggle styling - Remove yellow, use brand colors */
+/* ENHANCED: Switch/Toggle styling - Remove yellow, use brand colors */
 [data-state="checked"] {
   background-color: rgb(74 185 184) !important; /* brand-teal */
 }
@@ -262,21 +389,13 @@ select:-webkit-autofill:focus {
   background-color: rgb(229 231 235) !important; /* brand-light-gray */
 }
 
-/* FIXED: Focus rings - Use brand teal instead of yellow/blue */
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: rgb(74 185 184) !important; /* brand-teal */
-  box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important; /* brand-teal with opacity */
-}
-
-/* FIXED: Form validation states */
+/* ENHANCED: Form validation states */
 input:invalid:focus,
 textarea:invalid:focus,
 select:invalid:focus {
   border-color: rgb(255 138 155) !important; /* brand-coral-pink for errors */
   box-shadow: 0 0 0 2px rgba(255, 138, 155, 0.2) !important;
+  background-color: rgb(245 247 247) !important; /* Prevent yellow */
 }
 
 input:valid:focus,
@@ -284,37 +403,47 @@ textarea:valid:focus,
 select:valid:focus {
   border-color: rgb(74 185 184) !important; /* brand-teal for valid */
   box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important;
+  background-color: rgb(245 247 247) !important; /* Prevent yellow */
 }
 
-/* FIXED: Remove any yellow button states */
-button:focus {
-  outline: none;
+/* ENHANCED: Button focus states */
+button:focus,
+button:focus-visible {
+  outline: none !important;
   box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important; /* brand-teal focus ring */
+  background-color: inherit !important; /* Prevent yellow */
 }
 
-/* FIXED: Date input styling */
+/* ENHANCED: Date input styling */
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.6) sepia(1) saturate(2) hue-rotate(170deg); /* Teal color for calendar icon */
+  background-color: transparent !important; /* No yellow */
 }
 
-/* FIXED: Select dropdown styling */
+/* ENHANCED: Select dropdown styling */
+select {
+  background-color: rgb(245 247 247) !important; /* brand-cool-gray */
+  border-color: rgb(229 231 235) !important; /* brand-light-gray */
+}
+
 select option {
-  background-color: white;
-  color: rgb(42 45 52); /* brand-charcoal */
+  background-color: white !important;
+  color: rgb(42 45 52) !important; /* brand-charcoal */
 }
 
 select option:checked {
-  background-color: rgb(74 185 184); /* brand-teal */
-  color: white;
+  background-color: rgb(74 185 184) !important; /* brand-teal */
+  color: white !important;
 }
 
-/* ADDITIONAL: Remove any remaining yellow highlights */
+/* ENHANCED: Remove any remaining yellow highlights */
 *:focus-visible {
-  outline: 2px solid rgb(74 185 184); /* brand-teal */
+  outline: 2px solid rgb(74 185 184) !important; /* brand-teal */
   outline-offset: 2px;
+  background-color: inherit !important; /* Prevent yellow */
 }
 
-/* ADDITIONAL: Ensure consistent brand colors for interactive states */
+/* ENHANCED: Ensure consistent brand colors for interactive states */
 .hover\:bg-brand-teal\/10:hover {
   background-color: rgba(74, 185, 184, 0.1) !important;
 }
@@ -327,3 +456,78 @@ select option:checked {
   box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important;
 }
 
+/* ===============================
+   MOBILE ORIENTATION FIXES
+   =============================== */
+
+/* Prevent yellow during orientation changes */
+@media screen and (orientation: landscape) {
+  html, body {
+    background-color: rgb(255, 248, 251) !important;
+    width: 100vw;
+    height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+@media screen and (orientation: portrait) {
+  html, body {
+    background-color: rgb(255, 248, 251) !important;
+    width: 100vw;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+/* ===============================
+   FINAL CATCH-ALL OVERRIDES
+   =============================== */
+
+/* Nuclear option: Force brand colors everywhere */
+* {
+  /* Remove any potential yellow backgrounds */
+  background-color: inherit !important;
+}
+
+/* Ensure main containers use brand background */
+.bg-background,
+.bg-warm-white,
+[class*="bg-"] {
+  background-color: rgb(255, 248, 251) !important;
+}
+
+/* Mobile viewport stability */
+@viewport {
+  width: device-width;
+  user-zoom: fixed;
+}
+
+/* Ensure dropdown overrides any conflicting styles */
+select[id="relationship_stage"] {
+  border-color: rgb(229 231 235) !important; /* brand-light-gray */
+  background-color: white !important;
+}
+
+select[id="relationship_stage"]:focus {
+  border-color: rgb(74 185 184) !important; /* brand-teal */
+  box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important;
+  outline: none !important;
+}
+
+/* Ensure switches use brand colors */
+.settings-page [data-state="checked"] {
+  background-color: rgb(74 185 184) !important; /* brand-teal */
+}
+
+.settings-page [data-state="unchecked"] {
+  background-color: rgb(229 231 235) !important; /* brand-light-gray */
+}
+
+/* Force switch colors - add to end of globals.css */
+button[role="switch"][data-state="unchecked"] {
+  background-color: rgb(229, 231, 235) !important; /* brand-light-gray */
+}
+
+button[role="switch"][data-state="checked"] {
+  background-color: rgb(74, 185, 184) !important; /* brand-teal */
+}

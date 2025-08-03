@@ -1,78 +1,70 @@
 import { Inter, Merriweather } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
-import type { Metadata } from 'next'
 
-// Configure Inter font (for UI elements)
+// Font configurations with optimized loading
 const inter = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
   variable: '--font-inter',
   display: 'swap',
+  preload: true,
+  fallback: ['ui-sans-serif', 'system-ui', 'sans-serif'],
 })
 
-// Configure Merriweather font (for headings and emphasis)
 const merriweather = Merriweather({
-  subsets: ['latin'],
   weight: ['400', '700'],
+  subsets: ['latin'],
   variable: '--font-merriweather',
   display: 'swap',
+  preload: true,
+  fallback: ['ui-serif', 'Georgia', 'serif'],
 })
 
-// Add this ABOVE your metadata export in app/layout.tsx
-export const viewport = {
-  themeColor: '#4AB9B8',
+// Enhanced viewport configuration to prevent mobile yellow
+export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover',
+  // Prevent zoom yellow flash
+  interactiveWidget: 'resizes-content',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#4AB9B8' },
+    { media: '(prefers-color-scheme: dark)', color: '#4AB9B8' },
+  ]
 }
 
 export const metadata: Metadata = {
-  title: 'RelationshipOS - Privacy-First AI Relationship Coaching',
-  description: 'Strengthen your relationship with AI-powered insights and partner suggestions. Privacy-first journaling and relationship coaching platform.',
-  keywords: [
-    'relationship coaching',
-    'AI relationship advice',
-    'couples therapy',
-    'relationship insights',
-    'privacy-first',
-    'relationship journal',
-    'partner suggestions',
-    'love language',
-    'relationship tracker'
-  ],
-  authors: [{ name: 'RelationshipOS Team' }],
-  creator: 'RelationshipOS',
-  publisher: 'RelationshipOS',
+  title: {
+    default: 'RelationshipOS - AI-Powered Relationship Intelligence',
+    template: '%s | RelationshipOS'
+  },
+  description: 'Transform your relationship with AI-powered insights, personalized coaching, and evidence-based strategies. Privacy-first journaling and relationship coaching platform.',
   
-  // Open Graph / Facebook
+  // Open Graph for social sharing
   openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    url: 'https://relationshipos.app',
-    title: 'RelationshipOS - Privacy-First AI Relationship Coaching',
-    description: 'Strengthen your relationship with AI-powered insights and partner suggestions. Privacy-first journaling and relationship coaching platform.',
+    title: 'RelationshipOS - AI-Powered Relationship Intelligence',
+    description: 'Transform your relationship with AI-powered insights, personalized coaching, and evidence-based strategies.',
+    url: 'https://relationshipos.ai',
     siteName: 'RelationshipOS',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'RelationshipOS - AI Relationship Coaching Platform',
-      },
-      {
-        url: '/og-image-square.png', 
-        width: 1200,
-        height: 1200,
-        alt: 'RelationshipOS Heart Logo',
+        alt: 'RelationshipOS - AI-Powered Relationship Intelligence'
       }
     ],
+    locale: 'en_US',
+    type: 'website',
   },
   
-  // Twitter
+  // Twitter Card
   twitter: {
     card: 'summary_large_image',
-    title: 'RelationshipOS - Privacy-First AI Relationship Coaching',
-    description: 'Strengthen your relationship with AI-powered insights and partner suggestions. Privacy-first journaling and relationship coaching platform.',
+    title: 'RelationshipOS - AI-Powered Relationship Intelligence',
+    description: 'Privacy-first journaling and relationship coaching platform.',
     images: ['/twitter-image.png'],
     creator: '@RelationshipOS',
   },
@@ -82,7 +74,7 @@ export const metadata: Metadata = {
   category: 'Lifestyle',
   classification: 'Relationship Coaching',
   
-  // Favicon and icons
+  // Enhanced favicon and icons
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '32x32' },
@@ -129,7 +121,6 @@ export const metadata: Metadata = {
     },
   },
   
-  
   // Verification
   verification: {
     // google: 'verification-token', // Add when ready
@@ -146,8 +137,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${merriweather.variable}`}>
       <head>
-        {/* Additional meta tags for enhanced SEO */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        {/* CRITICAL: Enhanced mobile meta tags to prevent yellow */}
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -155,19 +145,82 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="RelationshipOS" />
         <meta name="application-name" content="RelationshipOS" />
         
-        {/* Theme colors for different contexts */}
+        {/* ENHANCED: Theme colors for ALL contexts - prevent any yellow */}
         <meta name="theme-color" content="#4AB9B8" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#4AB9B8" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#4AB9B8" />
         <meta name="msapplication-TileColor" content="#4AB9B8" />
+        <meta name="msapplication-navbutton-color" content="#4AB9B8" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="#4AB9B8" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         
-        {/* Additional iOS meta tags */}
+        {/* MOBILE SAFARI: Additional yellow prevention */}
         <meta name="apple-touch-fullscreen" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="full-screen" content="yes" />
+        <meta name="browsermode" content="application" />
+        
+        {/* ANDROID: Chrome theme colors */}
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-status-bar-style" content="default" />
+        
+        {/* ENHANCED: Prevent any browser yellow during loading */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            html, body {
+              background-color: #FFF8FB !important;
+              overscroll-behavior: none !important;
+              -webkit-overflow-scrolling: touch !important;
+            }
+            
+            /* Immediate yellow prevention */
+            *, *::before, *::after {
+              background-color: inherit !important;
+            }
+            
+            /* iOS Safari specific overrides */
+            @supports (-webkit-touch-callout: none) {
+              html {
+                background-color: #FFF8FB !important;
+                -webkit-background-size: 100% 100%;
+                background-attachment: fixed;
+              }
+              
+              body {
+                background-color: #FFF8FB !important;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: none;
+                position: relative;
+                width: 100vw;
+                min-height: 100vh;
+                min-height: -webkit-fill-available;
+              }
+              
+              /* Prevent yellow during URL bar hide/show */
+              body::before {
+                content: '';
+                position: fixed;
+                top: -100px;
+                left: 0;
+                right: 0;
+                height: calc(100vh + 200px);
+                background-color: #FFF8FB !important;
+                z-index: -1000;
+                pointer-events: none;
+              }
+            }
+            
+            /* Loading state - prevent any yellow flash */
+            .loading {
+              background-color: #FFF8FB !important;
+            }
+          `
+        }} />
         
         {/* Modern favicon (SVG) for supported browsers */}
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         
-        {/* Preload critical fonts */}
+        {/* ENHANCED: Preload critical fonts with better error handling */}
         <link
           rel="preload"
           href="/fonts/inter-var.woff2"
@@ -182,8 +235,24 @@ export default function RootLayout({
           type="font/woff2"
           crossOrigin="anonymous"
         />
+        
+        {/* CRITICAL: Preload brand background color for instant loading */}
+        <link rel="preload" as="style" href="data:text/css,html{background-color:%23FFF8FB!important}" />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-background text-foreground`}>
+        {/* CRITICAL: Immediate background color enforcement */}
+        <div 
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            backgroundColor: '#FFF8FB', 
+            zIndex: -1000,
+            pointerEvents: 'none'
+          }} 
+        />
         {children}
       </body>
     </html>

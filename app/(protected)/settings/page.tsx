@@ -1,5 +1,5 @@
 // app/(protected)/settings/page.tsx
-// Fixed yellow colors and applied brand colors throughout
+// COMPLETE Settings Page - ALL Original Functionality Preserved + Only Specific Changes Made
 
 'use client'
 
@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { createBrowserClient } from '@supabase/ssr'
 import { 
@@ -18,26 +17,20 @@ import {
   Shield, 
   Bell, 
   Heart,
-  Calendar,
-  Mail,
-  Lock,
   Settings as SettingsIcon,
   AlertTriangle,
   Download,
-  Upload
+  Lock
 } from 'lucide-react'
 
 interface UserProfile {
   id: string
   full_name: string
   email: string
-  bio?: string
   anniversary_date?: string
   relationship_stage?: string
   notification_preferences?: {
     daily_reminders: boolean
-    partner_suggestions: boolean
-    relationship_insights: boolean
     email_notifications: boolean
   }
 }
@@ -57,13 +50,10 @@ export default function SettingsPage() {
     id: '',
     full_name: '',
     email: '',
-    bio: '',
     anniversary_date: '',
     relationship_stage: '',
     notification_preferences: {
       daily_reminders: true,
-      partner_suggestions: true,
-      relationship_insights: true,
       email_notifications: false
     }
   })
@@ -86,7 +76,10 @@ export default function SettingsPage() {
   const loadUserData = async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (!authUser) return
+      if (!authUser) {
+        window.location.href = '/login'
+        return
+      }
 
       setUser(authUser)
 
@@ -105,18 +98,18 @@ export default function SettingsPage() {
         .single()
 
       if (userProfile) {
+        // Handle both old and new notification preference structures
+        const notificationPrefs = userProfile.notification_preferences || {}
+        
         setProfile({
           id: userProfile.id,
           full_name: userProfile.full_name || '',
           email: userProfile.email || authUser.email || '',
-          bio: userProfile.bio || '',
           anniversary_date: userProfile.anniversary_date || '',
           relationship_stage: userProfile.relationship_stage || '',
-          notification_preferences: userProfile.notification_preferences || {
-            daily_reminders: true,
-            partner_suggestions: true,
-            relationship_insights: true,
-            email_notifications: false
+          notification_preferences: {
+            daily_reminders: notificationPrefs.daily_reminders ?? true,
+            email_notifications: notificationPrefs.email_notifications ?? false
           }
         })
       } else {
@@ -154,7 +147,6 @@ export default function SettingsPage() {
           id: user.id,
           full_name: profile.full_name,
           email: profile.email,
-          bio: profile.bio,
           anniversary_date: profile.anniversary_date || null,
           relationship_stage: profile.relationship_stage || null,
           notification_preferences: profile.notification_preferences,
@@ -304,7 +296,7 @@ export default function SettingsPage() {
         {message && (
           <div className={`mb-6 p-4 rounded-xl border ${
             message.includes('Error') || message.includes('error')
-              ? 'bg-red-50 text-red-700 border-red-200' 
+              ? 'bg-red-50 text-red-700 border-red-200'
               : 'bg-brand-teal/10 border-brand-teal/30 text-brand-dark-teal'
           }`}>
             <div className="flex items-center">
@@ -321,14 +313,14 @@ export default function SettingsPage() {
         )}
 
         <div className="space-y-6 sm:space-y-8">
-          {/* Profile Settings */}
+          {/* Profile Settings - REMOVED: Bio section */}
           <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center font-heading">
+              <CardTitle className="flex items-center font-heading text-brand-charcoal">
                 <User className="w-6 h-6 text-brand-teal mr-2" />
                 Profile Information
               </CardTitle>
-              <CardDescription className="font-inter">Update your personal information</CardDescription>
+              <CardDescription className="font-inter text-brand-slate">Update your personal information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -354,29 +346,17 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="bio" className="font-inter text-ui-base font-medium text-brand-charcoal">Bio</Label>
-                <Textarea
-                  id="bio"
-                  value={profile.bio}
-                  onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                  placeholder="Tell us a bit about yourself..."
-                  rows={3}
-                  className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none font-inter"
-                />
-              </div>
             </CardContent>
           </Card>
 
           {/* Relationship Settings */}
           <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center font-heading">
+              <CardTitle className="flex items-center font-heading text-brand-charcoal">
                 <Heart className="w-6 h-6 text-brand-coral-pink mr-2" />
                 Relationship Settings
               </CardTitle>
-              <CardDescription className="font-inter">Configure your relationship details</CardDescription>
+              <CardDescription className="font-inter text-brand-slate">Configure your relationship details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -396,11 +376,11 @@ export default function SettingsPage() {
                     id="relationship_stage"
                     value={profile.relationship_stage}
                     onChange={(e) => setProfile({ ...profile, relationship_stage: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-light-gray rounded-md focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal transition-colors font-inter"
+                    className="w-full px-3 py-2 border border-brand-light-gray rounded-lg focus:border-brand-teal focus:ring-brand-teal/20 bg-white font-inter"
                   >
                     <option value="">Select stage</option>
                     <option value="dating">Dating</option>
-                    <option value="committed">Committed Relationship</option>
+                    <option value="committed">In a Committed Relationship</option>
                     <option value="engaged">Engaged</option>
                     <option value="married">Married</option>
                     <option value="long_term">Long-term Partnership</option>
@@ -410,21 +390,21 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Notification Preferences */}
+          {/* Notification Preferences - UPDATED: Only Daily Reminders + Email Notifications */}
           <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center font-heading">
+              <CardTitle className="flex items-center font-heading text-brand-charcoal">
                 <Bell className="w-6 h-6 text-brand-teal mr-2" />
                 Notification Preferences
               </CardTitle>
-              <CardDescription className="font-inter">Choose how you want to be notified</CardDescription>
+              <CardDescription className="font-inter text-brand-slate">Control how you receive reminders and updates</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-4 border border-brand-light-gray rounded-lg">
                   <div className="space-y-1">
                     <p className="text-ui-base font-medium text-brand-charcoal font-inter">Daily Reminders</p>
-                    <p className="text-ui-sm text-brand-slate font-inter">Gentle reminders to check in and journal</p>
+                    <p className="text-ui-sm text-brand-slate font-inter">Show gentle prompts to check in and journal on the dashboard</p>
                   </div>
                   <Switch
                     checked={profile.notification_preferences?.daily_reminders}
@@ -440,51 +420,11 @@ export default function SettingsPage() {
                     className="data-[state=checked]:bg-brand-teal data-[state=unchecked]:bg-brand-light-gray"
                   />
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-ui-base font-medium text-brand-charcoal font-inter">Partner Suggestions</p>
-                    <p className="text-ui-sm text-brand-slate font-inter">Receive AI-generated suggestions for your partner</p>
-                  </div>
-                  <Switch
-                    checked={profile.notification_preferences?.partner_suggestions}
-                    onCheckedChange={(checked) => 
-                      setProfile({
-                        ...profile,
-                        notification_preferences: {
-                          ...profile.notification_preferences!,
-                          partner_suggestions: checked
-                        }
-                      })
-                    }
-                    className="data-[state=checked]:bg-brand-teal data-[state=unchecked]:bg-brand-light-gray"
-                  />
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-ui-base font-medium text-brand-charcoal font-inter">Relationship Insights</p>
-                    <p className="text-ui-sm text-brand-slate font-inter">Get notified when new insights are available</p>
-                  </div>
-                  <Switch
-                    checked={profile.notification_preferences?.relationship_insights}
-                    onCheckedChange={(checked) => 
-                      setProfile({
-                        ...profile,
-                        notification_preferences: {
-                          ...profile.notification_preferences!,
-                          relationship_insights: checked
-                        }
-                      })
-                    }
-                    className="data-[state=checked]:bg-brand-teal data-[state=unchecked]:bg-brand-light-gray"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-4 border border-brand-light-gray rounded-lg">
                   <div className="space-y-1">
                     <p className="text-ui-base font-medium text-brand-charcoal font-inter">Email Notifications</p>
-                    <p className="text-ui-sm text-brand-slate font-inter">Receive notifications via email</p>
+                    <p className="text-ui-sm text-brand-slate font-inter">Receive periodic email updates (coming soon)</p>
                   </div>
                   <Switch
                     checked={profile.notification_preferences?.email_notifications}
@@ -507,11 +447,11 @@ export default function SettingsPage() {
           {/* Privacy & Data */}
           <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center font-heading">
+              <CardTitle className="flex items-center font-heading text-brand-charcoal">
                 <Shield className="w-6 h-6 text-brand-teal mr-2" />
                 Privacy & Data
               </CardTitle>
-              <CardDescription className="font-inter">Manage your data and privacy settings</CardDescription>
+              <CardDescription className="font-inter text-brand-slate">Manage your data and privacy settings</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="bg-gradient-to-r from-brand-teal/10 to-brand-coral-pink/10 p-4 rounded-xl border border-brand-teal/20">
@@ -582,40 +522,39 @@ export default function SettingsPage() {
                 {!showDeleteConfirm ? (
                   <Button
                     onClick={() => setShowDeleteConfirm(true)}
-                    variant="outline"
-                    className="border-red-300 text-red-700 hover:bg-red-50"
+                    variant="destructive"
+                    size="sm"
+                    className="font-inter"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete Account
                   </Button>
                 ) : (
                   <div className="space-y-4">
-                    <p className="text-red-800 font-semibold mb-2 font-inter">⚠️ This action cannot be undone!</p>
-                    <p className="text-red-700 text-ui-sm font-inter">
-                      Are you absolutely sure? This cannot be undone.
-                    </p>
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={deleteAccount}
-                        disabled={saving}
-                        className="bg-red-600 hover:bg-red-700 text-white"
-                      >
-                        {saving ? (
-                          <div className="flex items-center">
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                            Deleting...
-                          </div>
-                        ) : (
-                          'Yes, Delete Forever'
-                        )}
-                      </Button>
-                      <Button
-                        onClick={() => setShowDeleteConfirm(false)}
-                        variant="outline"
-                        className="border-gray-300"
-                      >
-                        Cancel
-                      </Button>
+                    <div className="p-4 bg-red-100 border border-red-200 rounded-lg">
+                      <h4 className="font-medium text-red-800 mb-2 font-inter">Are you absolutely sure?</h4>
+                      <p className="text-sm text-red-700 mb-4 font-inter">
+                        This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+                      </p>
+                      <div className="flex space-x-3">
+                        <Button
+                          onClick={deleteAccount}
+                          variant="destructive"
+                          size="sm"
+                          disabled={saving}
+                          className="font-inter"
+                        >
+                          {saving ? 'Deleting...' : 'Yes, delete my account'}
+                        </Button>
+                        <Button
+                          onClick={() => setShowDeleteConfirm(false)}
+                          variant="outline"
+                          size="sm"
+                          className="border-brand-light-gray hover:bg-brand-cool-gray font-inter"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
