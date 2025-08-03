@@ -1,4 +1,4 @@
-// src/components/onboarding/question-components/SliderGroupQuestion.tsx - FINAL TYPE FIXES
+// src/components/onboarding/question-components/SliderGroupQuestion.tsx - BRAND COLOR FIXES
 
 'use client'
 
@@ -52,10 +52,10 @@ export const SliderGroupQuestion: React.FC<SliderGroupQuestionProps> = ({
 
   const getSliderColor = (sliderValue: number, min: number, max: number) => {
     const percentage = ((sliderValue - min) / (max - min)) * 100
-    if (percentage >= 80) return 'bg-green-500'
-    if (percentage >= 60) return 'bg-yellow-500'
-    if (percentage >= 40) return 'bg-orange-500'
-    return 'bg-red-500'
+    if (percentage >= 80) return 'bg-brand-teal text-white'
+    if (percentage >= 60) return 'bg-brand-coral-pink text-white'
+    if (percentage >= 40) return 'bg-brand-slate text-white'
+    return 'bg-gray-400 text-white'
   }
 
   const getValueLabel = (sliderValue: number, min: number, max: number) => {
@@ -76,11 +76,11 @@ export const SliderGroupQuestion: React.FC<SliderGroupQuestionProps> = ({
         const valueLabel = getValueLabel(currentValue, sliderConfig.min, sliderConfig.max)
         
         return (
-          <div key={sliderConfig.key} className="space-y-3 p-4 border rounded-lg">
+          <div key={sliderConfig.key} className="space-y-3 p-4 border rounded-lg bg-white">
             <div className="flex justify-between items-center">
               <Label className="font-medium text-base">{sliderConfig.label}</Label>
               <div className="flex items-center space-x-2">
-                <Badge variant="secondary" className={`${colorClass} text-white`}>
+                <Badge variant="secondary" className={colorClass}>
                   {currentValue}
                 </Badge>
                 <span className="text-sm text-gray-600">{valueLabel}</span>

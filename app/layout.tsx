@@ -164,58 +164,15 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-status-bar-style" content="default" />
         
-        {/* ENHANCED: Prevent any browser yellow during loading */}
+        {/* Simple mobile optimization */}
         <style dangerouslySetInnerHTML={{
           __html: `
             html, body {
-              background-color: #FFF8FB !important;
-              overscroll-behavior: none !important;
-              -webkit-overflow-scrolling: touch !important;
-            }
-            
-            /* Immediate yellow prevention */
-            *, *::before, *::after {
-              background-color: inherit !important;
-            }
-            
-            /* iOS Safari specific overrides */
-            @supports (-webkit-touch-callout: none) {
-              html {
-                background-color: #FFF8FB !important;
-                -webkit-background-size: 100% 100%;
-                background-attachment: fixed;
-              }
-              
-              body {
-                background-color: #FFF8FB !important;
-                -webkit-overflow-scrolling: touch;
-                overscroll-behavior: none;
-                position: relative;
-                width: 100vw;
-                min-height: 100vh;
-                min-height: -webkit-fill-available;
-              }
-              
-              /* Prevent yellow during URL bar hide/show */
-              body::before {
-                content: '';
-                position: fixed;
-                top: -100px;
-                left: 0;
-                right: 0;
-                height: calc(100vh + 200px);
-                background-color: #FFF8FB !important;
-                z-index: -1000;
-                pointer-events: none;
-              }
-            }
-            
-            /* Loading state - prevent any yellow flash */
-            .loading {
-              background-color: #FFF8FB !important;
-            }
-          `
-        }} />
+              background-color: #FFF8FB;
+              overscroll-behavior: none;
+    }
+  `
+}} />
         
         {/* Modern favicon (SVG) for supported browsers */}
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

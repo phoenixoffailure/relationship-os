@@ -113,7 +113,7 @@ export function CycleTracker() {
         />
       </div>
 
-      <Button type="submit" className="bg-calm-500 hover:bg-calm-600" disabled={loading}>
+      <Button type="submit" className="bg-brand-teal hover:bg-calm-600" disabled={loading}>
         {loading ? 'Saving...' : 'Save Cycle Data'}
       </Button>
     </form>

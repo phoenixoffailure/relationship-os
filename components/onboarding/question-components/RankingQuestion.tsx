@@ -1,4 +1,4 @@
-// src/components/onboarding/question-components/RankingQuestion.tsx - TYPE FIXES
+// src/components/onboarding/question-components/RankingQuestion.tsx - BRAND COLOR FIXES
 
 'use client'
 
@@ -85,9 +85,9 @@ export const RankingQuestion: React.FC<RankingQuestionProps> = ({
             <Card 
               key={optionValue} 
               className={`p-4 transition-all duration-200 hover:shadow-md ${
-                rank <= 2 ? 'border-green-200 bg-green-50' : 
-                rank <= 4 ? 'border-yellow-200 bg-yellow-50' : 
-                'border-gray-200'
+                rank <= 2 ? 'border-brand-teal/30 bg-brand-teal/5' : 
+                rank <= 4 ? 'border-brand-coral-pink/30 bg-brand-coral-pink/5' : 
+                'border-gray-200 bg-white'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -127,7 +127,11 @@ export const RankingQuestion: React.FC<RankingQuestionProps> = ({
                 
                 <Badge 
                   variant={rank <= 2 ? "default" : rank <= 4 ? "secondary" : "outline"}
-                  className="text-lg font-bold min-w-[2rem] justify-center"
+                  className={`text-lg font-bold min-w-[2rem] justify-center ${
+                    rank <= 2 ? 'bg-brand-teal text-white' : 
+                    rank <= 4 ? 'bg-brand-coral-pink text-white' : 
+                    'bg-white text-gray-600 border'
+                  }`}
                 >
                   {rank}
                 </Badge>

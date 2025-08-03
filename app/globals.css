@@ -2,109 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===============================
-   MOBILE YELLOW ELIMINATION
-   =============================== */
-
-/* CRITICAL: Prevent any yellow from appearing in mobile browsers */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  /* Force remove any potential yellow backgrounds */
-  background-color: inherit !important;
-}
-
-/* Force consistent backgrounds on root elements */
-html {
-  background-color: rgb(255, 248, 251) !important; /* brand-warm-white */
-  /* Prevent overscroll yellow on iOS Safari */
-  overscroll-behavior: none;
-  /* Prevent zoom yellow flash */
-  -webkit-text-size-adjust: 100%;
-  /* Remove iOS Safari bounce and yellow */
-  -webkit-overflow-scrolling: touch;
-  /* Ensure consistent mobile viewport */
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
 body {
   font-family: Arial, Helvetica, sans-serif;
-  background-color: rgb(255, 248, 251) !important; /* brand-warm-white */
-  /* Prevent mobile overscroll yellow */
-  overscroll-behavior: none;
-  overscroll-behavior-x: none;
-  overscroll-behavior-y: none;
-  /* Remove any potential margin/padding that could show yellow */
-  margin: 0 !important;
-  padding: 0 !important;
-  /* Ensure full viewport coverage */
-  min-height: 100vh;
-  min-height: 100dvh; /* Dynamic viewport height for mobile */
-  width: 100%;
-  position: relative;
 }
-
-/* MOBILE SAFARI SPECIFIC FIXES */
-@supports (-webkit-touch-callout: none) {
-  /* iOS Safari specific overrides */
-  html {
-    background-color: rgb(255, 248, 251) !important;
-    /* Prevent any yellow during orientation changes */
-    -webkit-background-size: 100% 100%;
-    background-attachment: fixed;
-  }
-  
-  body {
-    background-color: rgb(255, 248, 251) !important;
-    /* Prevent rubber band yellow */
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: none;
-    /* Force viewport stability */
-    position: relative;
-    width: 100vw;
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
-  }
-  
-  /* Prevent yellow during URL bar hide/show */
-  body::before {
-    content: '';
-    position: fixed;
-    top: -100px;
-    left: 0;
-    right: 0;
-    height: calc(100vh + 200px);
-    background-color: rgb(255, 248, 251) !important;
-    z-index: -1000;
-    pointer-events: none;
-  }
-}
-
-/* CHROME MOBILE SPECIFIC */
-@media screen and (-webkit-min-device-pixel-ratio: 0) {
-  html, body {
-    background-color: rgb(255, 248, 251) !important;
-    overscroll-behavior: none;
-  }
-}
-
-/* VIEWPORT CONTAINER FIXES */
-#__next,
-[data-nextjs-scroll-focus-boundary],
-main {
-  background-color: rgb(255, 248, 251) !important;
-  min-height: 100vh;
-  min-height: 100dvh;
-  width: 100%;
-  position: relative;
-}
-
-/* ===============================
-   TYPOGRAPHY UTILITIES
-   =============================== */
 
 @layer utilities {
   .text-balance {
@@ -141,7 +41,7 @@ main {
     line-height: 1.35;
   }
   
-  /* NEW: UI Typography Classes (Inter) */
+  /* UI Typography Classes (Inter) */
   .text-ui-xl {
     font-family: var(--font-inter);
     font-weight: 600;
@@ -170,7 +70,7 @@ main {
     line-height: 1.5;
   }
   
-  /* NEW: Brand Typography Combinations */
+  /* Brand Typography Combinations */
   .text-brand-hero {
     font-family: var(--font-merriweather);
     font-weight: 700;
@@ -206,7 +106,7 @@ main {
 
 @layer base {
   :root {
-    /* NEW BRANDING: Core Colors */
+    /* Core Colors */
     --background: 255 248 251; /* warm-white */
     --foreground: 42 45 52; /* charcoal */
     --card: 255 255 255; /* white */
@@ -238,7 +138,7 @@ main {
     --input: 245 247 247; /* cool-gray */
     --ring: 74 185 184; /* brand-teal */
     
-    /* UPDATED CHARTS: Brand Color Harmony */
+    /* CHARTS: Brand Color Harmony */
     --chart-1: 74 185 184; /* brand-teal */
     --chart-2: 255 138 155; /* coral-pink */
     --chart-3: 255 203 138; /* warm-peach */
@@ -316,6 +216,8 @@ main {
   }
   body {
     @apply bg-background text-foreground;
+    background-color: rgb(255 248 251);
+    color: rgb(42 45 52);
   }
 }
 
@@ -341,10 +243,10 @@ main {
 }
 
 /* ===============================
-   ENHANCED AUTOFILL FIXES
+   SURGICAL YELLOW FIXES ONLY
    =============================== */
 
-/* AGGRESSIVE: Autofill styling - Use brand colors instead of yellow */
+/* ONLY target autofill inputs - don't break normal elements */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -365,18 +267,16 @@ select:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s !important; /* Prevent yellow flash */
 }
 
-/* ENHANCED: Focus states with brand colors */
+/* Enhanced focus states for form inputs only */
 input:focus,
 textarea:focus,
-select:focus,
-button:focus {
-  outline: none !important;
+select:focus {
+  outline: none;
   border-color: rgb(74 185 184) !important; /* brand-teal */
   box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important; /* brand-teal with opacity */
-  background-color: rgb(245 247 247) !important; /* Ensure no yellow */
 }
 
-/* ENHANCED: Switch/Toggle styling - Remove yellow, use brand colors */
+/* Switch/Toggle styling fixes */
 [data-state="checked"] {
   background-color: rgb(74 185 184) !important; /* brand-teal */
 }
@@ -389,13 +289,12 @@ button:focus {
   background-color: rgb(229 231 235) !important; /* brand-light-gray */
 }
 
-/* ENHANCED: Form validation states */
+/* Form validation states for inputs only */
 input:invalid:focus,
 textarea:invalid:focus,
 select:invalid:focus {
   border-color: rgb(255 138 155) !important; /* brand-coral-pink for errors */
   box-shadow: 0 0 0 2px rgba(255, 138, 155, 0.2) !important;
-  background-color: rgb(245 247 247) !important; /* Prevent yellow */
 }
 
 input:valid:focus,
@@ -403,131 +302,224 @@ textarea:valid:focus,
 select:valid:focus {
   border-color: rgb(74 185 184) !important; /* brand-teal for valid */
   box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important;
-  background-color: rgb(245 247 247) !important; /* Prevent yellow */
 }
 
-/* ENHANCED: Button focus states */
-button:focus,
-button:focus-visible {
-  outline: none !important;
-  box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important; /* brand-teal focus ring */
-  background-color: inherit !important; /* Prevent yellow */
-}
-
-/* ENHANCED: Date input styling */
+/* Date input styling */
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.6) sepia(1) saturate(2) hue-rotate(170deg); /* Teal color for calendar icon */
-  background-color: transparent !important; /* No yellow */
 }
 
-/* ENHANCED: Select dropdown styling */
-select {
-  background-color: rgb(245 247 247) !important; /* brand-cool-gray */
-  border-color: rgb(229 231 235) !important; /* brand-light-gray */
-}
-
+/* Select dropdown styling */
 select option {
-  background-color: white !important;
-  color: rgb(42 45 52) !important; /* brand-charcoal */
+  background-color: white;
+  color: rgb(42 45 52); /* brand-charcoal */
 }
 
 select option:checked {
-  background-color: rgb(74 185 184) !important; /* brand-teal */
-  color: white !important;
+  background-color: rgb(74 185 184); /* brand-teal */
+  color: white;
 }
 
-/* ENHANCED: Remove any remaining yellow highlights */
+/* Focus visible for accessibility */
 *:focus-visible {
-  outline: 2px solid rgb(74 185 184) !important; /* brand-teal */
+  outline: 2px solid rgb(74 185 184); /* brand-teal */
   outline-offset: 2px;
-  background-color: inherit !important; /* Prevent yellow */
 }
 
-/* ENHANCED: Ensure consistent brand colors for interactive states */
-.hover\:bg-brand-teal\/10:hover {
-  background-color: rgba(74, 185, 184, 0.1) !important;
+/* Mobile Safari overscroll fix */
+html, body {
+  background-color: rgb(255, 248, 251); /* brand-warm-white */
+  overscroll-behavior: none;
 }
 
-.focus\:border-brand-teal:focus {
-  border-color: rgb(74 185 184) !important;
-}
-
-.focus\:ring-brand-teal\/20:focus {
-  box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important;
-}
-
-/* ===============================
-   MOBILE ORIENTATION FIXES
-   =============================== */
-
-/* Prevent yellow during orientation changes */
-@media screen and (orientation: landscape) {
-  html, body {
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  html {
     background-color: rgb(255, 248, 251) !important;
-    width: 100vw;
-    height: 100vh;
-    overflow-x: hidden;
+    -webkit-background-size: 100% 100%;
+    background-attachment: fixed;
   }
-}
-
-@media screen and (orientation: portrait) {
-  html, body {
+  
+  body {
     background-color: rgb(255, 248, 251) !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    position: relative;
     width: 100vw;
     min-height: 100vh;
-    overflow-x: hidden;
+    min-height: -webkit-fill-available;
+  }
+  
+  /* Prevent yellow during URL bar hide/show */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -100px;
+    left: 0;
+    right: 0;
+    height: calc(100vh + 200px);
+    background-color: rgb(255, 248, 251) !important;
+    z-index: -1000;
+    pointer-events: none;
   }
 }
 
-/* ===============================
-   FINAL CATCH-ALL OVERRIDES
-   =============================== */
-
-/* Nuclear option: Force brand colors everywhere */
-* {
-  /* Remove any potential yellow backgrounds */
-  background-color: inherit !important;
+/* Chrome mobile specific */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  html, body {
+    background-color: rgb(255, 248, 251) !important;
+    overscroll-behavior: none;
+  }
 }
 
-/* Ensure main containers use brand background */
-.bg-background,
-.bg-warm-white,
-[class*="bg-"] {
-  background-color: rgb(255, 248, 251) !important;
-}
-
-/* Mobile viewport stability */
-@viewport {
-  width: device-width;
-  user-zoom: fixed;
-}
-
-/* Ensure dropdown overrides any conflicting styles */
-select[id="relationship_stage"] {
-  border-color: rgb(229 231 235) !important; /* brand-light-gray */
+/* Emergency onboarding card background fix */
+.onboarding-container,
+.onboarding-step,
+[data-step],
+.card-content {
   background-color: white !important;
 }
 
-select[id="relationship_stage"]:focus {
-  border-color: rgb(74 185 184) !important; /* brand-teal */
-  box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important;
-  outline: none !important;
+/* Ensure all cards in onboarding are white */
+.card {
+  background-color: white !important;
 }
 
-/* Ensure switches use brand colors */
-.settings-page [data-state="checked"] {
-  background-color: rgb(74 185 184) !important; /* brand-teal */
+.bg-card {
+  background-color: white !important;
+  background-color: rgb(255, 255, 255) !important;
+  background-color: hsl(0, 0%, 100%) !important;
 }
 
-.settings-page [data-state="unchecked"] {
-  background-color: rgb(229 231 235) !important; /* brand-light-gray */
+.progress-bar,
+.w-full.h-2 {
+  background-color: rgb(229, 231, 235) !important;
 }
 
-/* Force switch colors - add to end of globals.css */
-button[role="switch"][data-state="unchecked"] {
-  background-color: rgb(229, 231, 235) !important; /* brand-light-gray */
+/* Step content container border fix */
+div[class*="space-y-6"] > div[class*="bg-card"] {
+  border-color: rgb(229, 231, 235) !important; /* light gray border */
 }
 
-button[role="switch"][data-state="checked"] {
+/* Slider track and thumb styling */
+[role="slider"] {
+  background-color: rgb(74, 185, 184) !important; /* brand teal */
+}
+
+/* Slider track background */
+.slider-track,
+[data-orientation="horizontal"] {
+  background-color: rgb(229, 231, 235) !important; /* light gray track */
+}
+
+/* Slider range (filled portion) */
+.slider-range {
+  background-color: rgb(74, 185, 184) !important; /* brand teal */
+}
+
+/* PROPER BRAND COLOR FIXES - Apply brand identity consistently */
+
+/* 1. Step Badge - Brand Teal */
+.badge[class*="Step"] {
   background-color: rgb(74, 185, 184) !important; /* brand-teal */
+  color: white !important;
+}
+
+/* More specific step badge targeting */
+div[class*="justify-center"] .badge,
+.text-sm.badge {
+  background-color: rgb(74, 185, 184) !important; /* brand-teal */
+  color: white !important;
+}
+
+/* 2. Progress Bar - Brand Colors */
+[role="progressbar"] {
+  background-color: rgb(229, 231, 235) !important; /* brand-light-gray track */
+}
+
+[role="progressbar"] > div,
+.progress-fill {
+  background-color: rgb(74, 185, 184) !important; /* brand-teal fill */
+}
+
+/* 3. Slider Components - Brand Teal */
+[data-radix-slider-thumb] {
+  background-color: rgb(74, 185, 184) !important; /* brand-teal thumb */
+  border-color: rgb(74, 185, 184) !important;
+}
+
+[data-radix-slider-range] {
+  background-color: rgb(74, 185, 184) !important; /* brand-teal active range */
+}
+
+[data-radix-slider-track] {
+  background-color: rgb(229, 231, 235) !important; /* brand-light-gray track */
+}
+
+/* 4. Slider Value Badges - Brand Colors */
+.slider-value-badge,
+div[class*="slider"] .badge {
+  background-color: rgb(74, 185, 184) !important; /* brand-teal */
+  color: white !important;
+}
+
+/* 5. Step Indicator - Brand Colors */
+.step-indicator.current {
+  background-color: rgb(74, 185, 184) !important; /* brand-teal for current step */
+  color: white !important;
+}
+
+.step-indicator.completed {
+  background-color: rgb(34, 197, 94) !important; /* green for completed */
+  color: white !important;
+}
+
+/* 6. Question Type Specific Fixes */
+
+/* Ranking cards - brand accent colors */
+.ranking-card.top-priority {
+  border-color: rgb(74, 185, 184) !important; /* brand-teal border */
+  background-color: rgba(74, 185, 184, 0.05) !important; /* subtle teal background */
+}
+
+.ranking-card.secondary {
+  border-color: rgb(255, 138, 155) !important; /* brand-coral-pink border */
+  background-color: rgba(255, 138, 155, 0.05) !important; /* subtle coral background */
+}
+
+/* Ranking badges - brand colors */
+.ranking-badge.priority-1,
+.ranking-badge.priority-2 {
+  background-color: rgb(74, 185, 184) !important; /* brand-teal */
+  color: white !important;
+}
+
+.ranking-badge.priority-3,
+.ranking-badge.priority-4 {
+  background-color: rgb(255, 138, 155) !important; /* brand-coral-pink */
+  color: white !important;
+}
+
+/* 7. Form Elements - Brand Focus States */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: rgb(74, 185, 184) !important; /* brand-teal focus */
+  box-shadow: 0 0 0 2px rgba(74, 185, 184, 0.2) !important;
+}
+
+/* 8. Required Badge - Brand Coral */
+.badge[class*="Required"],
+.required-indicator {
+  background-color: rgb(255, 138, 155) !important; /* brand-coral-pink */
+  color: white !important;
+}
+
+/* 9. Navigation Buttons - Already Fixed in Component */
+/* These should be handled in the component itself */
+
+/* 10. Overall Card Styling - Clean Brand Look */
+.onboarding-card {
+  border-color: rgb(229, 231, 235) !important; /* brand-light-gray */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
 }

@@ -11,9 +11,9 @@ const buttonVariants = cva(
       variant: {
         default: "bg-brand-teal text-white hover:bg-brand-dark-teal",
         destructive: "bg-red-500 text-white hover:bg-red-600",
-        outline: "border border-brand-light-gray bg-white hover:bg-brand-teal/10 hover:text-brand-dark-teal text-brand-charcoal",
-        secondary: "bg-brand-cool-gray text-brand-charcoal hover:bg-brand-light-gray",
-        ghost: "hover:bg-brand-teal/10 hover:text-brand-dark-teal text-brand-charcoal",
+        outline: "border border-gray-200 bg-white hover:bg-brand-teal/10 hover:text-brand-teal text-brand-charcoal",
+        secondary: "bg-gray-100 text-brand-charcoal hover:bg-gray-200",
+        ghost: "hover:bg-brand-teal/10 hover:text-brand-teal text-brand-charcoal",
         link: "text-brand-teal underline-offset-4 hover:underline hover:text-brand-dark-teal",
       },
       size: {

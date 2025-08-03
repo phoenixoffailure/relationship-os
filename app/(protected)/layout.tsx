@@ -67,7 +67,7 @@ export default function ProtectedLayout({
   // Show loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-3 border-calm-300 border-t-calm-600 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-calm-600 font-medium">Loading...</p>
@@ -82,7 +82,7 @@ export default function ProtectedLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       {/* Responsive Header */}
       <ResponsiveHeader userEmail={user.email} />
       

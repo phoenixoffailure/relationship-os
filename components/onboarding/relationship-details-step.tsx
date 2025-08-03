@@ -296,9 +296,9 @@ export default function RelationshipDetailsStep({
         <Button variant="outline" onClick={onBack}>
           Back
         </Button>
-        <Button onClick={handleSubmit} className="bg-pink-500 hover:bg-pink-600">
-          Continue
-        </Button>
+        <Button onClick={handleSubmit} className="bg-brand-coral-pink hover:bg-brand-coral-pink/80 text-white">
+        Continue
+      </Button>
       </div>
     </div>
   )

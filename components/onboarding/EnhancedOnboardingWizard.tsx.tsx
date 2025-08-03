@@ -180,8 +180,8 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
             <div key={stepNumber} className="flex items-center">
               <div className={`
                 flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-medium
-                ${isCompleted ? 'bg-green-500 border-green-500 text-white' : 
-                  isCurrent ? 'bg-calm-500 border-calm-500 text-white' : 
+                ${isCompleted ? 'bg-gradient-to-br from-gray-50 to-white' : 
+                  isCurrent ? 'bg-brand-teal border-brand-teal text-white' : 
                   'bg-gray-100 border-gray-300 text-gray-500'}
               `}>
                 {isCompleted ? <CheckCircle className="w-4 h-4" /> : stepNumber}
@@ -273,7 +273,7 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
               Step {currentStep} of {totalSteps}
             </Badge>
           </div>
-          <CardTitle className="text-2xl text-calm-600">{stepData.title}</CardTitle>
+          <CardTitle className="text-2xl text-brand-teal">{stepData.title}</CardTitle>
           <CardDescription className="text-lg">{stepData.subtitle}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
@@ -311,7 +311,7 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-calm-50 to-mint-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white py-8 px-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Progress indicator */}
         <div className="text-center space-y-4">
@@ -347,7 +347,7 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
             <Button 
               onClick={handleNext} 
               disabled={loading}
-              className="bg-calm-500 hover:bg-calm-600 flex items-center space-x-2"
+              className="bg-brand-teal hover:bg-brand-dark-teal text-white flex items-center space-x-2"
             >
               <span>Next Step</span>
               <ArrowRight className="w-4 h-4" />
@@ -356,7 +356,7 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
             <Button 
               onClick={handleSubmit} 
               disabled={loading}
-              className="bg-mint-500 hover:bg-mint-600 flex items-center space-x-2"
+              className="bg-brand-coral-pink hover:bg-brand-coral-pink/80 text-white flex items-center space-x-2"
             >
               {loading ? (
                 <>

@@ -11,6 +11,7 @@ import SharedInsights from '@/components/SharedInsights'
 import RecentActivity from '@/components/RecentActivity'
 import { PartnerSuggestions } from '@/components/dashboard/PartnerSuggestions'
 import { Database } from '@/lib/types/database'
+import { getUserNotificationPreferences, shouldShowPartnerSuggestions, shouldShowRelationshipInsights, shouldShowDailyReminders } from '@/lib/utils/notification-preferences'
 
 // Use exact database types
 type RelationshipInsightRow = Database['public']['Tables']['relationship_insights']['Row']

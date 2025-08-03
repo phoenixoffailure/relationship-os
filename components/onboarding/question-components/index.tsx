@@ -1,5 +1,5 @@
-// components/onboarding/question-components/index.tsx - COMPLETE FIX
-// Fixed all TypeScript errors and syntax issues
+// components/onboarding/question-components/index.tsx - BRAND COLOR FIXES
+// Fixed all TypeScript errors and updated to brand colors
 
 'use client'
 
@@ -200,9 +200,9 @@ export const MultipleChoiceQuestion: React.FC<BaseQuestionProps> = ({
             <Card 
               key={option.value} 
               className={`p-3 cursor-pointer transition-all ${
-                isSelected ? 'border-calm-500 bg-calm-50' : 
+                isSelected ? 'border-brand-teal bg-brand-teal/5' : 
                 isDisabled ? 'opacity-50 cursor-not-allowed' : 
-                'hover:border-gray-400'
+                'hover:border-gray-400 bg-white'
               }`}
               onClick={() => !isDisabled && handleToggle(option.value)}
             >
@@ -263,7 +263,7 @@ export const SingleChoiceGroupQuestion: React.FC<BaseQuestionProps> = ({
   return (
     <div className="space-y-6">
       {choices.map((choice) => (
-        <div key={choice.key} className="space-y-3 p-4 border rounded-lg">
+        <div key={choice.key} className="space-y-3 p-4 border rounded-lg bg-white">
           <Label className="font-medium text-base">{choice.label}</Label>
           <RadioGroup
             value={objectValue[choice.key] || ''}
@@ -322,11 +322,11 @@ export const SliderQuestion: React.FC<BaseQuestionProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="p-4 border rounded-lg">
+      <div className="p-4 border rounded-lg bg-white">
         <div className="flex justify-between items-center mb-4">
           <Label className="font-medium text-base">{question.label || question.question}</Label>
           <div className="flex items-center space-x-2">
-            <Badge variant="secondary" className="text-lg">
+            <Badge variant="secondary" className="text-lg bg-brand-teal text-white">
               {numericValue}
             </Badge>
             <span className="text-sm text-gray-600">
@@ -434,11 +434,11 @@ export const SliderGroupQuestion: React.FC<BaseQuestionProps> = ({
         const sliderValue = objectValue[slider.key] || Math.floor((slider.min + slider.max) / 2)
         
         return (
-          <div key={slider.key} className="space-y-3">
+          <div key={slider.key} className="space-y-3 p-4 border rounded-lg bg-white">
             <div className="flex justify-between items-center">
               <Label className="font-medium">{slider.label}</Label>
               <div className="flex items-center space-x-2">
-                <Badge variant="secondary">
+                <Badge variant="secondary" className="bg-brand-teal text-white">
                   {sliderValue}
                 </Badge>
                 <span className="text-sm text-gray-600">
@@ -516,7 +516,7 @@ export const RankingQuestion: React.FC<BaseQuestionProps> = ({
         const currentRank = getRankForOption(option.value)
         
         return (
-          <div key={option.value} className="flex items-center space-x-4 p-3 border rounded-lg">
+          <div key={option.value} className="flex items-center space-x-4 p-3 border rounded-lg bg-white">
             <div className="flex items-center space-x-2">
               <Label className="text-sm font-medium">Rank:</Label>
               <select 

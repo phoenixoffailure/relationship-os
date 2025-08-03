@@ -23,7 +23,7 @@ export default function HomePage() {
         </Link>
         <div className="space-x-4">
           <Link href="/login">
-            <Button variant="ghost" className="text-brand-slate hover:text-brand-charcoal font-inter">
+            <Button variant="ghost" className="text-brand-charcoal hover:text-brand-teal font-inter">
               Sign In
             </Button>
           </Link>
@@ -52,7 +52,7 @@ export default function HomePage() {
             </span>
           </h1>
           
-          <p className="text-xl text-brand-slate mb-8 max-w-2xl mx-auto font-inter leading-relaxed">
+          <p className="text-xl text-brand-charcoal mb-8 max-w-2xl mx-auto font-inter leading-relaxed">
             A privacy-first platform that helps couples improve connection and intimacy through AI-powered insights, while keeping your personal data completely secure.
           </p>
 
@@ -71,7 +71,7 @@ export default function HomePage() {
           </div>
 
           {/* Trust Indicators */}
-          <div className="flex justify-center items-center space-x-8 text-brand-slate text-sm font-inter">
+          <div className="flex justify-center items-center space-x-8 text-brand-charcoal text-sm font-inter font-medium">
             <div className="flex items-center space-x-2">
               <Shield className="w-4 h-4 text-brand-teal" />
               <span>Privacy-First</span>
@@ -95,7 +95,8 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-4xl font-bold text-brand-charcoal mb-4 font-heading">
               Privacy-First Relationship Intelligence
             </h2>
-            <p className="text-xl text-brand-slate max-w-2xl mx-auto font-inter">
+            <p className="text-xl text-brand-charcoal max-w-2xl mx-auto font-inter">
+
               The only comprehensive four-pillar coaching system that analyzes your relationship patterns without compromising your privacy.
             </p>
           </div>
@@ -107,7 +108,7 @@ export default function HomePage() {
                 <Lock className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl font-semibold mb-4 text-brand-charcoal font-heading">Complete Privacy</h3>
-              <p className="text-brand-slate font-inter leading-relaxed">
+              <p className="text-brand-charcoal font-inter leading-relaxed opacity-80">
                 Your journal entries and personal data stay completely private to you. AI generates insights without revealing sensitive details.
               </p>
             </div>
@@ -118,7 +119,7 @@ export default function HomePage() {
                 <Brain className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl font-semibold mb-4 text-brand-charcoal font-heading">AI-Powered Insights</h3>
-              <p className="text-brand-slate font-inter leading-relaxed">
+              <p className="text-brand-charcoal font-inter leading-relaxed opacity-80">
                 Get constructive suggestions and patterns recognition to improve your relationship dynamics and communication.
               </p>
             </div>
@@ -129,7 +130,7 @@ export default function HomePage() {
                 <Heart className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl font-semibold mb-4 text-brand-charcoal font-heading">Connection Scoring</h3>
-              <p className="text-brand-slate font-inter leading-relaxed">
+              <p className="text-brand-charcoal font-inter leading-relaxed opacity-80">
                 Track your relationship health with sophisticated scoring that factors in communication, intimacy, and personal cycles.
               </p>
             </div>
@@ -154,7 +155,7 @@ export default function HomePage() {
                 <span className="text-blue-600 font-bold">📊</span>
               </div>
               <h4 className="font-semibold text-brand-charcoal mb-2 font-heading">Pattern Analysis</h4>
-              <p className="text-sm text-brand-slate font-inter">Identify relationship trends and behavioral patterns</p>
+              <p className="text-sm text-brand-charcoal font-inter opacity-80">Identify relationship trends and behavioral patterns</p>
             </div>
             
             {/* Pillar 2: Action Steps */}
@@ -163,7 +164,7 @@ export default function HomePage() {
                 <span className="text-emerald-600 font-bold">💡</span>
               </div>
               <h4 className="font-semibold text-brand-charcoal mb-2 font-heading">Action Steps</h4>
-              <p className="text-sm text-brand-slate font-inter">Concrete steps to improve connection and intimacy</p>
+              <p className="text-sm text-brand-charcoal font-inter opacity-80">Concrete steps to improve connection and intimacy</p>
             </div>
             
             {/* Pillar 3: Gratitude */}
@@ -172,7 +173,7 @@ export default function HomePage() {
                 <span className="text-pink-600 font-bold">❤️</span>
               </div>
               <h4 className="font-semibold text-brand-charcoal mb-2 font-heading">Strengths & Gratitude</h4>
-              <p className="text-sm text-brand-slate font-inter">Celebrate what's working in your relationship</p>
+              <p className="text-sm text-brand-charcoal font-inter opacity-80">Celebrate what's working in your relationship</p>
             </div>
             
             {/* Pillar 4: Milestones */}
@@ -181,7 +182,7 @@ export default function HomePage() {
                 <span className="text-purple-600 font-bold">🏆</span>
               </div>
               <h4 className="font-semibold text-brand-charcoal mb-2 font-heading">Progress & Achievements</h4>
-              <p className="text-sm text-brand-slate font-inter">Track meaningful relationship milestones</p>
+              <p className="text-sm text-brand-charcoal font-inter opacity-80">Track meaningful relationship milestones</p>
             </div>
           </div>
         </div>
@@ -215,7 +216,7 @@ export default function HomePage() {
           <p className="text-gray-300 mb-4 font-inter">
             © 2025 RelationshipOS. Built with privacy and love.
           </p>
-          <div className="flex justify-center items-center space-x-6 text-sm text-gray-400 font-inter">
+          <div className="flex justify-center items-center space-x-6 text-sm text-gray-300 font-inter">
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>

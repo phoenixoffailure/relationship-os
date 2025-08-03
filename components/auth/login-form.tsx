@@ -57,7 +57,7 @@ export function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </div>
-      <Button type="submit" className="w-full bg-calm-500 hover:bg-calm-600" disabled={loading}>
+      <Button type="submit" className="w-full bg-brand-teal hover:bg-calm-600" disabled={loading}>
         {loading ? 'Logging in...' : 'Login'}
       </Button>
     </form>
