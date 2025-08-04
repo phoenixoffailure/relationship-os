@@ -98,6 +98,34 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
   const totalSteps = 5
   const progress = getProgressPercentage(currentStep, responses)
 
+  /**
+   * Skip handler for onboarding
+   *
+   * Provides a way for users to bypass the remaining questions without losing
+   * what they've already entered. When invoked, it sends the partial
+   * responses to the server and marks the onboarding as skipped. The API
+   * endpoint will create or update a row in `enhanced_onboarding_responses`
+   * with a null `completed_at`, so that users can resume later. After
+   * saving, the user is redirected to the dashboard.
+   */
+  const handleSkip = async () => {
+    setLoading(true)
+    try {
+      await fetch('/api/onboarding/partial-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responses }),
+      })
+      // navigate to the dashboard with onboarding skipped flag
+      router.push('/dashboard?onboarding=skipped')
+      router.refresh()
+    } catch (error) {
+      console.error('Error skipping onboarding:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Enhanced response handling with proper typing
   const handleResponse = (questionId: string, value: string | string[] | number | Record<string, string | number>) => {
     setResponses(prev => ({
@@ -328,7 +356,8 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
         {renderStep()}
 
         {/* Navigation */}
-        <div className="flex justify-between max-w-4xl mx-auto pt-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center max-w-4xl mx-auto pt-6 space-y-4 sm:space-y-0">
+          {/* Back button or empty spacer */}
           {currentStep > 1 ? (
             <Button 
               variant="outline" 
@@ -342,7 +371,18 @@ export const EnhancedOnboardingWizard: React.FC<EnhancedOnboardingWizardProps> =
           ) : (
             <div />
           )}
-          
+
+          {/* Skip button - always visible to allow staging/partial onboarding */}
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            disabled={loading}
+            className="text-brand-teal underline hover:text-brand-dark-teal"
+          >
+            Skip for now
+          </Button>
+
+          {/* Next or Complete button */}
           {currentStep < totalSteps ? (
             <Button 
               onClick={handleNext} 

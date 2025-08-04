@@ -330,6 +330,10 @@ export default function JournalPage() {
                   className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
                   required
                 />
+                {/* Soft guidance to reassure privacy */}
+                <p className="text-xs italic text-brand-slate mt-2">
+                  This is private. Write freely.
+                </p>
               </div>
 
               <div>

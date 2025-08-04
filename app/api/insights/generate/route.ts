@@ -142,7 +142,7 @@ export async function POST(request: Request) {
     
     // Save insights to database with relationship context
     console.log('🔍 Saving insights to database...')
-    const savedInsights = []
+    let savedInsights: any[] = []
     
     for (const insight of insights) {
       console.log('💾 Saving insight:', insight.title)
@@ -189,10 +189,37 @@ export async function POST(request: Request) {
       }
     }
 
+    // Fallback: if no insights were saved, generate basic fallback suggestions
+    if (savedInsights.length === 0) {
+      console.log('⚠️ No insights saved to database, generating basic fallback insights...')
+      const fallbackInsights = generateBasicFallbackInsights(patterns, onboarding)
+      for (const insight of fallbackInsights) {
+        const { title, description, type, priority, relationship_id } = insight
+        const { data, error } = await supabase
+          .from('relationship_insights')
+          .insert([
+            {
+              relationship_id: relationship_id || null,
+              generated_for_user: user_id,
+              insight_type: type,
+              title,
+              description,
+              priority,
+              is_read: false,
+            },
+          ])
+          .select()
+        if (!error && data && data[0]) {
+          savedInsights.push(data[0])
+        }
+      }
+      console.log('✅ Fallback insights generated and saved:', savedInsights.length)
+    }
+
     console.log('✅ Enhanced relationship-aware insights generation complete:', savedInsights.length, 'saved')
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       insights: savedInsights,
       patterns,
       relationshipContext: {
@@ -789,6 +816,52 @@ function generateEnhancedRelationshipInsights(patterns: any, onboarding: any, re
   return insights
 }
 
+/**
+ * Generate a small set of generic fallback insights when no AI‑powered or structured
+ * insights are available. These suggestions are intentionally broad but still
+ * personalized based on the user’s primary love language. They give the
+ * customer something actionable rather than leaving their dashboard empty.
+ */
+function generateBasicFallbackInsights(patterns: any, onboarding: any) {
+  const primaryLoveLanguage = onboarding?.love_language_ranking?.[0] || 'quality_time'
+  const fallbackInsights: any[] = []
+
+  // Normalize love language for messaging
+  const prettyLoveLang = primaryLoveLanguage.replace(/_/g, ' ')
+
+  // Generic encouragement pattern insight
+  fallbackInsights.push({
+    type: 'pattern',
+    priority: 'medium',
+    title: 'Keep Showing Up',
+    description: `We didn’t have quite enough data to identify detailed patterns yet, but just by being here and reflecting you’re already investing in your wellbeing. Keep journaling and checking in — over time you’ll see clearer trends emerge.`,
+    relationship_id: null,
+    category: 'fallback'
+  })
+
+  // Action oriented suggestion based on love language
+  fallbackInsights.push({
+    type: 'suggestion',
+    priority: 'medium',
+    title: `A Simple Act of ${prettyLoveLang.charAt(0).toUpperCase() + prettyLoveLang.slice(1)}`,
+    description: `Even without detailed insights, you can create connection by leaning into ${prettyLoveLang}. Try one small gesture today — maybe spend a few quality minutes with someone you care about or offer yourself the same kindness and presence.`,
+    relationship_id: null,
+    category: 'fallback'
+  })
+
+  // Appreciation/wins to reinforce progress
+  fallbackInsights.push({
+    type: 'appreciation',
+    priority: 'low',
+    title: 'Acknowledge Your Effort',
+    description: `Taking time to reflect shows courage and self‑compassion. Celebrate this commitment to yourself — it’s the first step toward deeper connection with others.`,
+    relationship_id: null,
+    category: 'fallback'
+  })
+
+  return fallbackInsights
+}
+
 function getLoveLanguageAction(loveLanguage: string): string {
   const actions = {
     physical_touch: 'Plan more hugs, hand-holding, or physical affection moments.',
@@ -809,11 +882,11 @@ function generatePatternInsight(patterns: any, onboarding: any, relationshipCont
     type: 'pattern',
     priority: patterns.avgConnectionScore < 6 ? 'high' : 'medium',
     title: `${connectionTrend.charAt(0).toUpperCase() + connectionTrend.slice(1)} Connection Pattern`,
-    description: `Analysis of your relationship data shows ${connectionTrend} connection scores (${patterns.avgConnectionScore}/10) with ${activityLevel} engagement levels. ${
-      patterns.hasActivePartnership 
-        ? `Your ${patterns.relationshipStage} relationship shows ${patterns.relationshipCheckinsCount} relationship check-ins vs ${patterns.soloCheckinsCount} personal ones, indicating ${patterns.relationshipCheckinsCount > patterns.soloCheckinsCount ? 'strong partnership focus' : 'balanced individual and couple growth'}.`
-        : `Your personal growth tracking shows ${patterns.totalActivity} entries, indicating ${activityLevel} self-awareness development.`
-    }`,
+    description: `You’re noticing ${connectionTrend} connection patterns with an average connection score around ${patterns.avgConnectionScore}/10. ${
+      patterns.hasActivePartnership
+        ? `In your ${patterns.relationshipStage} relationship you’ve logged ${patterns.relationshipCheckinsCount} couple check‑ins and ${patterns.soloCheckinsCount} personal reflections, which paints a picture of how you’re showing up together and separately.`
+        : `You’ve made ${patterns.totalActivity} reflections so far, which is a great start to building self‑awareness.`
+    } It’s normal to have ups and downs – keep staying curious about what feels good and what might need extra care.`,
     relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
     category: 'structured-rule-based'
   }
@@ -827,8 +900,8 @@ function generateActionInsight(patterns: any, onboarding: any, relationshipConte
     return {
       type: 'suggestion',
       priority: patterns.avgConnectionScore < 6 ? 'high' : 'medium',
-      title: `Strengthen Connection Through ${primaryLoveLanguage.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}`,
-      description: `Nurture your relationship by focusing on ${primaryLoveLanguage.replace('_', ' ')} and practicing ${communicationStyle} communication. ${getLoveLanguageAction(primaryLoveLanguage)}`,
+      title: `Deepen Your Bond Through ${primaryLoveLanguage.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}`,
+      description: `Think about carving out intentional ${primaryLoveLanguage.replace('_', ' ')} moments. Maybe plan a cosy date or share a simple activity you both enjoy. Communicating in a ${communicationStyle} way helps both of you feel heard and appreciated. ${getLoveLanguageAction(primaryLoveLanguage)}`,
       relationship_id: relationshipContext.relationships[0]?.id || null,
       category: 'structured-rule-based'
     }
@@ -836,8 +909,8 @@ function generateActionInsight(patterns: any, onboarding: any, relationshipConte
     return {
       type: 'suggestion',
       priority: 'medium', 
-      title: 'Develop Relationship Readiness Skills',
-      description: `Focus on strengthening your ${primaryLoveLanguage.replace('_', ' ')} expression skills and ${communicationStyle} communication approach. ${getLoveLanguageAction(primaryLoveLanguage)} These self-awareness practices will enhance your readiness for meaningful relationships.`,
+      title: 'Prepare for Meaningful Connection',
+      description: `Practising your ${primaryLoveLanguage.replace('_', ' ')} expression and refining your ${communicationStyle} communication style will prepare you for healthy connection. ${getLoveLanguageAction(primaryLoveLanguage)} These self‑awareness habits build a strong foundation for future relationships.`,
       relationship_id: null,
       category: 'structured-rule-based'
     }
@@ -866,12 +939,12 @@ function generateWinsInsight(patterns: any, onboarding: any, relationshipContext
   return {
     type: 'appreciation',
     priority: 'medium',
-    title: 'Positive Growth Recognition', 
-    description: `Celebrating your ${mainPositive}${positives.length > 1 ? ` and ${positives[1]}` : ''}. ${
-      patterns.hasActivePartnership 
-        ? 'This positive energy and intentional effort is strengthening your relationship foundation and creating lasting positive patterns.'
-        : 'This emotional wellness and self-awareness foundation will serve you exceptionally well in current and future relationships.'
-    }`,
+    title: 'Celebrate Your Wins', 
+    description: `Take a moment to appreciate all the good you’re doing — your ${mainPositive}${positives.length > 1 ? ` and ${positives[1]}` : ''} show that your efforts are paying off. ${
+      patterns.hasActivePartnership
+        ? 'This positive energy is strengthening your relationship foundation and creating lasting positive patterns.'
+        : 'These habits of emotional wellness and self‑awareness will serve you exceptionally well in current and future relationships.'
+    } Keep leaning into what feels good.`,
     relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
     category: 'structured-rule-based'
   }
@@ -883,8 +956,8 @@ function generateMilestoneInsight(patterns: any, onboarding: any, relationshipCo
     return {
       type: 'milestone',
       priority: 'low',
-      title: 'Consistency Milestone Achieved',
-      description: `Congratulations on reaching ${patterns.totalActivity} total relationship tracking entries! This level of consistent engagement demonstrates real commitment to relationship growth and self-awareness. ${patterns.hasActivePartnership ? 'Your partnership is benefiting from this dedicated effort.' : 'This foundation will serve you well in building meaningful relationships.'}`,
+      title: 'You Hit a Big Milestone',
+      description: `What an achievement! You’ve logged ${patterns.totalActivity} entries. This level of consistent engagement shows real dedication to growth. ${patterns.hasActivePartnership ? 'Your partnership is soaking up the benefits of your attention and care.' : 'This dedication builds a strong foundation for future relationships.'}`,
       relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
       category: 'structured-rule-based'
     }
@@ -895,7 +968,7 @@ function generateMilestoneInsight(patterns: any, onboarding: any, relationshipCo
       type: 'milestone',
       priority: 'low', 
       title: 'Connection Improvement Milestone',
-      description: `Milestone achievement: Your connection scores have improved significantly (trend: +${patterns.trend.toFixed(1)})! This meaningful progress shows that your relationship efforts are creating real positive change. Keep building on this momentum.`,
+      description: `Wow! Your connection scores have improved significantly (trend: +${patterns.trend.toFixed(1)}). This shows that your efforts are creating real positive change. Celebrate how far you’ve come and keep building on this momentum.`,
       relationship_id: patterns.hasActivePartnership ? relationshipContext.relationships[0]?.id || null : null,
       category: 'structured-rule-based'
     }

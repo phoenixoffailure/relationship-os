@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
 import { PartnerSuggestions } from '@/components/dashboard/PartnerSuggestions'
@@ -22,6 +22,38 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
   const [activeTab, setActiveTab] = useState<'personal' | 'partner' | 'all'>('all')
   const [relationships, setRelationships] = useState<any[]>([])
 
+  // Record ratings submitted for each insight so buttons disappear after voting
+  const [feedbackRatings, setFeedbackRatings] = useState<Record<string, number>>({})
+
+  // Holds timeout IDs for automatic read behaviour
+  // Use a generic type for timeouts to avoid type issues in the browser environment
+  const timersRef = useRef<Record<string, any>>({})
+
+  // Sample insights to display when the user has none. These demonstrate the tone
+  // and style of insights without requiring any journal or check‑in data.
+  const sampleInsights = [
+    {
+      id: 'sample1',
+      title: 'Small Acts Matter',
+      description: 'You’ve been showing up even when it’s hard — that effort matters. Try planning a short walk or making a favourite meal together this week to reconnect.',
+      insight_type: 'suggestion',
+      priority: 'medium',
+      created_at: new Date().toISOString(),
+      is_read: true,
+      isSample: true
+    },
+    {
+      id: 'sample2',
+      title: 'Listen and Reflect',
+      description: 'It looks like you’ve needed more quality time lately. What might that look like today? Take a moment to listen closely to your partner’s needs and share your own.',
+      insight_type: 'appreciation',
+      priority: 'low',
+      created_at: new Date().toISOString(),
+      is_read: true,
+      isSample: true
+    }
+  ]
+
   // Limits to prevent clutter
   const MAX_INSIGHTS_DISPLAY = 10
   const MAX_SUGGESTIONS_DISPLAY = 8
@@ -36,6 +68,28 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
       loadAllData(user.id)
     }
   }, [user])
+
+  // Automatically archive insights after a delay. We leave the last unread insight
+  // untouched so there is always something pinned to the dashboard. When the
+  // insights array changes, existing timers are cleared to prevent multiple
+  // markRead calls.
+  useEffect(() => {
+    // clear any existing timers
+    Object.values(timersRef.current).forEach(timeoutId => clearTimeout(timeoutId))
+    timersRef.current = {}
+    const unread = insights.filter(i => !i.is_read)
+    if (unread.length > 1) {
+      unread.forEach(insight => {
+        timersRef.current[insight.id] = setTimeout(() => {
+          markAsRead(insight.id)
+        }, 8000) // 8 seconds to allow reading
+      })
+    }
+    // cleanup on unmount
+    return () => {
+      Object.values(timersRef.current).forEach(timeoutId => clearTimeout(timeoutId))
+    }
+  }, [insights])
 
   const loadAllData = async (userId: string) => {
     setLoading(true)
@@ -126,6 +180,34 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
     }
   }
 
+  /**
+   * Submit a rating for a given insight. Uses the /api/insights/feedback
+   * endpoint to persist the feedback. Once successfully saved, the local
+   * `feedbackRatings` state is updated to hide the buttons and display a
+   * thank-you message.
+   */
+const handleInsightFeedback = async (insightId: string, rating: number) => {
+  try {
+    const mappedRating = rating === 1 ? 'up' : 'down' // ✅ Map to expected values
+
+    const response = await fetch('/api/insights/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ insightId, rating: mappedRating }),
+    })
+
+    const result = await response.json()
+    if (result.success) {
+      setFeedbackRatings(prev => ({ ...prev, [insightId]: rating }))
+    } else {
+      console.error('Feedback submission failed:', result.error)
+    }
+  } catch (error) {
+    console.error('Error submitting feedback:', error)
+  }
+}
+
+
   const getInsightTypeIcon = (type: string) => {
     switch (type) {
       case 'suggestion':
@@ -196,6 +278,7 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
     
     return (
       <div key={insight.id} className={`${pillarConfig.bgColor} ${pillarConfig.borderColor} border rounded-lg p-4 hover:shadow-md transition-shadow`}>
+        {/* Header row with content and optional mark read button */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-start space-x-3 flex-1">
             <div className={`w-3 h-3 rounded-full mt-2 ${getPriorityColor(insight.priority)}`} />
@@ -205,7 +288,7 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
                 <span className={`text-xs font-medium ${pillarConfig.textColor} bg-white px-2 py-1 rounded-full border ${pillarConfig.borderColor}`}>
                   {pillarConfig.icon} {pillarConfig.name}
                 </span>
-                {!insight.is_read && (
+                {!insight.isSample && !insight.is_read && (
                   <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">New</span>
                 )}
               </div>
@@ -218,7 +301,8 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
               </p>
             </div>
           </div>
-          {!insight.is_read && (
+          {/* Mark Read button only for non-sample, unread insights */}
+          {!insight.isSample && !insight.is_read && (
             <Button
               onClick={() => markAsRead(insight.id)}
               size="sm"
@@ -229,6 +313,32 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
             </Button>
           )}
         </div>
+        {/* Feedback buttons or thank you message for real insights */}
+        {!insight.isSample && (
+          <div>
+            {!feedbackRatings[insight.id] ? (
+              <div className="mt-3 flex space-x-2">
+                <Button
+                  onClick={() => handleInsightFeedback(insight.id, 1)}
+                  size="sm"
+                  variant="outline"
+                  className="border-red-300 text-red-700"
+                >
+                  👎
+                </Button>
+                <Button
+                  onClick={() => handleInsightFeedback(insight.id, 5)}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  👍
+                </Button>
+              </div>
+            ) : (
+              <p className="mt-3 text-green-600 text-sm">Thank you for your feedback!</p>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -290,7 +400,7 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            Personal Growth ({insights.length})
+            Personal Growth ({insights.length === 0 ? sampleInsights.length : insights.length})
             {unreadInsights > 0 && (
               <span className="ml-1 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
                 {unreadInsights}
@@ -332,18 +442,10 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
             </p>
           </div>
 
-          {insights.length === 0 ? (
-            <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-              <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <p className="text-gray-500">No personal insights yet. Write in your journal to get started!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {insights.map((insight) => renderPillarInsight(insight))}
-            </div>
-          )}
+          {/* Display either real insights or sample ones when none are available */}
+          <div className="space-y-4">
+            {(insights.length === 0 ? sampleInsights : insights).map((insight) => renderPillarInsight(insight))}
+          </div>
         </div>
       )}
 
@@ -376,12 +478,15 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
                   <h3 className="font-semibold text-green-800">Personal Growth</h3>
                 </div>
                 <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-                  {insights.length} insights
+                  {(insights.length === 0 ? sampleInsights.length : insights.length)} insights
                 </span>
               </div>
             </div>
 
-            {insights.slice(0, 3).map((insight) => {
+            {(
+              (insights.length === 0 ? sampleInsights : insights)
+                .slice(0, 3)
+            ).map((insight) => {
               const pillarConfig = getPillarConfig(insight.insight_type)
               return (
                 <div key={insight.id} className={`${pillarConfig.bgColor} ${pillarConfig.borderColor} border rounded-lg p-3 hover:shadow-md transition-shadow`}>
@@ -393,7 +498,7 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
                         <h4 className={`font-medium ${pillarConfig.textColor} text-sm`}>
                           {insight.title}
                         </h4>
-                        {!insight.is_read && (
+                        {!insight.isSample && !insight.is_read && (
                           <span className="bg-green-100 text-green-800 text-xs px-1 py-0.5 rounded">New</span>
                         )}
                       </div>
@@ -405,13 +510,13 @@ export function EnhancedInsightsLayout({ user, onGenerateInsights, generatingIns
               )
             })}
 
-            {insights.length > 3 && (
+            {(insights.length === 0 ? sampleInsights.length : insights.length) > 3 && (
               <Button
                 onClick={() => setActiveTab('personal')}
                 variant="outline"
                 className="w-full border-green-300 text-green-700"
               >
-                View All Personal Insights ({insights.length})
+                View All Personal Insights ({insights.length === 0 ? sampleInsights.length : insights.length})
               </Button>
             )}
           </div>

@@ -216,9 +216,11 @@ export default function HomePage() {
           <p className="text-gray-300 mb-4 font-inter">
             © 2025 RelationshipOS. Built with privacy and love.
           </p>
-          <div className="flex justify-center items-center space-x-6 text-sm text-gray-300 font-inter">
+          <div className="flex flex-wrap justify-center items-center gap-4 text-sm text-gray-300 font-inter">
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/privacy-facts" className="hover:text-white transition-colors">Privacy Facts</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+            <Link href="/waitlist" className="hover:text-white transition-colors">Join Waitlist</Link>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           </div>
         </div>
