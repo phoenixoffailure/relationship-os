@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
       {
         cookies: {
           getAll() {
@@ -130,6 +130,9 @@ export async function POST(request: Request) {
       relationships: relationshipContext.relationships.length,
       hasOnboarding: !!onboardingData
     })
+    //Auth
+    const { data: { user } } = await supabase.auth.getUser()
+    console.log('🔍 DEBUG auth.uid():', user?.id)
 
     // Analyze patterns from user data with relationship context
     const patterns = analyzePatterns(journals, checkins, relationshipContext, onboarding)
