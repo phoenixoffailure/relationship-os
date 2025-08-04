@@ -34,25 +34,64 @@ export async function POST(request: Request) {
     
     // Get current user
     console.log('🔍 Getting user...')
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      console.error('❌ Auth error:', authError)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    let user_id = null
+    try {
+      const body = await request.json()
+      user_id = body.user_id
+            console.log('📥 Received user_id from request:', user_id)
+    } catch (error) {
+      // No body sent - this is fine, we'll fallback to auth
+      console.log('📝 No body sent, falling back to auth...')
+    }
+
+    if (user_id) {
+      console.log('✅ Using user_id from request:', user_id)
+    } else {
+      // Fallback to original auth method
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user || user.id === 'null') {
+        console.error('❌ Auth fallback failed:', authError)
+        return NextResponse.json({ 
+          error: 'No valid user_id provided and auth failed',
+          details: 'This endpoint requires user_id in request body for server-to-server calls'
+        }, { status: 401 })
+      }
+      
+      user_id = user.id
+      console.log('✅ Using user_id from auth:', user_id)
     }
     
-    console.log('✅ User found:', user.id)
+    console.log('✅ User ID received:', user_id)
 
     // Get user's relationships and partner data
     console.log('🔍 Fetching relationship context...')
-    const relationshipContext = await getRelationshipContext(supabase, user.id)
+    const relationshipContext = await getRelationshipContext(supabase, user_id)
     
+    // Validate that user_id is a valid UUID before proceeding
+    if (!user_id || user_id === 'null' || user_id === 'undefined') {
+      console.error('❌ Invalid user_id:', user_id)
+      return NextResponse.json({ error: 'Valid user ID required' }, { status: 400 })
+    }
+
+        // Final validation - ensure user_id is a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(user_id)) {
+      console.error('❌ Invalid UUID format for user_id:', user_id)
+      return NextResponse.json({ 
+        error: 'Invalid user_id format',
+        details: 'user_id must be a valid UUID'
+      }, { status: 400 })
+    }
+
+    console.log('✅ Valid user_id confirmed:', user_id)
+
     // Get user's onboarding responses for rich context
     console.log('🔍 Fetching onboarding data...')
     const { data: onboardingData } = await supabase
       .from('enhanced_onboarding_responses')  // ← CORRECT TABLE
       .select('*')  // ← Get all fields, not just 'responses'
-      .eq('user_id', user.id)
+      .eq('user_id', user_id)
       .single()
 
     // Get user's recent activity data
@@ -61,14 +100,14 @@ export async function POST(request: Request) {
       supabase
         .from('journal_entries')
         .select('mood_score, created_at')
-        .eq('user_id', user.id)
+        .eq('user_id', user_id)
         .order('created_at', { ascending: false })
         .limit(10),
       
       supabase
         .from('daily_checkins')
         .select('connection_score, mood_score, created_at, gratitude_note, challenge_note, relationship_id')
-        .eq('user_id', user.id)
+        .eq('user_id', user_id)
         .order('created_at', { ascending: false })
         .limit(14)
     ])
@@ -98,7 +137,7 @@ export async function POST(request: Request) {
     
     // Generate insights using enhanced Grok with relationship awareness
     console.log('🤖 Generating relationship-aware Grok insights...')
-    const insights = await generateRelationshipAwareInsights(patterns, onboarding, relationshipContext, user.id)
+    const insights = await generateRelationshipAwareInsights(patterns, onboarding, relationshipContext, user_id)
     console.log('💡 Enhanced Grok insights generated:', insights.length)
     
     // Save insights to database with relationship context
@@ -132,7 +171,7 @@ export async function POST(request: Request) {
         .insert([
           {
             relationship_id: relationship_id || null,
-            generated_for_user: user.id,
+            generated_for_user: user_id,
             insight_type: type,
             title,
             description,

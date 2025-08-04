@@ -143,8 +143,8 @@ export async function POST(request: NextRequest) {
       const insightsResponse = await fetch(`${baseUrl}/api/insights/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user_id || null }) // Pass the user_id
       })
-      
       if (insightsResponse.ok) {
         console.log('✅ Personal insights generation triggered successfully')
       } else {
