@@ -1,5 +1,5 @@
 // app/(protected)/journal/page.tsx
-// Updated with brand colors and typography
+// FIXED: Now uses save-and-analyze endpoint for partner suggestions
 
 'use client'
 
@@ -91,43 +91,60 @@ export default function JournalPage() {
     }
   }
 
+  // FIXED: Now uses the save-and-analyze endpoint that triggers partner suggestions
   const saveNewEntry = async () => {
-    if (!user || !newEntry.title.trim() || !newEntry.content.trim()) return
+    if (!user || !newEntry.content.trim()) return
 
     setSaving(true)
     setMessage('')
 
     try {
-      const tags = newEntry.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
-
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .insert([{
-          user_id: user.id,
-          title: newEntry.title.trim(),
+      console.log('📝 Saving journal entry via save-and-analyze endpoint...')
+      
+      // Use the save-and-analyze endpoint that triggers partner suggestions
+      const response = await fetch('/api/journal/save-and-analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           content: newEntry.content.trim(),
           mood_score: newEntry.mood_score,
+          user_id: user.id,
+          title: newEntry.title.trim() || 'Untitled Entry',
           is_private: newEntry.is_private,
-          tags: tags.length > 0 ? tags : null
-        }])
-        .select()
-
-      if (error) throw error
-
-      setMessage('✅ Journal entry saved successfully!')
-      setNewEntry({
-        title: '',
-        content: '',
-        mood_score: 5,
-        is_private: true,
-        tags: ''
+          tags: newEntry.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+        })
       })
-      setShowNewEntryForm(false)
-      
-      // Reload entries
-      await loadEntries(user.id)
-      
-      setTimeout(() => setMessage(''), 3000)
+
+      const result = await response.json()
+
+      if (result.success) {
+        setMessage('✅ Journal entry saved! AI analysis and partner suggestions are being generated...')
+        setNewEntry({
+          title: '',
+          content: '',
+          mood_score: 5,
+          is_private: true,
+          tags: ''
+        })
+        setShowNewEntryForm(false)
+        
+        // Reload entries
+        await loadEntries(user.id)
+        
+        // Show success message with partner suggestions info
+        if (result.partnerSuggestionsTriggered > 0) {
+          setTimeout(() => {
+            setMessage(`✅ Entry saved! Generated suggestions for ${result.partnerSuggestionsTriggered} relationship(s). Check your partner's dashboard!`)
+          }, 1000)
+        }
+        
+        setTimeout(() => setMessage(''), 5000)
+      } else {
+        console.error('Save-and-analyze error:', result)
+        setMessage(`❌ Error saving entry: ${result.error || 'Unknown error'}`)
+      }
     } catch (error: any) {
       console.error('Error saving journal entry:', error)
       setMessage(`❌ Error saving entry: ${error.message}`)
@@ -137,7 +154,7 @@ export default function JournalPage() {
   }
 
   const updateEntry = async () => {
-    if (!editingEntry || !editEntry.title?.trim() || !editEntry.content?.trim()) return
+    if (!editingEntry || !editEntry.content?.trim()) return
 
     setSaving(true)
     setMessage('')
@@ -146,7 +163,7 @@ export default function JournalPage() {
       const { error } = await supabase
         .from('journal_entries')
         .update({
-          title: editEntry.title.trim(),
+          title: editEntry.title?.trim() || 'Untitled Entry',
           content: editEntry.content.trim(),
           mood_score: editEntry.mood_score,
           is_private: editEntry.is_private,
@@ -247,31 +264,29 @@ export default function JournalPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-teal to-brand-dark-teal rounded-2xl shadow-lg mb-4">
               <BookOpen className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-heading-xl font-bold text-brand-charcoal mb-2 font-heading">Personal Journal</h1>
-            <p className="text-brand-slate font-inter">Your private space for thoughts and reflections</p>
+            <h1 className="text-3xl font-bold text-brand-charcoal mb-2 font-heading">My Journal</h1>
+            <p className="text-brand-slate font-inter">
+              Your private space for reflection and growth. AI analyzes your entries to generate insights and partner suggestions.
+            </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              onClick={() => setShowNewEntryForm(true)}
-              className="bg-brand-teal hover:bg-brand-dark-teal text-white"
-            >
-              <PlusCircle className="w-5 h-5 mr-2" />
-              New Entry
-            </Button>
-            <Link href="/insights">
-              <Button variant="outline" className="border-brand-coral-pink/30 text-brand-coral-pink hover:bg-brand-coral-pink/10">
-                <Heart className="w-5 h-5 mr-2" />
-                View AI Insights
+          {!showNewEntryForm && (
+            <div className="text-center">
+              <Button
+                onClick={() => setShowNewEntryForm(true)}
+                className="bg-brand-teal hover:bg-brand-dark-teal text-white"
+              >
+                <PlusCircle className="w-5 h-5 mr-2" />
+                Write New Entry
               </Button>
-            </Link>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Status Message */}
         {message && (
-          <div className={`mb-6 p-4 rounded-xl border ${
-            message.includes('❌') || message.includes('Error')
+          <div className={`mb-6 p-4 rounded-lg border ${
+            message.includes('❌') 
               ? 'bg-red-50 text-red-700 border-red-200' 
               : 'bg-brand-teal/10 border-brand-teal/30 text-brand-dark-teal'
           }`}>
@@ -283,72 +298,62 @@ export default function JournalPage() {
 
         {/* New Entry Form */}
         {showNewEntryForm && (
-          <Card className="mb-8 border-brand-light-gray bg-white/90 backdrop-blur-sm">
+          <Card className="mb-8 border-brand-light-gray bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="font-heading text-brand-charcoal">Write New Entry</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNewEntryForm(false)}
-                  className="text-brand-slate hover:text-brand-charcoal"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
+              <CardTitle className="font-heading text-brand-charcoal">Write New Entry</CardTitle>
+              <CardDescription className="font-inter text-brand-slate">
+                Share your thoughts, feelings, and experiences. This will generate personalized insights and suggestions for your partner.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
-                  Entry Title
+                  Title (optional)
                 </label>
                 <Input
                   value={newEntry.title}
                   onChange={(e) => setNewEntry({ ...newEntry, title: e.target.value })}
-                  placeholder="What's on your mind today?"
+                  placeholder="Give your entry a title..."
                   className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
-                  Your Thoughts
+                  Your thoughts *
                 </label>
                 <Textarea
                   value={newEntry.content}
                   onChange={(e) => setNewEntry({ ...newEntry, content: e.target.value })}
-                  placeholder="Express your thoughts, feelings, and experiences..."
+                  placeholder="What's on your mind today? Share your thoughts, feelings, experiences..."
                   rows={6}
                   className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
+                  required
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
-                    Mood Score (1-10)
-                  </label>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="range"
-                      min="1"
-                      max="10"
-                      value={newEntry.mood_score}
-                      onChange={(e) => setNewEntry({ ...newEntry, mood_score: parseInt(e.target.value) })}
-                      className="flex-1 h-2 bg-brand-light-gray rounded-lg appearance-none cursor-pointer slider"
-                      style={{
-                        background: `linear-gradient(to right, #FF8A9B 0%, #FFCB8A 50%, #4AB9B8 100%)`
-                      }}
-                    />
-                    <div className="flex items-center space-x-2">
-                      {getMoodIcon(newEntry.mood_score)}
-                      <span className="text-sm font-medium text-brand-charcoal font-inter">
-                        {newEntry.mood_score}
-                      </span>
-                    </div>
+              <div>
+                <label className="block text-sm font-medium text-brand-charcoal mb-3 font-inter">
+                  Mood Score: <span className="font-bold text-brand-teal">{newEntry.mood_score}/10</span>
+                </label>
+                <div className="px-3">
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={newEntry.mood_score}
+                    onChange={(e) => setNewEntry({ ...newEntry, mood_score: parseInt(e.target.value) })}
+                    className="w-full h-2 bg-brand-cool-gray rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-brand-slate mt-1 font-inter">
+                    <span>1 - Very Low</span>
+                    <span>5 - Neutral</span>
+                    <span>10 - Excellent</span>
                   </div>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
                     Tags (optional)
@@ -356,7 +361,7 @@ export default function JournalPage() {
                   <Input
                     value={newEntry.tags}
                     onChange={(e) => setNewEntry({ ...newEntry, tags: e.target.value })}
-                    placeholder="love, growth, challenges..."
+                    placeholder="grateful, work, family..."
                     className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20"
                   />
                   <p className="text-xs text-brand-slate mt-1 font-inter">Separate with commas</p>
@@ -372,25 +377,25 @@ export default function JournalPage() {
                   className="w-4 h-4 text-brand-teal bg-brand-cool-gray border-brand-light-gray rounded focus:ring-brand-teal/20"
                 />
                 <label htmlFor="is_private" className="text-sm text-brand-charcoal font-inter">
-                  Keep this entry private (recommended)
+                  Keep this entry private (recommended - only generates anonymous partner suggestions)
                 </label>
               </div>
 
               <div className="flex space-x-3 pt-4">
                 <Button
                   onClick={saveNewEntry}
-                  disabled={saving || !newEntry.title.trim() || !newEntry.content.trim()}
+                  disabled={saving || !newEntry.content.trim()}
                   className="bg-brand-teal hover:bg-brand-dark-teal text-white"
                 >
                   {saving ? (
                     <div className="flex items-center">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Saving...
+                      Saving & Generating...
                     </div>
                   ) : (
                     <div className="flex items-center">
                       <Save className="w-4 h-4 mr-2" />
-                      Save Entry
+                      Save & Generate Suggestions
                     </div>
                   )}
                 </Button>
@@ -423,48 +428,47 @@ export default function JournalPage() {
                   className="bg-brand-teal hover:bg-brand-dark-teal text-white"
                 >
                   <PlusCircle className="w-5 h-5 mr-2" />
-                  Write Your First Entry
+                  Write First Entry
                 </Button>
               </CardContent>
             </Card>
           ) : (
             entries.map((entry) => (
-              <Card key={entry.id} className="border-brand-light-gray bg-white/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
+              <Card key={entry.id} className="border-brand-light-gray bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      {editingEntry === entry.id ? (
-                        <Input
-                          value={editEntry.title || ''}
-                          onChange={(e) => setEditEntry({ ...editEntry, title: e.target.value })}
-                          className="text-lg font-semibold border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 font-heading"
-                        />
-                      ) : (
-                        <CardTitle className="text-lg font-semibold text-brand-charcoal font-heading">
-                          {entry.title}
-                        </CardTitle>
-                      )}
-                      <div className="flex items-center space-x-4 mt-2">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-4 h-4 text-brand-slate" />
-                          <span className="text-sm text-brand-slate font-inter">
-                            {formatDate(entry.created_at)}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          {getMoodIcon(entry.mood_score)}
-                          <span className="text-sm text-brand-slate font-inter">
-                            Mood: {entry.mood_score || 'Not rated'}
-                          </span>
-                        </div>
+                      <div className="flex items-center space-x-3 mb-2">
+                        <Calendar className="w-4 h-4 text-brand-slate" />
+                        <span className="text-sm text-brand-slate font-inter">
+                          {formatDate(entry.created_at)}
+                        </span>
+                        {entry.mood_score && (
+                          <div className="flex items-center space-x-1">
+                            {getMoodIcon(entry.mood_score)}
+                            <span className="text-sm text-brand-slate font-inter">{entry.mood_score}/10</span>
+                          </div>
+                        )}
                         {entry.is_private && (
-                          <span className="text-xs bg-brand-teal/10 text-brand-teal px-2 py-1 rounded-full font-inter">
+                          <span className="px-2 py-1 bg-brand-teal/10 text-brand-teal text-xs rounded-full font-inter">
                             Private
                           </span>
                         )}
                       </div>
+                      {editingEntry === entry.id ? (
+                        <Input
+                          value={editEntry.title || ''}
+                          onChange={(e) => setEditEntry({ ...editEntry, title: e.target.value })}
+                          placeholder="Entry title..."
+                          className="font-heading text-lg border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20"
+                        />
+                      ) : (
+                        <CardTitle className="font-heading text-brand-charcoal">
+                          {entry.title || 'Untitled Entry'}
+                        </CardTitle>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-2 ml-4">
+                    <div className="flex items-center space-x-2">
                       {editingEntry === entry.id ? (
                         <>
                           <Button
@@ -516,37 +520,25 @@ export default function JournalPage() {
                         rows={6}
                         className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
                       />
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          <label className="text-sm font-medium text-brand-charcoal font-inter">Mood:</label>
-                          <input
-                            type="range"
-                            min="1"
-                            max="10"
-                            value={editEntry.mood_score || 5}
-                            onChange={(e) => setEditEntry({ ...editEntry, mood_score: parseInt(e.target.value) })}
-                            className="w-24 h-2 bg-brand-light-gray rounded-lg appearance-none cursor-pointer"
-                          />
-                          <span className="text-sm font-medium text-brand-charcoal font-inter">
-                            {editEntry.mood_score || 5}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={editEntry.is_private}
-                            onChange={(e) => setEditEntry({ ...editEntry, is_private: e.target.checked })}
-                            className="w-4 h-4 text-brand-teal bg-brand-cool-gray border-brand-light-gray rounded focus:ring-brand-teal/20"
-                          />
-                          <label className="text-sm text-brand-charcoal font-inter">Private</label>
-                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                          Mood Score: <span className="font-bold text-brand-teal">{editEntry.mood_score || 5}/10</span>
+                        </label>
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          value={editEntry.mood_score || 5}
+                          onChange={(e) => setEditEntry({ ...editEntry, mood_score: parseInt(e.target.value) })}
+                          className="w-full h-2 bg-brand-cool-gray rounded-lg appearance-none cursor-pointer"
+                        />
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <div className="prose prose-sm max-w-none text-brand-charcoal font-inter leading-relaxed">
+                      <div className="prose prose-sm max-w-none text-brand-charcoal font-inter">
                         {entry.content.split('\n').map((paragraph, index) => (
-                          <p key={index} className="mb-3 last:mb-0">
+                          <p key={index} className="mb-3">
                             {paragraph || '\u00A0'}
                           </p>
                         ))}
@@ -569,7 +561,7 @@ export default function JournalPage() {
                         <div className="mt-4 p-3 bg-brand-teal/5 border border-brand-teal/20 rounded-lg">
                           <h4 className="font-medium text-brand-dark-teal mb-2 font-inter">AI Insights</h4>
                           <p className="text-sm text-brand-slate font-inter">
-                            This entry may have generated personalized insights in your dashboard.
+                            This entry has generated personalized insights and partner suggestions. Check your insights dashboard and your partner's suggestions.
                           </p>
                         </div>
                       )}

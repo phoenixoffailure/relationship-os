@@ -1,5 +1,5 @@
 // app/api/journal/save-and-analyze/route.ts
-// Enhanced journal saving with automatic partner suggestion generation
+// FIXED: Enhanced journal saving with proper partner suggestion generation
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
@@ -76,50 +76,89 @@ export async function POST(request: NextRequest) {
     } else if (relationships && relationships.length > 0) {
       console.log(`💕 Found ${relationships.length} relationships, triggering partner suggestions...`)
       
-      // Step 3: Trigger partner suggestion generation for each relationship (async)
+      // Step 3: Trigger partner suggestion generation for each relationship
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
       
-        await Promise.all(relationships.map(async (rel) => {
-        try {
-          const response = await fetch(`${baseUrl}/api/relationships/generate`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              relationshipId: rel.relationship_id,
-              sourceUserId: user_id,
-              timeframeHours: 72, // Look back 3 days
-              maxSuggestions: 3
+      try {
+        // Use Promise.allSettled to handle failures gracefully
+        const suggestionPromises = relationships.map(async (rel) => {
+          try {
+            console.log(`🔍 Generating suggestions for relationship: ${rel.relationship_id}`)
+            
+            const response = await fetch(`${baseUrl}/api/relationships/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                relationshipId: rel.relationship_id,
+                sourceUserId: user_id,
+                timeframeHours: 72, // Look back 3 days
+                maxSuggestions: 3
+              })
             })
-          })
 
-          if (response.ok) {
-            const result = await response.json()
-            console.log(`✅ Generated ${result.result?.suggestions?.length || 0} suggestions for relationship ${rel.relationship_id}`)
-          } else {
-            console.error(`❌ Failed to generate suggestions for relationship ${rel.relationship_id}`)
+            if (response.ok) {
+              const result = await response.json()
+              console.log(`✅ Generated ${result.result?.suggestions?.length || 0} suggestions for relationship ${rel.relationship_id}`)
+              return { success: true, relationshipId: rel.relationship_id, suggestionsCount: result.result?.suggestions?.length || 0 }
+            } else {
+              const errorText = await response.text()
+              console.error(`❌ Failed to generate suggestions for relationship ${rel.relationship_id}:`, response.status, errorText)
+              return { success: false, relationshipId: rel.relationship_id, error: `HTTP ${response.status}` }
+            }
+          } catch (error) {
+            console.error(`❌ Error generating suggestions for relationship ${rel.relationship_id}:`, error)
+            return { success: false, relationshipId: rel.relationship_id, error: error instanceof Error ? error.message : 'Unknown error' }
           }
-        } catch (error) {
-          console.error(`❌ Error generating suggestions for relationship ${rel.relationship_id}:`, error)
-        }
-      }))
+        })
+
+        const suggestionResults = await Promise.allSettled(suggestionPromises)
+        
+        // Log results for debugging
+        suggestionResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const res = result.value as any
+            if (res.success) {
+              console.log(`✅ Relationship ${res.relationshipId}: ${res.suggestionsCount} suggestions generated`)
+            } else {
+              console.error(`❌ Relationship ${res.relationshipId}: ${res.error}`)
+            }
+          } else {
+            console.error(`❌ Relationship ${index}: Promise rejected:`, result.reason)
+          }
+        })
+
+      } catch (error) {
+        console.error('❌ Error in partner suggestion generation process:', error)
+      }
     } else {
       console.log('ℹ️ No relationships found, skipping partner suggestion generation')
     }
 
     // Step 4: Trigger personal insights generation (existing logic)
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
-    fetch(`${baseUrl}/api/insights/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    }).catch(error => {
-      console.error('Failed to trigger insights generation:', error)
-    })
+    try {
+      console.log('🔍 Triggering personal insights generation...')
+      const insightsResponse = await fetch(`${baseUrl}/api/insights/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      
+      if (insightsResponse.ok) {
+        console.log('✅ Personal insights generation triggered successfully')
+      } else {
+        console.error('❌ Failed to trigger insights generation:', insightsResponse.status)
+      }
+    } catch (error) {
+      console.error('❌ Failed to trigger insights generation:', error)
+    }
 
     // Step 5: Auto-cleanup old insights (non-blocking)
     setTimeout(() => {
-      cleanupOldInsights(user_id)
+      cleanupOldInsights(user_id).catch(error => 
+        console.error('❌ Error in cleanup:', error)
+      )
     }, 5000)
 
     return NextResponse.json({
