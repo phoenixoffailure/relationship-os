@@ -107,18 +107,39 @@ export async function POST(request: Request) {
     
     for (const insight of insights) {
       console.log('💾 Saving insight:', insight.title)
+
+            const { title, description, type, priority, relationship_id } = insight
+
+      if (
+        typeof title !== 'string' ||
+        typeof description !== 'string' ||
+        typeof type !== 'string' ||
+        !title.trim() ||
+        !description.trim() ||
+        !type.trim()
+      ) {
+        console.warn('⚠️ Skipping insight due to missing required fields:', {
+          title,
+          description,
+          type,
+        })
+        continue
+      }
+
       
       const { data, error } = await supabase
         .from('relationship_insights')
-        .insert([{
-          relationship_id: insight.relationship_id || null,
-          generated_for_user: user.id,
-          insight_type: insight.type,
-          title: insight.title,
-          description: insight.description,
-          priority: insight.priority,
-          is_read: false
-        }])
+        .insert([
+          {
+            relationship_id: relationship_id || null,
+            generated_for_user: user.id,
+            insight_type: type,
+            title,
+            description,
+            priority,
+            is_read: false,
+          },
+        ])
         .select()
 
       if (error) {
@@ -768,6 +789,7 @@ function generateActionInsight(patterns: any, onboarding: any, relationshipConte
       type: 'suggestion',
       priority: patterns.avgConnectionScore < 6 ? 'high' : 'medium',
       title: `Strengthen Connection Through ${primaryLoveLanguage.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}`,
+      description: `Nurture your relationship by focusing on ${primaryLoveLanguage.replace('_', ' ')} and practicing ${communicationStyle} communication. ${getLoveLanguageAction(primaryLoveLanguage)}`,
       relationship_id: relationshipContext.relationships[0]?.id || null,
       category: 'structured-rule-based'
     }

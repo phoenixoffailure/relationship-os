@@ -39,13 +39,17 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
+    const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   // EXISTING: Admin routes protection (unchanged)
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!session) {
       return NextResponse.redirect(new URL('/login?message=Admin access requires login', request.url))
     }
 
-    const isAdminUser = ADMIN_EMAILS.includes(session.user.email || '')
+    const isAdminUser = ADMIN_EMAILS.includes(user?.email ?? '')
     
     if (!isAdminUser) {
       return NextResponse.redirect(new URL('/dashboard?message=Access denied: Admin privileges required', request.url))
@@ -63,7 +67,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // NEW: Comprehensive onboarding check for ALL protected routes
-  if (session && session.user) {
+  if (session && user) {
     const pathname = request.nextUrl.pathname
     
     // Define all protected routes that require onboarding completion
@@ -86,7 +90,7 @@ export async function middleware(request: NextRequest) {
         const { data: onboardingData } = await supabase
           .from('enhanced_onboarding_responses')
           .select('completed_at')
-          .eq('user_id', session.user.id)
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .single()

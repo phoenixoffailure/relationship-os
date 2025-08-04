@@ -54,10 +54,19 @@ export default function ProtectedLayout({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
+      try {
+        if (event === 'SIGNED_OUT' || !session) {
+          setUser(null)
+          router.push('/login')
+        } else if (session?.user) {
+          setUser(session.user)
+        }
+      } catch (error) {
+        console.error('Error handling auth state change:', error)
+        setUser(null)
         router.push('/login')
-      } else if (session?.user) {
-        setUser(session.user)
+      } finally {
+        setLoading(false)
       }
     })
 
