@@ -10,6 +10,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import SharedInsights from '@/components/SharedInsights'
 import RecentActivity from '@/components/RecentActivity'
 import { PartnerSuggestions } from '@/components/dashboard/PartnerSuggestions'
+import { EnhancedConnectionDashboard } from '@/components/dashboard/enhanced-connection-dashboard'
 import { Database } from '@/lib/types/database'
 import { getUserNotificationPreferences, shouldShowPartnerSuggestions, shouldShowRelationshipInsights, shouldShowDailyReminders } from '@/lib/utils/notification-preferences'
 
@@ -868,6 +869,8 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {user?.id && <EnhancedConnectionDashboard userId={user.id} />}
 
         {/* Shared Insights Section */}
         {showSharedInsights && activeRelationship && (
