@@ -1,5 +1,5 @@
 // app/admin/users/page.tsx
-// Protected admin page with proper authentication
+// Protected admin page with both admin emails included
 
 'use client'
 
@@ -21,9 +21,10 @@ interface User {
   onboarding_completed?: boolean | null
 }
 
-// Define admin emails here (for development)
+// Updated admin emails to include both admins
 const ADMIN_EMAILS = [
-  'jwalkwithyou@gmail.com', // Replace with your actual email
+  'jwalkwithyou@gmail.com',
+  'Chandellwalker@gmail.com'
 ]
 
 export default function AdminUserManagement() {
@@ -46,6 +47,17 @@ export default function AdminUserManagement() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
+  // Utility functions
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   useEffect(() => {
     checkAdminAccess()
   }, [])
@@ -59,7 +71,7 @@ export default function AdminUserManagement() {
         return
       }
 
-      // Check if user is admin
+      // Check if user is admin (updated to include both emails)
       const isAdminUser = ADMIN_EMAILS.includes(user.email || '')
 
       if (!isAdminUser) {
@@ -137,99 +149,59 @@ export default function AdminUserManagement() {
       }
 
       if (result.success) {
-        setMessage(`User deleted successfully! ${result.warning || ''}`)
+        setMessage(`User deleted successfully!`)
+        loadUsers() // Refresh the list
         setShowDeleteConfirm(null)
         setDeleteConfirmText('')
-        // Reload users list
-        await loadUsers()
       } else {
-        throw new Error(result.error || 'User deletion failed')
+        setMessage(`Delete failed: ${result.error || 'Unknown error'}`)
       }
-
     } catch (error: any) {
       setMessage(`Error deleting user: ${error.message}`)
-      console.error('User deletion error:', error)
+      console.error('Error deleting user:', error)
     } finally {
       setDeletingUserId(null)
     }
   }
 
-  const resetDeleteState = () => {
-    setShowDeleteConfirm(null)
-    setDeleteConfirmText('')
-    setMessage('')
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
-
-  // Show loading while checking admin access
+  // Show loading state while checking admin access
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-calm-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-calm-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Checking admin access...</p>
         </div>
       </div>
     )
   }
 
-  // Show loading while fetching users
-  if (loading) {
+  // This should never render due to middleware, but good to have as backup
+  if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-calm-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading users...</p>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+          <p className="text-gray-600">You don't have admin privileges.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Admin Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-calm-600">Admin: User Management</h1>
-            <p className="text-gray-600 mt-2">
-              Logged in as: <span className="font-medium">{currentUser?.email}</span>
-            </p>
-          </div>
-          <div className="flex space-x-3">
-            <Button
-              onClick={() => router.push('/dashboard')}
-              variant="outline"
-              className="border-calm-300 text-calm-700"
-            >
-              👤 Dashboard
-            </Button>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="border-red-300 text-red-700"
-            >
-              🚪 Logout
-            </Button>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">RelationshipOS Admin</h1>
+          <p className="text-gray-600 mt-2">User Management & System Administration</p>
+          <div className="mt-2 text-sm text-calm-600">
+            Logged in as: <strong>{currentUser?.email}</strong>
           </div>
         </div>
 
         {message && (
-          <Alert className={`mb-6 ${message.includes('Error') ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+          <Alert className={`mb-6 ${message.includes('Error') ? 
+            'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
             <AlertDescription className={message.includes('Error') ? 'text-red-800' : 'text-green-800'}>
               {message}
             </AlertDescription>
@@ -251,7 +223,14 @@ export default function AdminUserManagement() {
         </div>
 
         <div className="grid gap-4">
-          {users.length === 0 ? (
+          {loading ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-calm-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading users...</p>
+              </CardContent>
+            </Card>
+          ) : users.length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
                 <p className="text-gray-600">No users found</p>
@@ -288,111 +267,75 @@ export default function AdminUserManagement() {
                     <div className="flex items-center space-x-3">
                       {/* Prevent deleting admin users or yourself */}
                       {ADMIN_EMAILS.includes(user.email) || user.id === currentUser?.id ? (
-                        <Button
-                          disabled
-                          size="sm"
-                          variant="outline"
-                          className="border-gray-300 text-gray-400"
-                        >
-                          🔒 Protected
-                        </Button>
-                      ) : showDeleteConfirm === user.id ? (
-                        <div className="flex flex-col space-y-3 items-end">
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                            <p className="text-sm text-red-800 mb-2 font-medium">
-                              ⚠️ This will permanently delete all user data
-                            </p>
-                            <div className="space-y-2">
-                              <Label htmlFor={`delete-${user.id}`} className="text-xs text-red-700">
-                                Type "DELETE" to confirm
-                              </Label>
-                              <Input
-                                id={`delete-${user.id}`}
-                                value={deleteConfirmText}
-                                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                                placeholder="DELETE"
-                                className="text-sm border-red-300 focus:ring-red-500"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div className="flex space-x-2">
-                            <Button
-                              onClick={() => deleteUser(user.id)}
-                              disabled={deleteConfirmText !== 'DELETE' || deletingUserId === user.id}
-                              size="sm"
-                              className="bg-red-600 hover:bg-red-700 text-white text-xs"
-                            >
-                              {deletingUserId === user.id ? (
-                                <>
-                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
-                                  Deleting...
-                                </>
-                              ) : (
-                                'Confirm Delete'
-                              )}
-                            </Button>
-                            <Button
-                              onClick={resetDeleteState}
-                              disabled={deletingUserId === user.id}
-                              size="sm"
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          Protected
+                        </Badge>
                       ) : (
                         <Button
-                          onClick={() => setShowDeleteConfirm(user.id)}
-                          disabled={deletingUserId !== null}
+                          variant="destructive"
                           size="sm"
-                          variant="outline"
-                          className="border-red-300 text-red-700 hover:bg-red-50"
+                          onClick={() => setShowDeleteConfirm(user.id)}
+                          disabled={deletingUserId === user.id}
                         >
-                          🗑️ Delete User
+                          {deletingUserId === user.id ? 'Deleting...' : 'Delete'}
                         </Button>
                       )}
                     </div>
                   </div>
+
+                  {/* Delete confirmation dialog */}
+                  {showDeleteConfirm === user.id && (
+                    <div className="mt-4 p-4 border-2 border-red-200 rounded-lg bg-red-50">
+                      <h4 className="font-semibold text-red-800 mb-2">
+                        ⚠️ Confirm Account Deletion
+                      </h4>
+                      <p className="text-sm text-red-700 mb-3">
+                        This will permanently delete <strong>{user.email}</strong> and all their data. 
+                        This action cannot be undone.
+                      </p>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="deleteConfirm" className="text-sm font-medium text-red-800">
+                            Type "DELETE" to confirm:
+                          </Label>
+                          <Input
+                            id="deleteConfirm"
+                            value={deleteConfirmText}
+                            onChange={(e) => setDeleteConfirmText(e.target.value)}
+                            placeholder="DELETE"
+                            className="border-red-300 focus:border-red-500"
+                          />
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => deleteUser(user.id)}
+                            disabled={deleteConfirmText !== 'DELETE' || deletingUserId === user.id}
+                          >
+                            {deletingUserId === user.id ? 'Deleting...' : 'Confirm Delete'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setShowDeleteConfirm(null)
+                              setDeleteConfirmText('')
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))
           )}
         </div>
-
-        {/* Security Notice */}
-        <Alert className="mt-8 border-blue-200 bg-blue-50">
-          <AlertDescription className="text-blue-800">
-            <strong>🔐 Security Info:</strong> Admin access is granted to emails in the ADMIN_EMAILS list. 
-            Protected accounts (admins and your own account) cannot be deleted. 
-            For production, implement database-based role management.
-          </AlertDescription>
-        </Alert>
-
-        {/* Environment Check */}
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle className="text-sm">Environment Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex justify-between">
-                <span>Supabase URL:</span>
-                <Badge variant={process.env.NEXT_PUBLIC_SUPABASE_URL ? "default" : "destructive"}>
-                  {process.env.NEXT_PUBLIC_SUPABASE_URL ? "Set" : "Missing"}
-                </Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Admin Status:</span>
-                <Badge variant="default">
-                  Authenticated
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )
