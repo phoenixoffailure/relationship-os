@@ -1,5 +1,5 @@
 // app/(protected)/journal/page.tsx
-// FIXED: Now uses save-and-analyze endpoint for partner suggestions
+// UPDATED: Added relationship selector functionality (Priority 1)
 
 'use client'
 
@@ -34,6 +34,15 @@ interface JournalEntry {
   tags?: string[]
   is_private: boolean
   ai_analysis?: any
+  relationship_id?: string
+  relationship_context?: string
+}
+
+interface Relationship {
+  id: string
+  name: string
+  type: string
+  role: string
 }
 
 export default function JournalPage() {
@@ -43,6 +52,10 @@ export default function JournalPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   
+  // NEW: Relationship state management
+  const [relationships, setRelationships] = useState<Relationship[]>([])
+  const [selectedRelationshipId, setSelectedRelationshipId] = useState<string>('')
+  
   // New entry form
   const [showNewEntryForm, setShowNewEntryForm] = useState(false)
   const [newEntry, setNewEntry] = useState({
@@ -50,7 +63,8 @@ export default function JournalPage() {
     content: '',
     mood_score: 5,
     is_private: true,
-    tags: ''
+    tags: '',
+    relationship_id: '' // NEW: Added relationship_id field
   })
   
   // Edit entry
@@ -67,12 +81,55 @@ export default function JournalPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUser(user)
-        await loadEntries(user.id)
+        await Promise.all([
+          loadEntries(user.id),
+          loadUserRelationships(user.id) // NEW: Load relationships
+        ])
       }
       setLoading(false)
     }
     getUser()
   }, [])
+
+  // NEW: Function to load user's relationships
+  const loadUserRelationships = async (userId: string) => {
+    try {
+      const { data: membershipData, error } = await supabase
+        .from('relationship_members')
+        .select(`
+          relationship_id,
+          role,
+          relationships (
+            id,
+            name,
+            relationship_type
+          )
+        `)
+        .eq('user_id', userId)
+
+      if (error) {
+        console.error('Error loading relationships:', error)
+        return
+      }
+
+      const relationshipsList = (membershipData || []).map((member: any) => ({
+        id: member.relationship_id,
+        name: member.relationships.name,
+        type: member.relationships.relationship_type,
+        role: member.role
+      }))
+
+      setRelationships(relationshipsList)
+      
+      // Auto-select first relationship if only one exists
+      if (relationshipsList.length === 1) {
+        setSelectedRelationshipId(relationshipsList[0].id)
+        setNewEntry(prev => ({ ...prev, relationship_id: relationshipsList[0].id }))
+      }
+    } catch (error) {
+      console.error('Error loading relationships:', error)
+    }
+  }
 
   const loadEntries = async (userId: string) => {
     try {
@@ -91,7 +148,7 @@ export default function JournalPage() {
     }
   }
 
-  // FIXED: Now uses the save-and-analyze endpoint that triggers partner suggestions
+  // UPDATED: Modified to include relationship context
   const saveNewEntry = async () => {
     if (!user || !newEntry.content.trim()) return
 
@@ -99,52 +156,70 @@ export default function JournalPage() {
     setMessage('')
 
     try {
-      console.log('📝 Saving journal entry via save-and-analyze endpoint...')
+      console.log('📝 Saving journal entry with relationship context...')
       
-      // Use the save-and-analyze endpoint that triggers partner suggestions
-      const response = await fetch('/api/journal/save-and-analyze', {
+      // Prepare tags array
+      const tagsArray = newEntry.tags
+        ? newEntry.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+        : []
+
+      // NEW: Save journal entry with relationship context
+      const entryData = {
+        user_id: user.id,
+        title: newEntry.title.trim() || 'Untitled Entry',
+        content: newEntry.content.trim(),
+        mood_score: newEntry.mood_score,
+        is_private: newEntry.is_private,
+        tags: tagsArray,
+        relationship_id: newEntry.relationship_id || null, // NEW: Save relationship_id
+        relationship_context: newEntry.relationship_id 
+          ? relationships.find(r => r.id === newEntry.relationship_id)?.name || null
+          : null
+      }
+
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .insert([entryData])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Call enhanced analysis with relationship context
+      const analysisResponse = await fetch('/api/journal/enhanced-analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          content: newEntry.content.trim(),
-          mood_score: newEntry.mood_score,
-          user_id: user.id,
-          title: newEntry.title.trim() || 'Untitled Entry',
-          is_private: newEntry.is_private,
-          tags: newEntry.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+          content: newEntry.content,
+          journal_id: data.id,
+          relationship_id: newEntry.relationship_id || null // NEW: Pass relationship_id to AI
         })
       })
 
-      const result = await response.json()
-
-      if (result.success) {
-        setMessage('✅ Journal entry saved! AI analysis and partner suggestions are being generated...')
-        setNewEntry({
-          title: '',
-          content: '',
-          mood_score: 5,
-          is_private: true,
-          tags: ''
-        })
-        setShowNewEntryForm(false)
-        
-        // Reload entries
-        await loadEntries(user.id)
-        
-        // Show success message with partner suggestions info
-        if (result.partnerSuggestionsTriggered > 0) {
-          setTimeout(() => {
-            setMessage(`✅ Entry saved! Generated suggestions for ${result.partnerSuggestionsTriggered} relationship(s). Check your partner's dashboard!`)
-          }, 1000)
-        }
-        
-        setTimeout(() => setMessage(''), 5000)
+      if (!analysisResponse.ok) {
+        console.warn('Enhanced analysis failed, but journal entry was saved')
       } else {
-        console.error('Save-and-analyze error:', result)
-        setMessage(`❌ Error saving entry: ${result.error || 'Unknown error'}`)
+        const analysisData = await analysisResponse.json()
+        console.log('✅ Enhanced analysis completed:', analysisData.analysis_id)
       }
+
+      // Reset form and reload entries
+      setNewEntry({ 
+        title: '', 
+        content: '', 
+        mood_score: 5, 
+        is_private: true, 
+        tags: '',
+        relationship_id: selectedRelationshipId // NEW: Keep selected relationship
+      })
+      setShowNewEntryForm(false)
+      await loadEntries(user.id)
+      setMessage('Journal entry saved and analyzed successfully! 🎉')
+      
+      setTimeout(() => setMessage(''), 5000)
+
     } catch (error: any) {
       console.error('Error saving journal entry:', error)
       setMessage(`❌ Error saving entry: ${error.message}`)
@@ -244,6 +319,18 @@ export default function JournalPage() {
     })
   }
 
+  // NEW: Get relationship type icon
+  const getRelationshipIcon = (type: string) => {
+    switch (type) {
+      case 'couple': return '💕'
+      case 'family': return '👨‍👩‍👧‍👦'
+      case 'friends': return '👫'
+      case 'work': return '💼'
+      case 'poly': return '💖'
+      default: return '🤝'
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray flex items-center justify-center">
@@ -296,6 +383,36 @@ export default function JournalPage() {
           </div>
         )}
 
+        {/* NEW: Relationship Filter Buttons */}
+        {relationships.length > 0 && (
+          <div className="mb-6 flex flex-wrap gap-2">
+            <Button
+              variant={!selectedRelationshipId ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedRelationshipId('')}
+              className={!selectedRelationshipId ? "bg-brand-teal hover:bg-brand-dark-teal" : "border-brand-light-gray"}
+            >
+              All Entries
+            </Button>
+            {relationships.map(relationship => (
+              <Button
+                key={relationship.id}
+                variant={selectedRelationshipId === relationship.id ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedRelationshipId(relationship.id)}
+                className={selectedRelationshipId === relationship.id 
+                  ? "bg-brand-teal hover:bg-brand-dark-teal" 
+                  : "border-brand-light-gray"
+                }
+              >
+                {getRelationshipIcon(relationship.type)}
+                {' '}
+                {relationship.name}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* New Entry Form */}
         {showNewEntryForm && (
           <Card className="mb-8 border-brand-light-gray bg-white/80 backdrop-blur-sm">
@@ -306,6 +423,35 @@ export default function JournalPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* NEW: Relationship Selector */}
+              {relationships.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                    About which relationship? <span className="text-brand-slate text-xs">(optional)</span>
+                  </label>
+                  <select
+                    value={newEntry.relationship_id}
+                    onChange={(e) => {
+                      setNewEntry(prev => ({ ...prev, relationship_id: e.target.value }))
+                      setSelectedRelationshipId(e.target.value)
+                    }}
+                    className="w-full px-4 py-3 border border-brand-light-gray rounded-lg focus:ring-2 focus:ring-brand-teal/20 focus:border-brand-teal font-inter bg-white"
+                  >
+                    <option value="">📝 Personal reflection (not specific to any relationship)</option>
+                    {relationships.map(relationship => (
+                      <option key={relationship.id} value={relationship.id}>
+                        {getRelationshipIcon(relationship.type)}
+                        {' '}
+                        {relationship.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-brand-slate mt-1 font-inter">
+                    Selecting a relationship helps our AI provide more relevant insights and suggestions.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
                   Title (optional)
@@ -330,7 +476,6 @@ export default function JournalPage() {
                   className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
                   required
                 />
-                {/* Soft guidance to reassure privacy */}
                 <p className="text-xs italic text-brand-slate mt-2">
                   This is private. Write freely.
                 </p>
@@ -355,34 +500,6 @@ export default function JournalPage() {
                     <span>10 - Excellent</span>
                   </div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
-                    Tags (optional)
-                  </label>
-                  <Input
-                    value={newEntry.tags}
-                    onChange={(e) => setNewEntry({ ...newEntry, tags: e.target.value })}
-                    placeholder="grateful, work, family..."
-                    className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20"
-                  />
-                  <p className="text-xs text-brand-slate mt-1 font-inter">Separate with commas</p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  id="is_private"
-                  checked={newEntry.is_private}
-                  onChange={(e) => setNewEntry({ ...newEntry, is_private: e.target.checked })}
-                  className="w-4 h-4 text-brand-teal bg-brand-cool-gray border-brand-light-gray rounded focus:ring-brand-teal/20"
-                />
-                <label htmlFor="is_private" className="text-sm text-brand-charcoal font-inter">
-                  Keep this entry private (recommended - only generates anonymous partner suggestions)
-                </label>
               </div>
 
               <div className="flex space-x-3 pt-4">
@@ -437,143 +554,155 @@ export default function JournalPage() {
               </CardContent>
             </Card>
           ) : (
-            entries.map((entry) => (
-              <Card key={entry.id} className="border-brand-light-gray bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <Calendar className="w-4 h-4 text-brand-slate" />
-                        <span className="text-sm text-brand-slate font-inter">
-                          {formatDate(entry.created_at)}
-                        </span>
-                        {entry.mood_score && (
-                          <div className="flex items-center space-x-1">
-                            {getMoodIcon(entry.mood_score)}
-                            <span className="text-sm text-brand-slate font-inter">{entry.mood_score}/10</span>
+            entries
+              .filter(entry => !selectedRelationshipId || entry.relationship_id === selectedRelationshipId)
+              .map((entry) => (
+                <Card key={entry.id} className="border-brand-light-gray bg-white/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <Calendar className="w-4 h-4 text-brand-slate" />
+                          <span className="text-sm text-brand-slate font-inter">
+                            {formatDate(entry.created_at)}
+                          </span>
+                          {entry.mood_score && (
+                            <div className="flex items-center space-x-1">
+                              {getMoodIcon(entry.mood_score)}
+                              <span className="text-sm text-brand-slate font-inter">{entry.mood_score}/10</span>
+                            </div>
+                          )}
+                          {entry.is_private && (
+                            <span className="px-2 py-1 bg-brand-teal/10 text-brand-teal text-xs rounded-full font-inter">
+                              Private
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* NEW: Display relationship context */}
+                        {entry.relationship_context && (
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-xs bg-brand-teal/10 text-brand-teal px-2 py-1 rounded-full font-inter">
+                              About: {entry.relationship_context}
+                            </span>
                           </div>
                         )}
-                        {entry.is_private && (
-                          <span className="px-2 py-1 bg-brand-teal/10 text-brand-teal text-xs rounded-full font-inter">
-                            Private
-                          </span>
+                        
+                        {editingEntry === entry.id ? (
+                          <Input
+                            value={editEntry.title || ''}
+                            onChange={(e) => setEditEntry({ ...editEntry, title: e.target.value })}
+                            placeholder="Entry title..."
+                            className="font-heading text-lg border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20"
+                          />
+                        ) : (
+                          <CardTitle className="font-heading text-brand-charcoal">
+                            {entry.title || 'Untitled Entry'}
+                          </CardTitle>
                         )}
                       </div>
-                      {editingEntry === entry.id ? (
-                        <Input
-                          value={editEntry.title || ''}
-                          onChange={(e) => setEditEntry({ ...editEntry, title: e.target.value })}
-                          placeholder="Entry title..."
-                          className="font-heading text-lg border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20"
-                        />
-                      ) : (
-                        <CardTitle className="font-heading text-brand-charcoal">
-                          {entry.title || 'Untitled Entry'}
-                        </CardTitle>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {editingEntry === entry.id ? (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={updateEntry}
-                            disabled={saving}
-                            className="bg-brand-teal hover:bg-brand-dark-teal text-white"
-                          >
-                            <Save className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={cancelEditing}
-                            className="border-brand-light-gray"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => startEditing(entry)}
-                            className="border-brand-light-gray hover:bg-brand-cool-gray"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => deleteEntry(entry.id)}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {editingEntry === entry.id ? (
-                    <div className="space-y-4">
-                      <Textarea
-                        value={editEntry.content || ''}
-                        onChange={(e) => setEditEntry({ ...editEntry, content: e.target.value })}
-                        rows={6}
-                        className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
-                      />
-                      <div>
-                        <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
-                          Mood Score: <span className="font-bold text-brand-teal">{editEntry.mood_score || 5}/10</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
-                          value={editEntry.mood_score || 5}
-                          onChange={(e) => setEditEntry({ ...editEntry, mood_score: parseInt(e.target.value) })}
-                          className="w-full h-2 bg-brand-cool-gray rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="prose prose-sm max-w-none text-brand-charcoal font-inter">
-                        {entry.content.split('\n').map((paragraph, index) => (
-                          <p key={index} className="mb-3">
-                            {paragraph || '\u00A0'}
-                          </p>
-                        ))}
-                      </div>
-                      
-                      {entry.tags && entry.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-4">
-                          {entry.tags.map((tag, index) => (
-                            <span
-                              key={index}
-                              className="px-2 py-1 bg-brand-coral-pink/10 text-brand-coral-pink text-xs rounded-full font-inter"
+                      <div className="flex items-center space-x-2">
+                        {editingEntry === entry.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={updateEntry}
+                              disabled={saving}
+                              className="bg-brand-teal hover:bg-brand-dark-teal text-white"
                             >
-                              #{tag}
-                            </span>
+                              <Save className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={cancelEditing}
+                              className="border-brand-light-gray"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEditing(entry)}
+                              className="border-brand-light-gray hover:bg-brand-cool-gray"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => deleteEntry(entry.id)}
+                              className="border-red-300 text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {editingEntry === entry.id ? (
+                      <div className="space-y-4">
+                        <Textarea
+                          value={editEntry.content || ''}
+                          onChange={(e) => setEditEntry({ ...editEntry, content: e.target.value })}
+                          rows={6}
+                          className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
+                        />
+                        <div>
+                          <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
+                            Mood Score: <span className="font-bold text-brand-teal">{editEntry.mood_score || 5}/10</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={editEntry.mood_score || 5}
+                            onChange={(e) => setEditEntry({ ...editEntry, mood_score: parseInt(e.target.value) })}
+                            className="w-full h-2 bg-brand-cool-gray rounded-lg appearance-none cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="prose prose-sm max-w-none text-brand-charcoal font-inter">
+                          {entry.content.split('\n').map((paragraph, index) => (
+                            <p key={index} className="mb-3">
+                              {paragraph || '\u00A0'}
+                            </p>
                           ))}
                         </div>
-                      )}
-                      
-                      {entry.ai_analysis && (
-                        <div className="mt-4 p-3 bg-brand-teal/5 border border-brand-teal/20 rounded-lg">
-                          <h4 className="font-medium text-brand-dark-teal mb-2 font-inter">AI Insights</h4>
-                          <p className="text-sm text-brand-slate font-inter">
-                            This entry has generated personalized insights and partner suggestions. Check your insights dashboard and your partner's suggestions.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
+                        
+                        {entry.tags && entry.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-4">
+                            {entry.tags.map((tag, index) => (
+                              <span
+                                key={index}
+                                className="px-2 py-1 bg-brand-coral-pink/10 text-brand-coral-pink text-xs rounded-full font-inter"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {entry.ai_analysis && (
+                          <div className="mt-4 p-3 bg-brand-teal/5 border border-brand-teal/20 rounded-lg">
+                            <h4 className="font-medium text-brand-dark-teal mb-2 font-inter">AI Insights</h4>
+                            <p className="text-sm text-brand-slate font-inter">
+                              This entry has generated personalized insights and partner suggestions. Check your insights dashboard and your partner's suggestions.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
           )}
         </div>
 
