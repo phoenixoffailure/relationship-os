@@ -85,7 +85,7 @@ interface PrivacyInsight {
 // FIXED: Async cookies handling
 export async function POST(request: NextRequest) {
   try {
-    console.log('📝 Starting enhanced journal analysis...')
+    console.log('📝 Starting  journal analysis...')
 
     const cookieStore = await cookies()  // FIXED: Added await
     const supabase = createServerClient(
@@ -120,12 +120,23 @@ export async function POST(request: NextRequest) {
     const relationshipContext = await getRelationshipContext(user.id, supabase)
 
     // Run enhanced sentiment analysis
-    console.log('🧠 Running enhanced sentiment analysis...')
-    const sentimentAnalysis = await enhancedSentimentAnalyzer.analyzeRelationshipSentiment(
-      content,
-      userProfile,
-      relationshipContext
-    )
+// Run enhanced sentiment analysis with relationship-type awareness
+console.log('🧠 Running enhanced sentiment analysis...')
+const sentimentAnalysis = await enhancedSentimentAnalyzer.analyzeRelationshipSentiment(
+  content,
+  userProfile,
+  relationshipContext
+)
+
+// NEW: Log relationship-type-specific adaptations
+if (sentimentAnalysis.relationship_adaptation) {
+  console.log('🎯 Relationship-type adaptations:', {
+    relationship_type: sentimentAnalysis.relationship_adaptation.relationship_type,
+    tone: sentimentAnalysis.relationship_adaptation.tone_adjustments,
+    appropriate_actions: sentimentAnalysis.relationship_adaptation.suggestion_adaptations.appropriate_actions,
+    avoid_suggestions: sentimentAnalysis.relationship_adaptation.suggestion_adaptations.avoid_suggestions
+  })
+}
 
     // Calculate relationship health score
     const healthScore = calculateRelationshipHealthScore(sentimentAnalysis)
@@ -234,12 +245,23 @@ async function getRelationshipContext(userId: string, supabase: any): Promise<an
 
     const hasPartner = Array.isArray(relationships) && relationships.length > 0
     const partnerId = hasPartner ? relationships[0]?.relationship_id : null
+    
+    // NEW: Get the actual relationship type for the enhanced analyzer
+    const relationshipType = hasPartner ? relationships[0]?.relationships?.relationship_type : null
 
     return {
       has_partner: hasPartner,
       partner_id: partnerId,
       relationship_count: relationships?.length || 0,
-      relationship_stage: hasPartner ? relationships[0]?.relationships?.relationship_type : null
+      relationship_stage: relationshipType, // Keep for backward compatibility
+      // NEW: Add relationship_type field for enhanced analyzer
+      relationship_type: relationshipType || 'romantic', // Default to romantic if no type
+      relationship_id: hasPartner ? relationships[0]?.relationship_id : null,
+      perceived_closeness: 7, // Default value, could be made dynamic later
+      communication_frequency: 'daily', // Default value, could be made dynamic later
+      relationship_duration_days: hasPartner ? 
+        Math.floor((new Date().getTime() - new Date(relationships[0]?.relationships?.created_at || new Date()).getTime()) / (1000 * 60 * 60 * 24)) : 
+        0
     }
   } catch (error) {
     console.warn('Could not fetch relationship context:', error)
@@ -247,7 +269,13 @@ async function getRelationshipContext(userId: string, supabase: any): Promise<an
       has_partner: false,
       partner_id: null,
       relationship_count: 0,
-      relationship_stage: null
+      relationship_stage: null,
+      // NEW: Default values for enhanced analyzer
+      relationship_type: 'romantic',
+      relationship_id: null,
+      perceived_closeness: 5,
+      communication_frequency: 'daily',
+      relationship_duration_days: 0
     }
   }
 }
