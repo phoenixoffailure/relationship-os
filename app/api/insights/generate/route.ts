@@ -87,12 +87,26 @@ export async function POST(request: Request) {
     console.log('✅ Valid user_id confirmed:', user_id)
 
     // Get user's onboarding responses for rich context
-    console.log('🔍 Fetching onboarding data...')
-    const { data: onboardingData } = await supabase
-      .from('enhanced_onboarding_responses')  // ← CORRECT TABLE
-      .select('*')  // ← Get all fields, not just 'responses'
-      .eq('user_id', user_id)
-      .single()
+console.log('🔍 Fetching universal user profile (v2.0)...')
+const { data: universalProfile, error: profileError } = await supabase
+  .from('universal_user_profiles')  // ✅ NEW TABLE
+  .select('*')
+  .eq('user_id', user_id)
+  .single()
+
+console.log('🔍 Fetching relationship profiles (v2.0)...')
+const { data: relationshipProfiles, error: relProfileError } = await supabase
+  .from('relationship_profiles')  // ✅ NEW TABLE
+  .select('*')
+  .eq('user_id', user_id)
+
+console.log('🔍 Fetching recent journal analysis (v2.0)...')
+const { data: recentAnalysis, error: analysisError } = await supabase
+  .from('enhanced_journal_analysis')  // ✅ NEW TABLE - Connect to recent AI analysis
+  .select('*')
+  .eq('user_id', user_id)
+  .order('created_at', { ascending: false })
+  .limit(5)
 
     // Get user's recent activity data
     console.log('🔍 Fetching user activity data...')
@@ -122,25 +136,51 @@ export async function POST(request: Request) {
 
     const journals = journalResponse.data || []
     const checkins = checkinResponse.data || []
-    const onboarding = onboardingData || {}
+    const onboardingData = {
+  // FIRO Theory data (from universal_user_profiles)
+  inclusion_need: universalProfile?.inclusion_need || 5,
+  control_need: universalProfile?.control_need || 5,
+  affection_need: universalProfile?.affection_need || 5,
+  
+  // Attachment & Communication data
+  attachment_style: universalProfile?.attachment_style || 'secure',
+  communication_directness: universalProfile?.communication_directness || 5,
+  communication_assertiveness: universalProfile?.communication_assertiveness || 5,
+  support_preference: universalProfile?.support_preference || 'balanced',
+  conflict_style: universalProfile?.conflict_style || 'collaborative',
+  
+  // Relationship-specific context (from relationship_profiles)
+  relationship_profiles: relationshipProfiles || [],
+  
+  // Recent AI insights (from enhanced_journal_analysis) 
+  recent_analysis: recentAnalysis || [],
+  
+  // Debug info
+  data_source: 'v2.0_universal_profiles',
+  profile_found: !!universalProfile,
+  relationship_profiles_count: relationshipProfiles?.length || 0,
+  recent_analysis_count: recentAnalysis?.length || 0
+}
 
-    console.log('📈 Data summary:', {
-      journals: journals.length,
-      checkins: checkins.length,
-      relationships: relationshipContext.relationships.length,
-      hasOnboarding: !!onboardingData
-    })
+console.log('🔍 V2.0 Profile Integration:', {
+  universal_profile_found: !!universalProfile,
+  relationship_profiles: relationshipProfiles?.length || 0,
+  recent_analysis: recentAnalysis?.length || 0,
+  attachment_style: onboardingData.attachment_style,
+  communication_style: `directness:${onboardingData.communication_directness}/assertiveness:${onboardingData.communication_assertiveness}`,
+  firo_needs: `inclusion:${onboardingData.inclusion_need}/control:${onboardingData.control_need}/affection:${onboardingData.affection_need}`
+})
     //Auth
     const { data: { user } } = await supabase.auth.getUser()
     console.log('🔍 DEBUG auth.uid():', user?.id)
 
     // Analyze patterns from user data with relationship context
-    const patterns = analyzePatterns(journals, checkins, relationshipContext, onboarding)
+    const patterns = analyzePatterns(journals, checkins, relationshipContext, onboardingData)
     console.log('📊 Patterns analyzed with relationship context:', patterns)
     
     // Generate insights using enhanced Grok with relationship awareness
     console.log('🤖 Generating relationship-aware Grok insights...')
-    const insights = await generateRelationshipAwareInsights(patterns, onboarding, relationshipContext, user_id)
+    const insights = await generateRelationshipAwareInsights(patterns, onboardingData, relationshipContext, user_id)
     console.log('💡 Enhanced Grok insights generated:', insights.length)
     
     // Save insights to database with relationship context
@@ -195,7 +235,7 @@ export async function POST(request: Request) {
     // Fallback: if no insights were saved, generate basic fallback suggestions
     if (savedInsights.length === 0) {
       console.log('⚠️ No insights saved to database, generating basic fallback insights...')
-      const fallbackInsights = generateBasicFallbackInsights(patterns, onboarding)
+      const fallbackInsights = generateBasicFallbackInsights(patterns, onboardingData)
       for (const insight of fallbackInsights) {
         const { title, description, type, priority, relationship_id } = insight
         const { data, error } = await supabase

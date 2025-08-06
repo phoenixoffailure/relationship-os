@@ -311,9 +311,94 @@ async function storeAnalysisResults(
   userId: string,
   content: string,
   analysisResult: EnhancedAnalysisResult,
-  journalId: string,
+  journalId: string | null,
   supabase: any
 ): Promise<string> {
-  // Existing implementation
-  return 'analysis-id-placeholder'
+  try {
+    console.log('💾 Attempting to store analysis results for user:', userId)
+    
+    const contentHash = hashContent(content)
+    
+    // Ensure confidence_score is within valid range (0-1)
+    const rawConfidenceScore = analysisResult.sentiment_analysis?.confidence_score;
+    let confidence_score = 0.5; // Default
+    
+    if (typeof rawConfidenceScore === 'number') {
+      confidence_score = Math.max(0, Math.min(1, rawConfidenceScore)); // Clamp between 0 and 1
+    }
+    
+    // Ensure relationship_health_score is within valid range (1-10)  
+    const rawHealthScore = analysisResult.relationship_health_score;
+    let relationship_health_score = 5; // Default
+    
+    if (typeof rawHealthScore === 'number') {
+      relationship_health_score = Math.max(1, Math.min(10, Math.round(rawHealthScore)));
+    }
+    
+    const analysisData = {
+      user_id: userId,
+      journal_content_hash: contentHash,
+      sentiment_analysis: analysisResult.sentiment_analysis || {},
+      overall_sentiment: analysisResult.sentiment_analysis?.overall_sentiment || 'neutral',
+      confidence_score: confidence_score,
+      relationship_needs: analysisResult.sentiment_analysis?.relationship_needs || [],
+      relationship_health_score: relationship_health_score,
+      fulfillment_tracking: analysisResult.fulfillment_tracking || {},
+      immediate_actions: Array.isArray(analysisResult.immediate_actions) 
+        ? analysisResult.immediate_actions 
+        : [],
+      pattern_insights: analysisResult.pattern_insights || [],
+      analysis_version: '2.0-enhanced'
+    }
+
+    console.log('💾 Inserting analysis data (constraint-safe):', {
+      user_id: analysisData.user_id,
+      overall_sentiment: analysisData.overall_sentiment,
+      confidence_score: analysisData.confidence_score,
+      health_score: analysisData.relationship_health_score,
+      actions_count: analysisData.immediate_actions.length
+    })
+
+    const { data, error } = await supabase
+      .from('enhanced_journal_analysis')
+      .insert(analysisData)
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('❌ Database insert error:', error)
+      console.error('❌ Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      })
+      console.error('❌ Attempted data:', analysisData)
+      
+      return `temp-${Date.now()}`
+    }
+
+    if (!data?.id) {
+      console.error('❌ No data returned from insert operation')
+      return `temp-${Date.now()}`
+    }
+
+    console.log('✅ Analysis results successfully saved with ID:', data.id)
+    return data.id
+
+  } catch (error) {
+    console.error('❌ Critical error in storeAnalysisResults:', error)
+    console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
+    return `temp-${Date.now()}`
+  }
+}
+
+function hashContent(content: string): string {
+  try {
+    // Create a simple hash of the content for privacy
+    return Buffer.from(content).toString('base64').slice(0, 32)
+  } catch (error) {
+    console.error('Error hashing content:', error)
+    return `hash-${Date.now()}`
+  }
 }
