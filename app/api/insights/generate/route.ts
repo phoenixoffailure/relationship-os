@@ -5,6 +5,20 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { getPillarConfig, formatPillarTitle } from '@/lib/insights/pillar-helpers'
+import { 
+  RelationshipType,
+  adaptPromptForRelationshipType,
+  getRelationshipConfig,
+  detectRelationshipType,
+  getAppropriateInsightTypes,
+  validateSuggestionForRelationshipType,
+  adjustLoveLanguageForRelationshipType
+} from '@/lib/ai/relationship-type-intelligence'
+import { 
+  contextManager,
+  detectContextFromJournalEntry,
+  generateContextAwarePromptModifier
+} from '@/lib/ai/multi-relationship-context-switcher'
 
 export async function POST(request: Request) {
   console.log('🔍 Starting enhanced Grok insights generation with relationship context...')
@@ -67,6 +81,28 @@ export async function POST(request: Request) {
     // Get user's relationships and partner data
     console.log('🔍 Fetching relationship context...')
     const relationshipContext = await getRelationshipContext(supabase, user_id)
+    
+    // 🎯 PHASE 3: Get user's relationships for context detection
+    console.log('🔍 Fetching user relationships for Phase 3 context switching...')
+    const { data: userRelationships, error: relationshipsError } = await supabase
+      .from('relationship_members')
+      .select(`
+        relationship_id,
+        relationships (
+          id,
+          name,
+          relationship_type
+        )
+      `)
+      .eq('user_id', user_id)
+    
+    const relationships = userRelationships?.map((r: any) => ({
+      id: r.relationships.id,
+      name: r.relationships.name,
+      relationship_type: r.relationships.relationship_type as RelationshipType
+    })) || []
+    
+    console.log('📊 Found user relationships for Phase 3:', relationships.length)
     
     // Validate that user_id is a valid UUID before proceeding
     if (!user_id || user_id === 'null' || user_id === 'undefined') {
@@ -178,9 +214,71 @@ console.log('🔍 V2.0 Profile Integration:', {
     const patterns = analyzePatterns(journals, checkins, relationshipContext, onboardingData)
     console.log('📊 Patterns analyzed with relationship context:', patterns)
     
-    // Generate insights using enhanced Grok with relationship awareness
-    console.log('🤖 Generating relationship-aware Grok insights...')
-    const insights = await generateRelationshipAwareInsights(patterns, onboardingData, relationshipContext, user_id)
+    // 🎯 PHASE 3: Determine relationship context for insights
+    let primaryRelationshipType: RelationshipType = 'other'
+    let primaryRelationshipId: string | null = null
+    
+    if (relationships.length > 0) {
+      // If user has only one relationship, use that
+      if (relationships.length === 1) {
+        primaryRelationshipType = relationships[0].relationship_type
+        primaryRelationshipId = relationships[0].id
+        console.log('🎯 Using single relationship context:', primaryRelationshipType)
+      } else {
+        // Multiple relationships - try to detect from recent journal entries
+        const { data: recentJournals } = await supabase
+          .from('journal_entries')
+          .select('content, relationship_id')
+          .eq('user_id', user_id)
+          .order('created_at', { ascending: false })
+          .limit(5)
+        
+        // Try to detect context from recent journals
+        for (const journal of recentJournals || []) {
+          if (journal.relationship_id) {
+            const relationship = relationships.find(r => r.id === journal.relationship_id)
+            if (relationship) {
+              primaryRelationshipType = relationship.relationship_type
+              primaryRelationshipId = relationship.id
+              console.log('🎯 Detected relationship context from journal:', primaryRelationshipType)
+              break
+            }
+          }
+        }
+        
+        // If still no context, use most active relationship (first one for now)
+        if (primaryRelationshipType === 'other' && relationships.length > 0) {
+          primaryRelationshipType = relationships[0].relationship_type
+          primaryRelationshipId = relationships[0].id
+          console.log('🎯 Using primary relationship context:', primaryRelationshipType)
+        }
+      }
+    }
+    
+    // Update context manager
+    if (primaryRelationshipId && relationships.length > 0) {
+      const relationship = relationships.find(r => r.id === primaryRelationshipId)
+      if (relationship) {
+        contextManager.updateCurrentContext(
+          user_id,
+          relationship.id,
+          relationship.relationship_type,
+          relationship.name
+        )
+      }
+    }
+    
+    // Generate insights using PHASE 3 relationship-aware system
+    console.log('🤖 Generating PHASE 3 relationship-aware Grok insights...')
+    const insights = await generateRelationshipAwareInsights(
+      patterns, 
+      onboardingData, 
+      relationshipContext, 
+      user_id,
+      primaryRelationshipType,
+      primaryRelationshipId,
+      relationships
+    )
     console.log('💡 Enhanced Grok insights generated:', insights.length)
     
     // Save insights to database with relationship context
@@ -533,27 +631,43 @@ if (onboardingData?.anniversary_date) {
   return stage;
 }
 
-async function generateRelationshipAwareInsights(patterns: any, onboarding: any, relationshipContext: any, userId: string) {
-  console.log('🤖 Calling enhanced Grok API with relationship context...')
+async function generateRelationshipAwareInsights(
+  patterns: any, 
+  onboarding: any, 
+  relationshipContext: any, 
+  userId: string,
+  primaryRelationshipType: RelationshipType = 'other',
+  primaryRelationshipId: string | null = null,
+  allRelationships: Array<{id: string, name: string, relationship_type: RelationshipType}> = []
+) {
+  console.log('🎯 PHASE 3: Calling relationship-type aware Grok API...')
+  console.log('🎯 Primary relationship type:', primaryRelationshipType)
   
-  // Create rich context for Grok including relationship data
-  const context = buildEnhancedContextForGrok(patterns, onboarding, relationshipContext)
+  // 🎯 PHASE 3: Create relationship-type aware context
+  const context = buildPhase3ContextForGrok(
+    patterns, 
+    onboarding, 
+    relationshipContext, 
+    primaryRelationshipType,
+    primaryRelationshipId,
+    allRelationships
+  )
   
   try {
-    // Call Grok 4 API with enhanced context
-    const grokResponse = await callEnhancedGrokAPI(context)
+    // Call Grok 4 API with PHASE 3 relationship-type awareness
+    const grokResponse = await callPhase3GrokAPI(context, primaryRelationshipType)
     
     if (grokResponse && grokResponse.length > 0) {
-      console.log('✅ Enhanced Grok returned', grokResponse.length, 'relationship-aware insights')
+      console.log('✅ PHASE 3 Grok returned', grokResponse.length, 'relationship-type aware insights')
       return grokResponse
     } else {
-      console.log('⚠️ Grok API returned no insights, falling back to enhanced rule-based')
-      return generateEnhancedRelationshipInsights(patterns, onboarding, relationshipContext)
+      console.log('⚠️ Phase 3 Grok API returned no insights, falling back to relationship-type aware rule-based')
+      return generatePhase3RuleBasedInsights(patterns, onboarding, relationshipContext, primaryRelationshipType)
     }
     
   } catch (error) {
-    console.error('❌ Enhanced Grok API error, falling back to relationship-aware rule-based:', error)
-    return generateEnhancedRelationshipInsights(patterns, onboarding, relationshipContext)
+    console.error('❌ Phase 3 Grok API error, falling back to relationship-type aware rule-based:', error)
+    return generatePhase3RuleBasedInsights(patterns, onboarding, relationshipContext, primaryRelationshipType)
   }
 }
 
@@ -667,15 +781,15 @@ function generateFallbackInsight(type: string) {
   return fallbacks[type as keyof typeof fallbacks] || fallbacks.suggestion
 }
 
-  // Warm prompt for consistent insight generation
-  const warmFriendPrompt = `You're talking to someone you really care about. Based on what they've shared recently, offer warm, understanding insights that feel personal and helpful.
+  // Professional caring therapist prompt for consistent insight generation
+  const therapeuticInsightPrompt = `You are a warm, caring relationship therapist who provides professional insights to help people improve their connections. You offer supportive guidance based on relationship psychology while maintaining a friendly, approachable tone.
 
-Here's what you know about them:
-- They value connection deeply and like being included (but don't say "inclusion need 8/9" - just naturally reference how much relationships matter to them)
-- They prefer having some say in how things go, but they're not controlling about it
-- They communicate directly and assertively - they appreciate honest, straightforward feedback
-- They have some internal conflict in relationships (disorganized attachment) - be gentle and understanding about relationship struggles
-- They're in a ${context.relationshipType || 'romantic'} relationship
+Here's what you know about this person:
+- Connection and belonging are very important to them - relationships matter deeply
+- They appreciate having input and influence in situations while being collaborative
+- They communicate directly and value honest, straightforward feedback
+- They sometimes experience internal conflict in relationships - approach this with gentle understanding
+- They're working on their ${context.relationshipType || 'romantic'} relationship
 
 RECENT GRATITUDES they specifically mentioned:
 ${context.recentGratitudes?.map((g: string) => `"${g}"`).join('\n') || 'None shared recently'}
@@ -688,61 +802,61 @@ CURRENT SITUATION:
 - They've been staying engaged with their relationship growth (${context.gratitudeCount || 0} gratitudes, ${context.challengeCount || 0} challenges recently)
 - ${context.hasActivePartnership ? 'They have an active partnership' : 'They\'re working on relationships'}
 
-SPEAKING STYLE - Talk like a caring friend who:
-✅ Says "I noticed..." instead of "Data shows..."
-✅ Says "It sounds like..." instead of "Analysis indicates..."
-✅ References specific things they mentioned, not generic patterns
-✅ Validates their experience before offering suggestions
-✅ Uses natural, conversational language
-✅ Offers practical ideas that fit their direct communication style
+PROFESSIONAL THERAPEUTIC STYLE - Communicate like a warm therapist who:
+✅ Uses "I notice..." or "This suggests..." for professional observations
+✅ References specific behaviors they mentioned, not raw data
+✅ Validates their experience with professional warmth
+✅ Provides clear, actionable guidance they can understand
+✅ Uses natural, friendly language without being overly casual
+✅ Offers practical ideas that respect their direct communication style
 
-❌ NEVER say things like:
-- "Celebrate your high mood of X/10"
-- "Your inclusion need indicates..."
-- "Analysis suggests optimization..."
-- "Metrics show correlation..."
-- "Psychological patterns exhibit..."
+❌ NEVER use:
+- Pet names like "darling," "sweetheart," "honey"
+- Personal reactions like "I'm so touched" or "I love that you"
+- Raw scores or metrics ("8/10," "inclusion need 8," etc.)
+- Clinical jargon or overly formal language
+- Overly familiar phrases that cross professional boundaries
 
 INSIGHT TYPES TO GENERATE:
-1. PATTERN insight: Something you noticed about their recent sharing (warm observation, not clinical analysis)
-2. SUGGESTION insight: Practical idea based on their specific challenges (friendly advice, not intervention protocol)
-3. APPRECIATION insight: Acknowledge something positive they're doing (genuine recognition, not clinical validation)
-4. MILESTONE insight: Only if there's genuine progress to celebrate (heartfelt congratulation, not metric achievement)
+1. PATTERN insight: Professional observation about their relationship patterns (warm therapeutic insight)
+2. SUGGESTION insight: Evidence-based recommendation for their specific situation (supportive guidance)
+3. APPRECIATION insight: Recognition of their positive efforts (professional validation with warmth)
+4. MILESTONE insight: Only if there's genuine progress to acknowledge (warm professional recognition)
 
 Each insight should:
-- Reference something specific they mentioned
-- Feel personal and relevant to their actual situation  
-- Be actionable and helpful for their direct communication style
-- Sound like advice from someone who really knows and cares about them
+- Reference specific behaviors or experiences they shared
+- Feel relevant and personally meaningful to their situation
+- Provide actionable steps that fit their direct communication style
+- Come from a place of professional care and expertise
 
 Return valid JSON array with exactly 3-4 insights:
 [
   {
     "type": "pattern",
     "priority": "high|medium|low", 
-    "title": "Something I noticed...",
-    "description": "Warm, personal observation about what they've shared, referencing specific gratitudes or challenges. Start with 'I noticed...' or 'It sounds like...' and validate their experience.",
+    "title": "Relationship Pattern Insight",
+    "description": "Warm, professional observation about their relationship patterns. Start with 'I notice...' or 'This suggests...' and reference specific things they shared. Validate their experience professionally.",
     "relationship_id": null
   },
   {
     "type": "suggestion",
     "priority": "high|medium|low",
-    "title": "An idea that might help...",
-    "description": "Practical, caring suggestion based on their specific challenges. Use language like 'What if you tried...' or 'Have you considered...' that fits their direct communication style.",
+    "title": "Growth Opportunity",
+    "description": "Practical, supportive recommendation based on their specific situation. Use clear language like 'Consider trying...' or 'Research shows...' that fits their direct communication style.",
     "relationship_id": null
   },
   {
     "type": "appreciation", 
     "priority": "medium|low",
-    "title": "I love that you...",
-    "description": "Genuine recognition of something positive they're doing. Reference specific gratitudes or growth patterns with warmth and encouragement.",
+    "title": "Positive Recognition",
+    "description": "Warm professional acknowledgment of their efforts. Reference specific positive behaviors with phrases like 'Your commitment to...' or 'This approach shows...'",
     "relationship_id": null
   },
   {
     "type": "milestone",
     "priority": "low", 
-    "title": "Worth celebrating...",
-    "description": "Only include if there's genuine progress to celebrate. Use warm, congratulatory language about their relationship growth.",
+    "title": "Progress Recognition",
+    "description": "Only include if there's genuine progress to acknowledge. Use warm but professional language about their relationship development.",
     "relationship_id": null
   }
 ]
@@ -762,11 +876,11 @@ Only include the milestone insight if there is genuine progress to celebrate - s
         messages: [
           {
             role: 'system',
-            content: 'You are a warm, insightful friend who really knows this person well and cares deeply about their happiness. You offer caring insights that feel personal and genuinely helpful, while maintaining the structured format. Always generate exactly 1 pattern + 1 suggestion + 1 appreciation insight, plus 1 optional milestone. Respond with valid JSON only.'
+            content: 'You are a warm, professional relationship therapist who provides caring insights to help people improve their connections. You maintain a friendly, supportive tone while offering professional guidance based on relationship psychology. Always generate exactly 1 pattern + 1 suggestion + 1 appreciation insight, plus 1 optional milestone. Respond with valid JSON only.'
           },
           {
             role: 'user',
-            content: warmFriendPrompt
+            content: therapeuticInsightPrompt
           }
         ],
         model: 'grok-4',
@@ -1078,7 +1192,366 @@ function getStageSpecificAdvice(stage: string, onboarding: any) {
     default:
       return null
   }
+}
 
+// ========================================
+// 🎯 PHASE 3: RELATIONSHIP-TYPE AWARE FUNCTIONS
+// ========================================
+
+function buildPhase3ContextForGrok(
+  patterns: any, 
+  onboarding: any, 
+  relationshipContext: any, 
+  primaryRelationshipType: RelationshipType,
+  primaryRelationshipId: string | null,
+  allRelationships: Array<{id: string, name: string, relationship_type: RelationshipType}>
+) {
+  // Get relationship configuration for primary relationship type
+  const relationshipConfig = getRelationshipConfig(primaryRelationshipType)
   
+  // Build context with relationship-type awareness
+  const context = {
+    // 🎯 PHASE 3: Relationship type information
+    primaryRelationshipType,
+    relationshipConfig: {
+      displayName: relationshipConfig.displayName,
+      emotionalIntensity: relationshipConfig.emotionalIntensity,
+      boundaries: relationshipConfig.boundaries,
+      toneProfile: relationshipConfig.toneProfile,
+      samplePhrases: relationshipConfig.samplePhrases
+    },
+    
+    // User context from v2.0 psychological data
+    relationshipType: primaryRelationshipType, // For backward compatibility
+    relationshipDuration: onboarding?.relationship_duration_years || 'unknown',
+    conflictStyle: onboarding?.conflict_approach || 'unknown',
+    stressResponse: onboarding?.stress_response || 'unknown',
+    loveLanguageGive: onboarding?.love_language_ranking || [],
+    loveLanguageReceive: onboarding?.love_language_ranking || [],
+    relationshipGoals: onboarding?.primary_goals || [],
+    sharingPreference: onboarding?.expression_directness || 'general',
+    communicationStyle: onboarding?.communication_style || 'unknown',
+    
+    // Current patterns
+    avgConnectionScore: patterns.avgConnectionScore,
+    avgMoodFromCheckins: patterns.avgMoodFromCheckins,
+    trend: patterns.trend,
+    gratitudeCount: patterns.gratitudeCount,
+    challengeCount: patterns.challengeCount,
+    recentGratitudes: patterns.recentGratitudes || [],
+    recentChallenges: patterns.recentChallenges || [],
+    totalActivity: patterns.totalCheckins + patterns.totalJournals,
 
+    // Multi-relationship context
+    hasMultipleRelationships: allRelationships.length > 1,
+    allRelationshipTypes: allRelationships.map(r => r.relationship_type),
+    relationshipStage: patterns.relationshipStage,
+    hasActivePartnership: patterns.hasActivePartnership
+  }
+  
+  console.log('🎯 Built Phase 3 context:', {
+    primaryType: primaryRelationshipType,
+    emotionalIntensity: relationshipConfig.emotionalIntensity,
+    boundaries: Object.keys(relationshipConfig.boundaries).filter(k => relationshipConfig.boundaries[k as keyof typeof relationshipConfig.boundaries]),
+    multipleRelationships: context.hasMultipleRelationships
+  })
+  
+  return context
+}
+
+async function callPhase3GrokAPI(context: any, relationshipType: RelationshipType) {
+  if (!process.env.XAI_API_KEY) {
+    console.log('⚠️ No XAI_API_KEY found, skipping Phase 3 Grok API call')
+    return null
+  }
+
+  // Get relationship configuration for tailored prompting
+  const config = getRelationshipConfig(relationshipType)
+  
+  // Build relationship-type aware prompt
+  let basePrompt = generatePhase3BasePrompt(context, config)
+  
+  // Apply relationship-type specific adaptations
+  const adaptedPrompt = adaptPromptForRelationshipType(
+    basePrompt,
+    relationshipType,
+    {
+      firoNeeds: {
+        inclusion: context.inclusionNeed || 8,
+        control: context.controlNeed || 7,
+        affection: context.affectionNeed || 8
+      },
+      attachmentStyle: context.attachmentStyle || 'disorganized',
+      communicationStyle: context.communicationStyle || 'direct_assertive'
+    }
+  )
+
+  try {
+    console.log(`🎯 Calling Phase 3 Grok API for ${relationshipType} relationship...`)
+    
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.XAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: `You are a warm, caring friend who adapts your communication style based on the relationship context. For ${config.displayName} relationships, you use a ${config.emotionalIntensity} emotional intensity with ${config.toneProfile.warmth}/10 warmth and ${config.toneProfile.formality}/10 formality. Always respond with valid JSON only.`
+          },
+          {
+            role: 'user',
+            content: adaptedPrompt
+          }
+        ],
+        model: 'grok-4',
+        temperature: 0.7,
+        max_tokens: 1200,
+        stream: false
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Phase 3 Grok API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    
+    if (data.choices?.[0]?.message?.content) {
+      const content = data.choices[0].message.content.trim()
+      
+      try {
+        let jsonContent = content
+        if (content.includes('```json')) {
+          jsonContent = content.split('```json')[1].split('```')[0].trim()
+        } else if (content.includes('[')) {
+          const startIndex = content.indexOf('[')
+          const endIndex = content.lastIndexOf(']') + 1
+          jsonContent = content.substring(startIndex, endIndex)
+        }
+        
+        const insights = JSON.parse(jsonContent)
+        
+        if (Array.isArray(insights) && insights.length >= 3) {
+          console.log('✅ Generated Phase 3 relationship-type aware insights:', insights.length)
+          
+          // Validate insights are appropriate for relationship type
+          const validatedInsights = insights.filter(insight => {
+            const validation = validateSuggestionForRelationshipType(
+              insight.description || '',
+              relationshipType
+            )
+            if (!validation.isValid) {
+              console.warn(`⚠️ Filtered inappropriate insight: ${validation.reason}`)
+            }
+            return validation.isValid
+          })
+          
+          return validatedInsights.map((insight: any) => ({
+            type: validatePillarType(insight.type),
+            priority: insight.priority || 'medium',
+            title: insight.title || `${config.displayName} Insight`,
+            description: insight.description || 'Continue developing your relationship skills.',
+            relationship_id: context.primaryRelationshipId,
+            category: `phase3-${relationshipType}-grok-generated`
+          }))
+        }
+      } catch (parseError) {
+        console.error('❌ Failed to parse Phase 3 Grok response:', parseError)
+        return null
+      }
+    }
+    
+    return null
+    
+  } catch (error) {
+    console.error('❌ Phase 3 Grok API call failed:', error)
+    throw error
+  }
+}
+
+function generatePhase3BasePrompt(context: any, config: any): string {
+  return `You're talking to someone you really care about about their ${config.displayName.toLowerCase()} relationship. Based on what they've shared recently, offer ${config.emotionalIntensity} intensity insights that respect the boundaries and expectations of this relationship type.
+
+Here's what you know about them:
+- They value connection deeply and like being included
+- They prefer having some say in how things go, but they're not controlling about it
+- They communicate directly and assertively - they appreciate honest, straightforward feedback
+- They have some internal conflict in relationships - be gentle and understanding about relationship struggles
+- This is their ${context.primaryRelationshipType} relationship
+
+RECENT GRATITUDES they specifically mentioned:
+${context.recentGratitudes?.map((g: string) => `"${g}"`).join('\n') || 'None shared recently'}
+
+RECENT CHALLENGES they're facing:
+${context.recentChallenges?.map((c: string) => `"${c}"`).join('\n') || 'None mentioned recently'}
+
+CURRENT SITUATION:
+- Recent mood averaging ${context.avgMoodFromCheckins || 'mixed'}/10
+- They've been staying engaged with their relationship growth (${context.gratitudeCount || 0} gratitudes, ${context.challengeCount || 0} challenges recently)
+- ${context.hasActivePartnership ? 'They have an active partnership' : 'They\'re working on relationships'}
+
+RELATIONSHIP-SPECIFIC GUIDANCE:
+- Emotional intensity: ${config.emotionalIntensity}
+- Appropriate tone: ${config.samplePhrases.greeting}
+- Validation style: ${config.samplePhrases.validation}
+- Suggestion style: ${config.samplePhrases.suggestion}
+- Appreciation style: ${config.samplePhrases.appreciation}
+
+INSIGHT TYPES TO GENERATE:
+1. PATTERN insight: Something you noticed about their recent sharing (${config.emotionalIntensity} intensity observation)
+2. SUGGESTION insight: Practical idea based on their specific challenges (respectful of ${context.primaryRelationshipType} boundaries)
+3. APPRECIATION insight: Acknowledge something positive they're doing (appropriate for ${context.primaryRelationshipType} context)
+4. MILESTONE insight: Only if there's genuine progress to celebrate
+
+Each insight should:
+- Reference something specific they mentioned
+- Feel personal and relevant to their ${context.primaryRelationshipType} relationship
+- Respect ${context.primaryRelationshipType} boundaries and expectations
+- Sound like advice from someone who understands this relationship type
+
+Return valid JSON array with exactly 3-4 insights:
+[
+  {
+    "type": "pattern",
+    "priority": "high|medium|low", 
+    "title": "Relationship-appropriate title",
+    "description": "Warm, appropriate observation that respects ${context.primaryRelationshipType} relationship boundaries",
+    "relationship_id": null
+  }
+]`
+}
+
+function generatePhase3RuleBasedInsights(
+  patterns: any, 
+  onboarding: any, 
+  relationshipContext: any, 
+  relationshipType: RelationshipType
+) {
+  console.log('🎯 Generating Phase 3 rule-based insights for:', relationshipType)
+  
+  const config = getRelationshipConfig(relationshipType)
+  const appropriateTypes = getAppropriateInsightTypes(relationshipType)
+  const insights = []
+
+  // Generate pattern insight (always appropriate)
+  insights.push(generatePhase3PatternInsight(patterns, config, relationshipType))
+  
+  // Generate suggestion insight if appropriate
+  if (appropriateTypes.suggestion) {
+    insights.push(generatePhase3SuggestionInsight(patterns, onboarding, config, relationshipType))
+  }
+  
+  // Generate appreciation insight if appropriate
+  if (appropriateTypes.appreciation) {
+    insights.push(generatePhase3AppreciationInsight(patterns, config, relationshipType))
+  }
+  
+  // Generate milestone insight if appropriate and warranted
+  if (appropriateTypes.milestone && patterns.totalActivity >= 15) {
+    insights.push(generatePhase3MilestoneInsight(patterns, config, relationshipType))
+  }
+
+  console.log(`✅ Generated ${insights.length} Phase 3 rule-based insights for ${relationshipType}`)
+  
+  return insights
+}
+
+function generatePhase3PatternInsight(patterns: any, config: any, relationshipType: RelationshipType) {
+  const connectionTrend = patterns.trend > 0 ? 'improving' : patterns.trend < 0 ? 'declining' : 'stable'
+  
+  const descriptions = {
+    romantic: `I notice your connection patterns are ${connectionTrend} with an average score around ${patterns.avgConnectionScore}/10. Your intimate relationship shows ${patterns.relationshipCheckinsCount} couple reflections and ${patterns.soloCheckinsCount} personal ones - this balance of togetherness and individual growth is really healthy for romantic partnerships.`,
+    
+    family: `I see ${connectionTrend} patterns in your family dynamics with connection scores around ${patterns.avgConnectionScore}/10. Family relationships can be complex, and your ${patterns.totalActivity} reflections show real commitment to understanding these important bonds.`,
+    
+    friend: `Your friendship patterns show ${connectionTrend} connection trends averaging ${patterns.avgConnectionScore}/10. It's awesome that you're putting ${patterns.totalActivity} entries worth of thought into your friendships - that level of intentionality is rare and valuable.`,
+    
+    work: `Your professional relationship patterns indicate ${connectionTrend} dynamics with scores around ${patterns.avgConnectionScore}/10. Your ${patterns.totalActivity} workplace relationship reflections demonstrate strong professional development awareness.`,
+    
+    other: `I notice ${connectionTrend} connection patterns with an average score of ${patterns.avgConnectionScore}/10. Your ${patterns.totalActivity} reflections show thoughtful investment in this relationship.`
+  }
+  
+  return {
+    type: 'pattern',
+    priority: patterns.avgConnectionScore < 6 ? 'high' : 'medium',
+    title: `${connectionTrend.charAt(0).toUpperCase() + connectionTrend.slice(1)} ${config.displayName} Pattern`,
+    description: descriptions[relationshipType],
+    relationship_id: null,
+    category: `phase3-${relationshipType}-rule-based`
+  }
+}
+
+function generatePhase3SuggestionInsight(patterns: any, onboarding: any, config: any, relationshipType: RelationshipType) {
+  const primaryLoveLanguage = onboarding?.love_language_ranking?.[0] || 'quality_time'
+  const adjustedLanguage = adjustLoveLanguageForRelationshipType(primaryLoveLanguage, relationshipType)
+  
+  const suggestions = {
+    romantic: `Think about creating special moments focused on ${adjustedLanguage}. Maybe plan something intimate and meaningful that shows how much you care about your connection together.`,
+    
+    family: `Consider reaching out with ${adjustedLanguage} in mind. Family relationships thrive when we show care while respecting boundaries - maybe a thoughtful check-in or gesture that honors your family bond.`,
+    
+    friend: `What if you planned something fun around ${adjustedLanguage}? Friendships grow through shared experiences and genuine care without pressure - keep it light and enjoyable.`,
+    
+    work: `Focus on ${adjustedLanguage} within professional boundaries. Strong workplace relationships are built on mutual respect, clear communication, and collaborative support.`,
+    
+    other: `Consider expressing care through ${adjustedLanguage} in a way that feels authentic for this relationship. Every connection benefits from thoughtful attention and appropriate care.`
+  }
+  
+  return {
+    type: 'suggestion',
+    priority: patterns.avgConnectionScore < 6 ? 'high' : 'medium',
+    title: `Strengthen Your ${config.displayName} Bond`,
+    description: suggestions[relationshipType],
+    relationship_id: null,
+    category: `phase3-${relationshipType}-rule-based`
+  }
+}
+
+function generatePhase3AppreciationInsight(patterns: any, config: any, relationshipType: RelationshipType) {
+  const appreciations = {
+    romantic: `The way you're showing up for your romantic relationship is beautiful. Your ${patterns.gratitudeCount} gratitude practices and commitment to growth shows real love and dedication to your partner.`,
+    
+    family: `Your thoughtful approach to family relationships is admirable. Working on family dynamics takes courage and wisdom - your ${patterns.totalActivity} reflections show genuine care for these important bonds.`,
+    
+    friend: `Your friends are so lucky to have someone who thinks this deeply about friendships! Your ${patterns.gratitudeCount} gratitude moments and ongoing reflection show what a thoughtful friend you are.`,
+    
+    work: `Your commitment to maintaining positive professional relationships is commendable. Your ${patterns.totalActivity} workplace reflections demonstrate strong emotional intelligence and career wisdom.`,
+    
+    other: `Your intentionality about this relationship is really valuable. Taking time for ${patterns.totalActivity} reflections shows genuine care and commitment to healthy connections.`
+  }
+  
+  return {
+    type: 'appreciation',
+    priority: 'medium',
+    title: `Celebrate Your ${config.displayName} Growth`,
+    description: appreciations[relationshipType],
+    relationship_id: null,
+    category: `phase3-${relationshipType}-rule-based`
+  }
+}
+
+function generatePhase3MilestoneInsight(patterns: any, config: any, relationshipType: RelationshipType) {
+  const milestones = {
+    romantic: `What an incredible milestone! You've logged ${patterns.totalActivity} entries about your romantic relationship. This level of dedication and reflection is creating a foundation for lasting love and intimacy.`,
+    
+    family: `This is worth celebrating! Your ${patterns.totalActivity} family relationship reflections represent real commitment to healthy family dynamics. This emotional work strengthens your entire family system.`,
+    
+    friend: `Wow, ${patterns.totalActivity} entries about friendship - that's awesome! Your dedication to being a thoughtful friend is creating stronger, more meaningful connections that will last.`,
+    
+    work: `Professional milestone achieved! Your ${patterns.totalActivity} workplace relationship reflections demonstrate exceptional emotional intelligence and leadership development.`,
+    
+    other: `Milestone reached! Your ${patterns.totalActivity} reflections about this relationship show remarkable commitment to healthy connections and personal growth.`
+  }
+  
+  return {
+    type: 'milestone',
+    priority: 'low',
+    title: `${config.displayName} Milestone Achieved`,
+    description: milestones[relationshipType],
+    relationship_id: null,
+    category: `phase3-${relationshipType}-rule-based`
+  }
 }
