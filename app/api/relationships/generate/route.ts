@@ -120,18 +120,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     })[] = []
 
     for (const partner of relationshipContext.partners) {
-      // Find journal entries from OTHER partners (not this recipient)
-      const journalEntriesFromOthers = recentJournalEntries.filter(
-        entry => entry.user_id !== partner.user_id
-      )
+  // Skip generating suggestions for the person who just journaled
+  if (partner.user_id === sourceUserId) {
+    console.log(`⏭️ Skipping suggestion generation for journal writer: ${partner.user_name}`)
+    continue
+  }
 
-      if (journalEntriesFromOthers.length === 0) {
-        console.log(`ℹ️ No journal entries from other partners for ${partner.user_name}`)
-        continue
-      }
+  // Find journal entries from OTHER partners (not this recipient)
+  const journalEntriesFromOthers = recentJournalEntries.filter(
+    entry => entry.user_id !== partner.user_id
+  )
 
-      console.log(`🤖 Generating ENHANCED AI suggestions for ${partner.user_name} based on ${journalEntriesFromOthers.length} journal entries`)
+  if (journalEntriesFromOthers.length === 0) {
+    console.log(`ℹ️ No journal entries from other partners for ${partner.user_name}`)
+    continue
+  }
 
+  console.log(`🤖 Generating ENHANCED AI suggestions for ${partner.user_name} based on ${journalEntriesFromOthers.length} journal entries`)
       // Get both profiles for enhanced suggestion generation
       const recipientProfile = relationshipContext.partnerProfiles.find(p => p.user_id === partner.user_id)
       const journalWriterProfile = relationshipContext.partnerProfiles.find(p => 

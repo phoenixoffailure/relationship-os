@@ -14,7 +14,7 @@ type FulfillmentArea = 'physical_intimacy' | 'emotional_connection' | 'communica
 // NEW: Add relationship type awareness
 type RelationshipType = 'romantic' | 'family' | 'friend' | 'work' | 'other'
 
-interface RelationshipSentiment {
+export interface RelationshipSentiment {
   overall_sentiment: OverallSentiment
   confidence_score: number
   emotional_state: EmotionalState
@@ -24,6 +24,9 @@ interface RelationshipSentiment {
   suggestion_triggers: SuggestionTrigger[]
   // NEW: Add relationship-type specific analysis
   relationship_adaptation?: RelationshipAdaptation
+  mood_score?: number
+  patterns?: RelationshipPattern[]
+  suggestions?: string[]
 }
 
 // NEW: Relationship-specific adaptation data
@@ -281,6 +284,10 @@ export class EnhancedSentimentAnalyzer {
       relationshipType, typeConfig, relationship_needs
     )
     
+    const mood_score = this.computeMoodScore(emotional_state)
+    const patterns = this.detectPatterns(cleanText)
+    const suggestions = suggestion_triggers.map(t => t.suggested_action)
+
     return {
       overall_sentiment,
       confidence_score: this.calculateConfidenceScore(cleanText, relationship_needs),
@@ -289,7 +296,10 @@ export class EnhancedSentimentAnalyzer {
       connection_indicators,
       fulfillment_metrics,
       suggestion_triggers,
-      relationship_adaptation // NEW
+      relationship_adaptation, // NEW
+      mood_score,
+      patterns,
+      suggestions
     }
   }
 
@@ -695,6 +705,28 @@ export class EnhancedSentimentAnalyzer {
     if (positiveScore > negativeScore) return 'positive'
     if (negativeScore > positiveScore) return 'negative'
     return 'neutral'
+  }
+
+    private computeMoodScore(emotional: EmotionalState): number {
+    const positive = ['happy', 'joy', 'joyful', 'excited', 'grateful', 'love', 'content']
+    const negative = ['sad', 'angry', 'frustrated', 'lonely', 'anxious', 'stressed', 'worried', 'upset']
+    const intensity = emotional.intensity_level / 10
+    if (positive.includes(emotional.primary_emotion)) return intensity
+    if (negative.includes(emotional.primary_emotion)) return -intensity
+    return 0
+  }
+
+  private detectPatterns(text: string): RelationshipPattern[] {
+    const detected: RelationshipPattern[] = []
+    for (const pattern of Object.values(this.relationshipPatterns)) {
+      const hasMatch =
+        pattern.keywords.some(k => text.includes(k)) ||
+        pattern.phrases.some(p => text.includes(p)) ||
+        pattern.emotional_signals.some(e => text.includes(e)) ||
+        pattern.intensity_modifiers.some(m => text.includes(m))
+      if (hasMatch) detected.push(pattern)
+    }
+    return detected
   }
 
   // Keep all existing helper methods
