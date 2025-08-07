@@ -186,7 +186,7 @@ export default function JournalPage() {
       if (error) throw error
 
       // Call enhanced analysis with relationship context
-      const analysisResponse = await fetch('/api/journal/enhanced-analyze', {
+      const analysisResponse = await fetch('/api/journal/unified-save-and-analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -287,61 +287,47 @@ async function generateEnhancedAISuggestions(
     console.log(`🔍 FIXED DEBUG: Writer ai_profile_data keys:`, Object.keys(journalWriterProfile.ai_profile_data || {}))
   }
   
-    const enhancedPrompt = `You are an expert relationship coach creating personalized suggestions using the four-pillar framework. Generate suggestions that bridge love language preferences and are categorized by relationship coaching pillars.
+const enhancedPrompt = `You're a caring friend who wants to help ${recipient.user_name} support their partner better. Based on what their partner has been going through lately, suggest thoughtful ways they can show love and support.
 
-    PRIVATE JOURNAL CONTENT (DO NOT REVEAL DIRECTLY):
+    Here's what you know about ${recipient.user_name}:
+    - They naturally show love through: ${recipientGivesLove.join(', ')}
+    - Their communication style: ${recipientCommunicationStyle}
+    - They really care about their partner and want to help
+
+    What their partner has been experiencing lately (PRIVATE - don't reference directly):
     ${journalContent}
 
-    SUGGESTION RECIPIENT (Person who will ACT on this suggestion):
-    - Name: ${recipient.user_name}
-    - How they naturally GIVE love: ${recipientGivesLove.join(', ')}
-    - Communication style: ${recipientCommunicationStyle}
+    Their partner tends to feel most loved through: ${writerReceivesLove.join(', ')}
 
-    JOURNAL WRITER (Person who expressed the need):
-    - How they prefer to RECEIVE love: ${writerReceivesLove.join(', ')}
+    SPEAKING STYLE - Talk like a caring friend who:
+    ✅ Says "It might help to..." instead of "Analysis suggests..."
+    ✅ Says "I notice they seem..." instead of "Data indicates..."  
+    ✅ Offers practical, doable suggestions
+    ✅ Validates how much they care about their partner
+    ✅ Uses warm, conversational language
 
-    FOUR-PILLAR FRAMEWORK:
-    Generate suggestions using these pillar types (select 2-3 most relevant):
+    ❌ NEVER say things like:
+    - "Based on psychological analysis..."
+    - "Optimize relationship parameters..."
+    - "Implement intervention strategies..."
+    - "Clinical assessment indicates..."
+    - "Four-pillar framework analysis..."
 
-    🏛️ PILLAR 1 - PATTERN ANALYSIS ("What's happening"):
-    - Identify patterns in their partner's needs or relationship dynamics
-    - Help them understand recurring themes or situations
-    - Example: "Notice when your partner tends to need more quality time"
+    SUGGESTION GUIDELINES:
+    - Reference the partner's needs WITHOUT revealing journal content
+    - Bridge how ${recipient.user_name} naturally gives love with how their partner receives it
+    - Make suggestions feel natural and caring, not clinical
+    - Focus on specific, actionable ideas they can try today
+    - Sound like advice from a good friend who really cares
 
-    🏛️ PILLAR 2 - ACTION STEPS ("What to do"):
-    - Specific, actionable recommendations they can implement
-    - Bridge their giving style with partner's receiving preferences
-    - Example: "Plan 30 minutes of focused conversation after dinner"
-
-    🏛️ PILLAR 3 - GRATITUDE & STRENGTHS ("What's working"):
-    - Acknowledge what they're already doing well
-    - Celebrate positive patterns or growth
-    - Example: "Your thoughtful gestures are making a real difference"
-
-    🏛️ PILLAR 4 - PROGRESS & ACHIEVEMENTS ("How far you've come"):
-    - ONLY include IF there's genuine milestone or significant progress
-    - Celebrate meaningful relationship achievements
-    - Example: "You've both grown so much in handling stress together"
-
-    LOVE LANGUAGE BRIDGING EXAMPLES:
-    - If writer receives "quality time" and recipient gives "acts of service": "Handle their daily tasks so you can spend focused time together" (ACTION pillar)
-    - If writer receives "words of affirmation" and recipient gives "quality time": "During your time together, focus on expressing specific appreciation" (ACTION pillar)
-    - Pattern recognition: "You've noticed they withdraw when stressed - this shows great awareness" (PATTERN pillar)
-
-    TASK: Generate ${maxSuggestions} suggestions for ${recipient.user_name} that:
-    1. Address underlying needs without revealing journal content
-    2. Match how the WRITER likes to RECEIVE love: ${writerReceivesLove[0]}
-    3. Feel natural to the RECIPIENT's giving style: ${recipientGivesLove[0]}
-    4. Are categorized by the most relevant pillars (2-3 pillars total)
-    5. Only include MILESTONE pillar if there's genuine progress to celebrate
+    Generate ${maxSuggestions} warm, caring suggestions that would help ${recipient.user_name} support their partner right now.
 
     Return ONLY a valid JSON array:
     [
       {
-        "pillar_type": "pattern|action|gratitude|milestone",
         "suggestion_type": "${writerReceivesLove[0]}",
-        "suggestion_text": "Specific actionable suggestion with pillar context",
-        "anonymized_context": "Why this approach works (pillar-aware explanation)",
+        "suggestion_text": "Specific, caring suggestion that feels like advice from a good friend",
+        "anonymized_context": "Why this would help right now (warm explanation, no clinical language)",
         "priority_score": 8,
         "confidence_score": 0.8,
         "source_need_intensity": 7
@@ -371,7 +357,7 @@ async function generateEnhancedAISuggestions(
         messages: [
           {
             role: 'system',
-            content: 'You are a professional relationship coach specializing in love language compatibility. Always respond with valid JSON only. Focus on helping people give love in ways their partners can best receive it.'
+            content: 'You are a warm, caring friend who wants to help someone support their partner better. You offer practical, loving suggestions while respecting privacy. Always respond with valid JSON only.'
           },
           {
             role: 'user',
@@ -549,7 +535,7 @@ function generateEnhancedRuleBasedSuggestions(
 // Helper function: Get relationship context with partner profiles
 async function getRelationshipContext(supabase: any, relationshipId: string): Promise<RelationshipContext> {
   try {
-    // Get relationship members
+    // Get relationship members (unchanged)
     const { data: members, error: membersError } = await supabase
       .from('relationship_members')
       .select(`
@@ -573,42 +559,81 @@ async function getRelationshipContext(supabase: any, relationshipId: string): Pr
       role: member.role || null
     }))
 
-    // CORRECTED: Access actual database columns directly
+    // ✅ FIXED: Read from v2.0 tables instead of old table
     const userIds = partners.map(p => p.user_id)
-    const { data: profiles, error: profilesError } = await supabase
-      .from('enhanced_onboarding_responses')
+    
+    // Get universal profiles (FIRO + Attachment + Communication)
+    const { data: universalProfiles, error: universalError } = await supabase
+      .from('universal_user_profiles')
       .select(`
-        user_id, 
-        love_language_ranking,
-        communication_style,
-        ai_profile_data,
-        expression_preferences,
-        intimacy_priorities,
-        primary_goals
+        user_id,
+        inclusion_need,
+        control_need, 
+        affection_need,
+        attachment_style,
+        communication_directness,
+        communication_assertiveness
       `)
       .in('user_id', userIds)
 
-    if (profilesError) {
-      console.error('❌ Error fetching profiles:', profilesError)
+    // Get relationship profiles  
+    const { data: relationshipProfiles, error: relationshipError } = await supabase
+      .from('relationship_profiles')
+      .select(`
+        user_id,
+        perceived_closeness,
+        preferred_interaction_style
+      `)
+      .in('user_id', userIds)
+
+    if (universalError) {
+      console.error('❌ Error fetching universal profiles:', universalError)
+    }
+    if (relationshipError) {
+      console.error('❌ Error fetching relationship profiles:', relationshipError)
     }
 
-    const partnerProfiles: PartnerProfile[] = (profiles || []).map((profile: any) => ({
-      user_id: profile.user_id,
-      ai_profile_data: profile.ai_profile_data || {},
-      // CORRECTED: Use direct column access instead of nested responses
-      love_language_ranking: profile.love_language_ranking || [],
-      communication_style: profile.communication_style || 'unknown'
-    }))
-
-    console.log(`✅ Valid relationship context: ${partners.length} members, ${partnerProfiles.length} profiles`)
-    
-    // ENHANCED: Debug actual data structure
-    partnerProfiles.forEach(profile => {
-      console.log(`🔍 FIXED Profile ${profile.user_id}: love_language_ranking = ${JSON.stringify(profile.love_language_ranking)}`)
-      console.log(`🔍 FIXED Profile ${profile.user_id}: communication_style = ${profile.communication_style}`)
-      console.log(`🔍 FIXED Profile ${profile.user_id}: ai_profile_data = ${profile.ai_profile_data ? 'exists' : 'null'}`)
+    // Combine v2.0 data into partner profiles
+    const partnerProfiles: PartnerProfile[] = partners.map(partner => {
+      const universalProfile = universalProfiles?.find((p: any) => p.user_id === partner.user_id)
+      const relationshipProfile = relationshipProfiles?.find((p: any) => p.user_id === partner.user_id)
+      
+      // Derive love language from FIRO needs
+      const loveLanguages = []
+      if (universalProfile?.inclusion_need >= 7) {
+        loveLanguages.push('words_of_affirmation', 'quality_time')
+      }
+      if (universalProfile?.affection_need >= 7) {
+        loveLanguages.push('physical_touch')
+      }
+      if (universalProfile?.control_need >= 7) {
+        loveLanguages.push('acts_of_service')
+      }
+      if (loveLanguages.length === 0) {
+        loveLanguages.push('quality_time', 'words_of_affirmation')
+      }
+      
+      return {
+        user_id: partner.user_id,
+        ai_profile_data: {
+          firo_needs: {
+            inclusion: universalProfile?.inclusion_need || 5,
+            control: universalProfile?.control_need || 5, 
+            affection: universalProfile?.affection_need || 5
+          },
+          attachment_style: universalProfile?.attachment_style || 'secure',
+          communication_style: {
+            directness: universalProfile?.communication_directness || 'moderate',
+            assertiveness: universalProfile?.communication_assertiveness || 'moderate'
+          }
+        },
+        love_language_ranking: [...new Set(loveLanguages)],
+        communication_style: `${universalProfile?.communication_directness || 'moderate'}_${universalProfile?.communication_assertiveness || 'moderate'}`
+      }
     })
 
+    console.log(`✅ v2.0 relationship context: ${partners.length} members, ${partnerProfiles.length} profiles from universal_user_profiles`)
+    
     return {
       isValid: true,
       partners,

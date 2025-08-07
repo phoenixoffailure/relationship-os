@@ -667,78 +667,90 @@ function generateFallbackInsight(type: string) {
   return fallbacks[type as keyof typeof fallbacks] || fallbacks.suggestion
 }
 
-  // Structured 3+1 prompt for consistent insight generation
-  const structuredPrompt = `You are an expert relationship coach AI. Generate exactly 3 core insights plus 1 optional milestone insight based on the user's data.
+  // Warm prompt for consistent insight generation
+  const warmFriendPrompt = `You're talking to someone you really care about. Based on what they've shared recently, offer warm, understanding insights that feel personal and helpful.
 
-USER & RELATIONSHIP CONTEXT:
-- Relationship stage: ${context.relationshipStage}
-- Partnership status: ${context.hasActivePartnership ? 'Partnered' : 'Single'}
-- Communication style: ${context.conflictStyle} conflict approach
-- Love languages: Give ${context.loveLanguageGive?.join(' & ') || 'unknown'} | Receive ${context.loveLanguageReceive?.join(' & ') || 'unknown'}
-- Connection score: ${context.avgConnectionScore}/10 (trend: ${context.trend > 0 ? 'improving' : context.trend < 0 ? 'declining' : 'stable'})
-- Mood: ${context.avgMoodFromCheckins}/10
-- Activity: ${context.totalActivity} entries, ${context.gratitudeCount} gratitudes, ${context.challengeCount} challenges
+Here's what you know about them:
+- They value connection deeply and like being included (but don't say "inclusion need 8/9" - just naturally reference how much relationships matter to them)
+- They prefer having some say in how things go, but they're not controlling about it
+- They communicate directly and assertively - they appreciate honest, straightforward feedback
+- They have some internal conflict in relationships (disorganized attachment) - be gentle and understanding about relationship struggles
+- They're in a ${context.relationshipType || 'romantic'} relationship
 
-REQUIRED STRUCTURE - Generate exactly these 3 insights + 1 optional:
+RECENT GRATITUDES they specifically mentioned:
+${context.recentGratitudes?.map((g: string) => `"${g}"`).join('\n') || 'None shared recently'}
 
-1. PATTERN INSIGHT (type: "pattern") - REQUIRED
-   - Analyze their relationship data patterns and trends
-   - Reference their connection scores, mood trends, or behavioral patterns
-   - Focus on "what's happening" - objective observation
+RECENT CHALLENGES they're facing:
+${context.recentChallenges?.map((c: string) => `"${c}"`).join('\n') || 'None mentioned recently'}
 
-2. ACTION INSIGHT (type: "suggestion") - REQUIRED  
-   - Specific actionable step for improvement
-   - Reference their love languages and communication style
-   - Focus on "what to do" - concrete next steps
+CURRENT SITUATION:
+- Recent journal analysis showed ${context.avgMoodFromJournals ? `mood averaging ${context.avgMoodFromJournals}/10` : 'mixed feelings'}
+- They've been staying engaged with their relationship growth (${context.gratitudeCount || 0} gratitudes, ${context.challengeCount || 0} challenges recently)
+- ${context.hasActivePartnership ? 'They have an active partnership' : 'They\'re working on relationships'}
 
-3. WINS INSIGHT (type: "appreciation") - REQUIRED
-   - Recognize positive patterns and strengths
-   - Celebrate what's working well in their relationship/personal growth
-   - Focus on "what's working" - positive reinforcement
+SPEAKING STYLE - Talk like a caring friend who:
+✅ Says "I noticed..." instead of "Data shows..."
+✅ Says "It sounds like..." instead of "Analysis indicates..."
+✅ References specific things they mentioned, not generic patterns
+✅ Validates their experience before offering suggestions
+✅ Uses natural, conversational language
+✅ Offers practical ideas that fit their direct communication style
 
-4. MILESTONE INSIGHT (type: "milestone") - ONLY IF APPLICABLE
-   - Include ONLY if they have significant progress to celebrate
-   - Examples: consistent tracking, improvement trends, relationship anniversaries
-   - Skip this if no clear milestone exists
+❌ NEVER say things like:
+- "Celebrate your high mood of X/10"
+- "Your inclusion need indicates..."
+- "Analysis suggests optimization..."
+- "Metrics show correlation..."
+- "Psychological patterns exhibit..."
 
-Generate insights that consider their ${context.relationshipStage} relationship stage and ${context.hasActivePartnership ? 'partnered' : 'single'} status.
+INSIGHT TYPES TO GENERATE:
+1. PATTERN insight: Something you noticed about their recent sharing (warm observation, not clinical analysis)
+2. SUGGESTION insight: Practical idea based on their specific challenges (friendly advice, not intervention protocol)
+3. APPRECIATION insight: Acknowledge something positive they're doing (genuine recognition, not clinical validation)
+4. MILESTONE insight: Only if there's genuine progress to celebrate (heartfelt congratulation, not metric achievement)
+
+Each insight should:
+- Reference something specific they mentioned
+- Feel personal and relevant to their actual situation  
+- Be actionable and helpful for their direct communication style
+- Sound like advice from someone who really knows and cares about them
 
 Return valid JSON array with exactly 3-4 insights:
 [
   {
     "type": "pattern",
-    "priority": "high|medium|low",
-    "title": "Brief pattern analysis title",
-    "description": "Data-driven insight about their relationship patterns",
+    "priority": "high|medium|low", 
+    "title": "Something I noticed...",
+    "description": "Warm, personal observation about what they've shared, referencing specific gratitudes or challenges. Start with 'I noticed...' or 'It sounds like...' and validate their experience.",
     "relationship_id": null
   },
   {
-    "type": "suggestion", 
+    "type": "suggestion",
     "priority": "high|medium|low",
-    "title": "Specific action step title",
-    "description": "Actionable recommendation considering their context",
+    "title": "An idea that might help...",
+    "description": "Practical, caring suggestion based on their specific challenges. Use language like 'What if you tried...' or 'Have you considered...' that fits their direct communication style.",
     "relationship_id": null
   },
   {
-    "type": "appreciation",
+    "type": "appreciation", 
     "priority": "medium|low",
-    "title": "Positive recognition title", 
-    "description": "Celebration of their strengths and positive patterns",
+    "title": "I love that you...",
+    "description": "Genuine recognition of something positive they're doing. Reference specific gratitudes or growth patterns with warmth and encouragement.",
     "relationship_id": null
   },
   {
     "type": "milestone",
-    "priority": "low",
-    "title": "Progress celebration title",
-    "description": "Recognition of significant progress or achievement",
+    "priority": "low", 
+    "title": "Worth celebrating...",
+    "description": "Only include if there's genuine progress to celebrate. Use warm, congratulatory language about their relationship growth.",
     "relationship_id": null
   }
 ]
 
-Only include the milestone insight if there is genuine progress to celebrate.`
+Only include the milestone insight if there is genuine progress to celebrate - skip it otherwise.`
 
   try {
-    console.log('🤖 Calling structured 3+1 pillar Grok API...')
+    console.log('🤖 Calling warm friend Grok API with personal context...')
     
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -750,11 +762,11 @@ Only include the milestone insight if there is genuine progress to celebrate.`
         messages: [
           {
             role: 'system',
-            content: 'You are a professional relationship coach specializing in structured insight delivery. Always generate exactly 1 pattern + 1 action + 1 wins insight, plus 1 optional milestone. Respond with valid JSON only.'
+            content: 'You are a warm, insightful friend who really knows this person well and cares deeply about their happiness. You offer caring insights that feel personal and genuinely helpful, while maintaining the structured format. Always generate exactly 1 pattern + 1 suggestion + 1 appreciation insight, plus 1 optional milestone. Respond with valid JSON only.'
           },
           {
             role: 'user',
-            content: structuredPrompt
+            content: warmFriendPrompt
           }
         ],
         model: 'grok-4',
@@ -765,7 +777,7 @@ Only include the milestone insight if there is genuine progress to celebrate.`
     })
 
     if (!response.ok) {
-      throw new Error(`Structured Grok API error: ${response.status}`)
+      throw new Error(`Warm Friend Grok API error: ${response.status}`)
     }
 
     const data = await response.json()
@@ -786,7 +798,7 @@ Only include the milestone insight if there is genuine progress to celebrate.`
         const insights = JSON.parse(jsonContent)
         
         if (Array.isArray(insights) && insights.length >= 3) {
-          console.log('✅ Generated structured 3+1 insights:', insights.length)
+          console.log('✅ Generated warm friend insights:', insights.length)
           
           // Validate structure: ensure we have pattern, suggestion, appreciation
           const processedInsights = validateAndStructureInsights(insights)
@@ -797,11 +809,11 @@ Only include the milestone insight if there is genuine progress to celebrate.`
             title: insight.title || 'Personal Growth Insight',
             description: insight.description || 'Continue developing your relationship skills.',
             relationship_id: insight.relationship_id || null,
-            category: 'structured-grok-generated'
+            category: 'warm-friend-grok-generated'
           }))
         }
       } catch (parseError) {
-        console.error('❌ Failed to parse structured Grok response:', parseError)
+        console.error('❌ Failed to parse warm friend Grok response:', parseError)
         return null
       }
     }
@@ -809,10 +821,11 @@ Only include the milestone insight if there is genuine progress to celebrate.`
     return null
     
   } catch (error) {
-    console.error('❌ Structured Grok API call failed:', error)
+    console.error('❌ Warm Friend Grok API call failed:', error)
     throw error
   }
 }
+
 
 function extractInsightsFromText(content: string) {
   const insights = []
@@ -832,7 +845,7 @@ function extractInsightsFromText(content: string) {
 }
 
 function generateEnhancedRelationshipInsights(patterns: any, onboarding: any, relationshipContext: any) {
-  console.log('🔧 Generating structured 3+1 rule-based insights')
+  console.log('🔧 Generating Warm Friend Grok rule-based insights')
   
   const insights = []
 
