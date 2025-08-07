@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/batch/daily-partner-suggestions",
+      "schedule": "0 23 * * *"
+    }
+  ]
+}

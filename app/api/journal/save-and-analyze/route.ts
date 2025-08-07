@@ -58,85 +58,13 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Journal entry saved:', journalEntry.id)
 
-    // Step 2: Get user's relationships for partner suggestion generation
-    const { data: relationships, error: relationshipError } = await supabase
-      .from('relationship_members')
-      .select(`
-        relationship_id,
-        relationships (
-          id,
-          name,
-          relationship_type
-        )
-      `)
-      .eq('user_id', user_id)
+    // Step 2: Mark journal as ready for batch processing (Phase 4 Update)
+    console.log('✅ Journal marked as ready for daily batch processing')
+    
+    // Note: Partner suggestions are now generated via daily batch processing
+    // This journal will be processed in the next daily batch run
 
-    if (relationshipError) {
-      console.error('❌ Error fetching relationships:', relationshipError)
-    } else if (relationships && relationships.length > 0) {
-      console.log(`💕 Found ${relationships.length} relationships, triggering partner suggestions...`)
-      
-      // Step 3: Trigger partner suggestion generation for each relationship
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
-      
-      try {
-        // Use Promise.allSettled to handle failures gracefully
-        const suggestionPromises = relationships.map(async (rel) => {
-          try {
-            console.log(`🔍 Generating suggestions for relationship: ${rel.relationship_id}`)
-            
-            const response = await fetch(`${baseUrl}/api/relationships/generate`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                relationshipId: rel.relationship_id,
-                sourceUserId: user_id,
-                timeframeHours: 72, // Look back 3 days
-                maxSuggestions: 3
-              })
-            })
-
-            if (response.ok) {
-              const result = await response.json()
-              console.log(`✅ Generated ${result.result?.suggestions?.length || 0} suggestions for relationship ${rel.relationship_id}`)
-              return { success: true, relationshipId: rel.relationship_id, suggestionsCount: result.result?.suggestions?.length || 0 }
-            } else {
-              const errorText = await response.text()
-              console.error(`❌ Failed to generate suggestions for relationship ${rel.relationship_id}:`, response.status, errorText)
-              return { success: false, relationshipId: rel.relationship_id, error: `HTTP ${response.status}` }
-            }
-          } catch (error) {
-            console.error(`❌ Error generating suggestions for relationship ${rel.relationship_id}:`, error)
-            return { success: false, relationshipId: rel.relationship_id, error: error instanceof Error ? error.message : 'Unknown error' }
-          }
-        })
-
-        const suggestionResults = await Promise.allSettled(suggestionPromises)
-        
-        // Log results for debugging
-        suggestionResults.forEach((result, index) => {
-          if (result.status === 'fulfilled') {
-            const res = result.value as any
-            if (res.success) {
-              console.log(`✅ Relationship ${res.relationshipId}: ${res.suggestionsCount} suggestions generated`)
-            } else {
-              console.error(`❌ Relationship ${res.relationshipId}: ${res.error}`)
-            }
-          } else {
-            console.error(`❌ Relationship ${index}: Promise rejected:`, result.reason)
-          }
-        })
-
-      } catch (error) {
-        console.error('❌ Error in partner suggestion generation process:', error)
-      }
-    } else {
-      console.log('ℹ️ No relationships found, skipping partner suggestion generation')
-    }
-
-    // Step 4: Trigger personal insights generation (existing logic)
+    // Step 3: Trigger personal insights generation (immediate, per journal)
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
     try {
       console.log('🔍 Triggering personal insights generation...')
@@ -154,6 +82,25 @@ export async function POST(request: NextRequest) {
       console.error('❌ Failed to trigger insights generation:', error)
     }
 
+    // Step 4: Mark journal insights as generated and ready for batch processing
+    try {
+      const { error: updateError } = await supabase
+        .from('journal_entries')
+        .update({ 
+          personal_insights_generated: true,
+          ready_for_batch_processing: true
+        })
+        .eq('id', journalEntry.id)
+
+      if (updateError) {
+        console.error('❌ Error marking journal as ready for batch:', updateError)
+      } else {
+        console.log('✅ Journal marked as ready for batch processing')
+      }
+    } catch (error) {
+      console.error('❌ Error updating journal batch status:', error)
+    }
+
     // Step 5: Auto-cleanup old insights (non-blocking)
     setTimeout(() => {
       cleanupOldInsights(user_id).catch(error => 
@@ -164,8 +111,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       journalEntry,
-      partnerSuggestionsTriggered: relationships?.length || 0,
-      message: 'Journal entry saved! AI analysis and partner suggestions will be ready shortly.'
+      personalInsightsTriggered: true,
+      message: 'Journal entry saved! Personal insights generated immediately. Partner suggestions will be processed in tonight\'s daily batch.'
     })
 
   } catch (error) {

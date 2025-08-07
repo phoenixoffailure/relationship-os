@@ -11,6 +11,8 @@ import SharedInsights from '@/components/SharedInsights'
 import RecentActivity from '@/components/RecentActivity'
 import { PartnerSuggestions } from '@/components/dashboard/PartnerSuggestions'
 import { EnhancedConnectionDashboard } from '@/components/dashboard/enhanced-connection-dashboard'
+import { CleanRelationshipCards, useCleanRelationshipCards } from '@/components/dashboard/clean-relationship-cards'
+import { CleanInsightsFeed, useCleanInsightsFeed } from '@/components/dashboard/clean-insights-feed'
 import { Database } from '@/lib/types/database'
 import { getUserNotificationPreferences, shouldShowPartnerSuggestions, shouldShowRelationshipInsights, shouldShowDailyReminders } from '@/lib/utils/notification-preferences'
 
@@ -404,6 +406,30 @@ export default function DashboardPage() {
   // Score feedback state
   const [showScoreFeedback, setShowScoreFeedback] = useState(false)
   const [scoreFeedback, setScoreFeedback] = useState<'too_high' | 'too_low' | 'just_right' | null>(null)
+  
+  // Phase 5 Clean Dashboard State
+  const [cleanDashboardMode, setCleanDashboardMode] = useState(true)
+  
+  // Clean Dashboard Hooks
+  const {
+    relationships: cleanRelationships,
+    selectedRelationshipId,
+    selectedRelationship,
+    loading: relationshipsLoading,
+    error: relationshipsError,
+    selectRelationship,
+    refreshRelationships
+  } = useCleanRelationshipCards(user?.id || '')
+  
+  const {
+    insights: cleanInsights,
+    loading: insightsLoading,
+    error: insightsError,
+    markAsRead,
+    viewDetails,
+    executeAction,
+    refreshInsights
+  } = useCleanInsightsFeed(user?.id || '', selectedRelationshipId)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -756,16 +782,33 @@ export default function DashboardPage() {
 
         {/* Welcome Section */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-heading-xl font-bold text-brand-charcoal mb-2 font-heading">
-            Welcome back! 👋
-          </h1>
-          <p className="text-brand-slate font-inter">
-            Here's what's happening in your relationship journey.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-heading-xl font-bold text-brand-charcoal mb-2 font-heading">
+                Welcome back! 👋
+              </h1>
+              <p className="text-brand-slate font-inter">
+                Here's what's happening in your relationship journey.
+              </p>
+            </div>
+            
+            {/* Dashboard Mode Toggle */}
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={() => setCleanDashboardMode(!cleanDashboardMode)}
+                variant="outline"
+                size="sm"
+                className={cleanDashboardMode ? 'border-brand-teal text-brand-teal' : 'border-gray-300'}
+              >
+                {cleanDashboardMode ? '✨ Clean View' : '📊 Enhanced View'}
+              </Button>
+            </div>
+          </div>
         </div>
 
-        {/* Enhanced Connection Score Section */}
-        <div className="mb-6 sm:mb-8">
+        {/* Enhanced Connection Score Section - Only show in enhanced mode */}
+        {!cleanDashboardMode && (
+          <div className="mb-6 sm:mb-8">
           {scoreLoading ? (
             <div className="bg-gradient-to-br from-white via-brand-teal/5 to-brand-coral-pink/5 rounded-2xl p-8 border border-brand-teal/20 shadow-lg">
               <div className="flex flex-col lg:flex-row items-center justify-center space-y-4">
@@ -868,23 +911,88 @@ export default function DashboardPage() {
               </button>
             </div>
           )}
-        </div>
-
-        {user?.id && <EnhancedConnectionDashboard userId={user.id} />}
-
-        {/* Shared Insights Section */}
-        {showSharedInsights && activeRelationship && (
-          <div className="mb-6 sm:mb-8">
-            <SharedInsights 
-              relationshipId={activeRelationship.id}
-              currentUserId={user?.id}
-              privacyLevel="patterns"
-            />
           </div>
         )}
 
-        {/* Partner Suggestions Section */}
-        {relationships.length > 0 && (
+        {/* Phase 5 Clean Dashboard */}
+        {cleanDashboardMode && user?.id ? (
+          <div className="space-y-6 sm:space-y-8">
+            {/* Clean Relationship Cards */}
+            <CleanRelationshipCards
+              relationships={cleanRelationships}
+              selectedRelationshipId={selectedRelationshipId}
+              onRelationshipSelect={selectRelationship}
+              loading={relationshipsLoading}
+              className="mb-6"
+            />
+            
+            {/* Clean Insights Feed */}
+            <CleanInsightsFeed
+              insights={cleanInsights}
+              selectedRelationshipId={selectedRelationshipId}
+              onMarkAsRead={markAsRead}
+              onViewDetails={viewDetails}
+              onExecuteAction={executeAction}
+              loading={insightsLoading}
+              className="mb-6"
+            />
+            
+            {/* Quick Actions for Selected Relationship */}
+            {selectedRelationship && (
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4 sm:p-6 border border-brand-light-gray">
+                <h3 className="text-lg font-semibold text-brand-charcoal mb-4 font-heading">
+                  Quick Actions for {selectedRelationship.name}
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Link href={`/journal?relationshipId=${selectedRelationship.id}`}>
+                    <Button variant="outline" className="w-full border-brand-teal/30 text-brand-teal hover:bg-brand-teal/10 text-sm">
+                      📝 Journal
+                    </Button>
+                  </Link>
+                  <Link href={`/checkin?relationshipId=${selectedRelationship.id}`}>
+                    <Button variant="outline" className="w-full border-brand-coral-pink/30 text-brand-coral-pink hover:bg-brand-coral-pink/10 text-sm">
+                      💬 Check-in
+                    </Button>
+                  </Link>
+                  <Button
+                    onClick={() => refreshInsights()}
+                    variant="outline"
+                    className="w-full border-brand-teal/30 text-brand-teal hover:bg-brand-teal/10 text-sm"
+                  >
+                    🔄 Refresh
+                  </Button>
+                  <Link href={`/insights?relationshipId=${selectedRelationship.id}`}>
+                    <Button
+                      className="w-full bg-brand-teal hover:bg-brand-dark-teal text-white text-sm"
+                    >
+                      📊 View All
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Original Enhanced Dashboard
+          user?.id && <EnhancedConnectionDashboard userId={user.id} />
+        )}
+
+        {/* Original Dashboard Content - Only show when NOT in clean mode */}
+        {!cleanDashboardMode && (
+          <>
+            {/* Shared Insights Section */}
+            {showSharedInsights && activeRelationship && (
+              <div className="mb-6 sm:mb-8">
+                <SharedInsights 
+                  relationshipId={activeRelationship.id}
+                  currentUserId={user?.id}
+                  privacyLevel="patterns"
+                />
+              </div>
+            )}
+
+            {/* Partner Suggestions Section */}
+            {relationships.length > 0 && (
           <div className="mb-6 sm:mb-8">
             <div className="bg-gradient-to-r from-brand-coral-pink/10 to-brand-teal/10 rounded-xl p-4 sm:p-6 border border-brand-coral-pink/30 mb-4 sm:mb-6 backdrop-blur-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -1057,6 +1165,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   )

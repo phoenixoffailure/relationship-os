@@ -2,6 +2,12 @@
 # CLAUDE.md
 # RelationshipOS v2.0 - Complete Universal Relationship Intelligence Platform
 
+> **📊 BUILD STATUS**: See [BUILD.md](./BUILD.md) for current development status, phase tracking, and technical implementation details.
+> 
+> **🔄 CURRENT FOCUS**: Phase 4 - Daily Batch Processing System (detailed in BUILD.md)
+> 
+> This file contains the complete project vision and psychological foundation. For day-to-day development tracking, reference BUILD.md.
+
 ## 🎯 PROJECT VISION & TRANSFORMATION GOALS
 
 **Mission**: Transform RelationshipOS from romantic-only app → universal relationship intelligence platform supporting ALL relationship types (romantic, family, friends, coworkers, etc.)

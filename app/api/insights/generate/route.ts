@@ -20,8 +20,17 @@ import {
   generateContextAwarePromptModifier
 } from '@/lib/ai/multi-relationship-context-switcher'
 
+// Phase 5: Smart 4-Pillar types
+type PillarType = 'pattern' | 'growth' | 'appreciation' | 'milestone'
+
+interface PillarScore {
+  pillar: PillarType
+  score: number
+  relevantContent: string
+}
+
 export async function POST(request: Request) {
-  console.log('🔍 Starting enhanced Grok insights generation with relationship context...')
+  console.log('🔍 Phase 5: Starting smart 4-pillar insight generation with relationship context...')
   
   try {
     const cookieStore = await cookies()
@@ -268,8 +277,32 @@ console.log('🔍 V2.0 Profile Integration:', {
       }
     }
     
-    // Generate insights using PHASE 3 relationship-aware system
-    console.log('🤖 Generating PHASE 3 relationship-aware Grok insights...')
+    // Phase 5: Score 4 pillars for smart selection
+    console.log('📊 Phase 5: Scoring pillars for smart selection...')
+    const pillarScores = await scorePillars(
+      journals,
+      checkins,
+      onboardingData,
+      primaryRelationshipType
+    )
+    
+    console.log('📊 Pillar scores:', pillarScores.map(p => `${p.pillar}: ${p.score}`))
+    
+    // Select top 1-2 pillars with score > 70
+    const selectedPillars = pillarScores
+      .filter(p => p.score > 70)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 2)
+    
+    if (selectedPillars.length === 0) {
+      console.log('⚠️ No pillars met relevance threshold, selecting top pillar')
+      selectedPillars.push(pillarScores[0])
+    }
+    
+    console.log('✅ Selected pillars:', selectedPillars.map(p => p.pillar))
+
+    // Generate insights using PHASE 5 smart pillar system + PHASE 3 relationship-aware system
+    console.log('🤖 Generating PHASE 5 smart insights with relationship context...')
     const insights = await generateRelationshipAwareInsights(
       patterns, 
       onboardingData, 
@@ -277,7 +310,8 @@ console.log('🔍 V2.0 Profile Integration:', {
       user_id,
       primaryRelationshipType,
       primaryRelationshipId,
-      relationships
+      relationships,
+      selectedPillars // Phase 5: Pass selected pillars
     )
     console.log('💡 Enhanced Grok insights generated:', insights.length)
     
@@ -289,6 +323,9 @@ console.log('🔍 V2.0 Profile Integration:', {
       console.log('💾 Saving insight:', insight.title)
 
             const { title, description, type, priority, relationship_id } = insight
+            const pillar_type = (insight as any).pillar_type || 'appreciation'
+            const relevance_score = (insight as any).relevance_score || 80
+            const psychological_factors = (insight as any).psychological_factors || {}
 
       if (
         typeof title !== 'string' ||
@@ -314,10 +351,15 @@ console.log('🔍 V2.0 Profile Integration:', {
             relationship_id: relationship_id || null,
             generated_for_user: user_id,
             insight_type: type,
+            pillar_type: pillar_type, // Phase 5: Add pillar type
             title,
             description,
             priority,
-            is_read: false,
+            relevance_score: relevance_score, // Phase 5: Add relevance score
+            psychological_factors: psychological_factors, // Phase 5: Add psychological factors
+            read_status: 'unread', // Phase 5: Use new read state system
+            dashboard_dismissed: false, // Phase 5: Not dismissed by default
+            is_read: false, // Keep for backward compatibility
           },
         ])
         .select()
@@ -336,6 +378,9 @@ console.log('🔍 V2.0 Profile Integration:', {
       const fallbackInsights = generateBasicFallbackInsights(patterns, onboardingData)
       for (const insight of fallbackInsights) {
         const { title, description, type, priority, relationship_id } = insight
+        const pillar_type = (insight as any).pillar_type || 'appreciation'
+        const relevance_score = (insight as any).relevance_score || 75
+        const psychological_factors = (insight as any).psychological_factors || {}
         const { data, error } = await supabase
           .from('relationship_insights')
           .insert([
@@ -343,10 +388,15 @@ console.log('🔍 V2.0 Profile Integration:', {
               relationship_id: relationship_id || null,
               generated_for_user: user_id,
               insight_type: type,
+              pillar_type: pillar_type, // Phase 5: Add pillar type
               title,
               description,
               priority,
-              is_read: false,
+              relevance_score: relevance_score, // Phase 5: Add relevance score
+              psychological_factors: psychological_factors, // Phase 5: Add psychological factors
+              read_status: 'unread', // Phase 5: Use new read state system
+              dashboard_dismissed: false, // Phase 5: Not dismissed by default
+              is_read: false, // Keep for backward compatibility
             },
           ])
           .select()
@@ -638,7 +688,8 @@ async function generateRelationshipAwareInsights(
   userId: string,
   primaryRelationshipType: RelationshipType = 'other',
   primaryRelationshipId: string | null = null,
-  allRelationships: Array<{id: string, name: string, relationship_type: RelationshipType}> = []
+  allRelationships: Array<{id: string, name: string, relationship_type: RelationshipType}> = [],
+  selectedPillars: PillarScore[] = [] // Phase 5: Add selected pillars parameter
 ) {
   console.log('🎯 PHASE 3: Calling relationship-type aware Grok API...')
   console.log('🎯 Primary relationship type:', primaryRelationshipType)
@@ -1554,4 +1605,120 @@ function generatePhase3MilestoneInsight(patterns: any, config: any, relationship
     relationship_id: null,
     category: `phase3-${relationshipType}-rule-based`
   }
+}
+
+// Phase 5: Score each pillar's relevance based on current context
+async function scorePillars(
+  journals: any[],
+  checkins: any[],
+  profile: any,
+  relationshipType: RelationshipType
+): Promise<PillarScore[]> {
+  
+  const scores: PillarScore[] = []
+  
+  // Analyze content for patterns, issues, and achievements
+  const recentContent = journals?.map(j => j.content).join(' ') || ''
+  const recentMoods = journals?.map(j => j.mood_score).filter(Boolean) || []
+  const avgMood = recentMoods.length > 0 ? 
+    recentMoods.reduce((a, b) => a + b, 0) / recentMoods.length : 5
+  
+  // Pattern Recognition Scoring
+  let patternScore = 0
+  let patternContent = ''
+  
+  // Check for repetitive themes or behaviors
+  if (recentContent.includes('again') || recentContent.includes('always') || recentContent.includes('never')) {
+    patternScore += 40
+    patternContent = 'Behavioral patterns found'
+  }
+  
+  // Check for mood patterns
+  if (recentMoods.length > 3) {
+    const moodVariance = Math.max(...recentMoods) - Math.min(...recentMoods)
+    if (moodVariance > 3) {
+      patternScore += 30
+      patternContent += ' Mood fluctuation pattern'
+    }
+  }
+  
+  scores.push({
+    pillar: 'pattern',
+    score: Math.min(patternScore, 100),
+    relevantContent: patternContent
+  })
+  
+  // Growth Suggestions Scoring
+  let growthScore = 0
+  let growthContent = ''
+  
+  // Check for challenges or struggles
+  if (recentContent.match(/struggle|difficult|hard|challenge|problem|issue/gi)) {
+    growthScore += 40
+    growthContent = 'Challenges present, growth opportunity identified'
+  }
+  
+  // Check for questions or uncertainty
+  if (recentContent.includes('?') || recentContent.match(/don't know|unsure|confused/gi)) {
+    growthScore += 30
+    growthContent += ' Seeking guidance'
+  }
+  
+  // Check if stuck in patterns (high FIRO needs not being met)
+  if (profile.inclusion_need > 7 && recentContent.match(/alone|isolated|disconnected/gi)) {
+    growthScore += 30
+    growthContent += ' Inclusion needs unmet'
+  }
+  
+  scores.push({
+    pillar: 'growth',
+    score: Math.min(growthScore, 100),
+    relevantContent: growthContent
+  })
+  
+  // Appreciation/Context Scoring
+  let appreciationScore = 0
+  let appreciationContent = ''
+  
+  // Check for self-criticism
+  if (recentContent.match(/should have|failed|mistake|wrong|bad at/gi)) {
+    appreciationScore += 50
+    appreciationContent = 'Self-criticism detected, reframing needed'
+  }
+  
+  // Check for unrecognized efforts
+  if (recentContent.match(/tried|effort|worked on|attempted/gi)) {
+    appreciationScore += 30
+    appreciationContent += ' Efforts need acknowledgment'
+  }
+  
+  scores.push({
+    pillar: 'appreciation',
+    score: Math.min(appreciationScore, 100),
+    relevantContent: appreciationContent
+  })
+  
+  // Milestone Celebrations Scoring
+  let milestoneScore = 0
+  let milestoneContent = ''
+  
+  // Check for achievements or progress
+  if (recentContent.match(/finally|achieved|succeeded|managed to|proud|happy|better/gi)) {
+    milestoneScore += 60
+    milestoneContent = 'Achievement detected'
+  }
+  
+  // Check for relationship progress
+  if (recentContent.match(/closer|connected|understood|breakthrough|progress/gi)) {
+    milestoneScore += 40
+    milestoneContent += ' Relationship progress made'
+  }
+  
+  scores.push({
+    pillar: 'milestone',
+    score: Math.min(milestoneScore, 100),
+    relevantContent: milestoneContent
+  })
+  
+  return scores
 }
