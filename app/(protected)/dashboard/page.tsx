@@ -969,6 +969,18 @@ export default function DashboardPage() {
                     </Button>
                   </Link>
                 </div>
+                
+                {/* Premium Analytics Link */}
+                <div className="mt-4">
+                  <Link href="/premium/analytics">
+                    <Button
+                      variant="outline"
+                      className="w-full border-2 border-brand-coral-pink text-brand-coral-pink hover:bg-brand-coral-pink hover:text-white text-sm font-semibold"
+                    >
+                      👑 Premium Analytics
+                    </Button>
+                  </Link>
+                </div>
               </div>
             )}
           </div>
