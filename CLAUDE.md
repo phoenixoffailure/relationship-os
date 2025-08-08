@@ -107,7 +107,106 @@
 
 **Result**: Premium subscribers can now access research-backed FIRO compatibility analysis with professional-grade insights, confidence scoring, and clear research citations. System is ready for beta testing and Stripe integration.
 
-### 🎯 PHASE 6C - Advanced Analytics Enhancement (NEXT)
+### ✅ PHASE 6B COMPLETED - Clean Insights Page Redesign
+**Status**: 100% Complete ✅  
+**Achievement**: Complete insights page UX overhaul with decluttered interface and enhanced functionality
+**Goal**: Transform cluttered insights page into clean, focused interface that maximizes user engagement
+
+**UX PROBLEMS SOLVED**:
+- ❌ **Before**: Cognitive overload with 3 tabs, multiple info boxes, counters, feedback buttons, auto-timers
+- ❌ **Before**: Competing attention between personal insights and partner suggestions  
+- ❌ **Before**: UI noise from sample insights, priority dots, timestamps, complex pillar color coding
+- ❌ **Before**: Complex navigation requiring users to hunt across different tab views
+
+**FEATURES IMPLEMENTED**:
+- ✅ **Clean Two-Tab Interface** - "For You" (personal) and "From Your Partner" (suggestions) with focused content
+- ✅ **Smart 2-Insight Focus** - System already selects 2 most relevant insights based on pillar scoring (>70 threshold)
+- ✅ **Progressive Disclosure** - "View More/Less" for historical insights organized chronologically
+- ✅ **48-Hour Partner Filtering** - Only shows recent partner suggestions per active relationship
+- ✅ **Complete Read State Management** - Auto-read timers + manual "Got it" buttons for both insight types
+- ✅ **Unified Feedback System** - Thumbs up/down for both personal insights and partner suggestions (AI training)
+- ✅ **Mark All as Read** - Bulk action buttons for both personal insights and partner suggestions
+- ✅ **Relationship-Aware Display** - Partner suggestions grouped by relationship with 48-hour recency filter
+
+**TECHNICAL IMPLEMENTATION**:
+- ✅ **Component**: `components/insights/CleanInsightsLayout.tsx` - Complete redesign replacing EnhancedInsightsLayout
+- ✅ **APIs**: `/api/partner-suggestions/feedback` - Partner suggestion feedback collection
+- ✅ **APIs**: `/api/partner-suggestions/mark-read` - Individual partner suggestion read state
+- ✅ **APIs**: `/api/insights/mark-all-read` - Bulk mark personal insights as read
+- ✅ **APIs**: `/api/partner-suggestions/mark-all-read` - Bulk mark partner suggestions as read
+- ✅ **Database**: Enhanced read state management for both `relationship_insights` and `partner_suggestions`
+- ✅ **State Management**: Separate feedback tracking, auto-read timers, and real-time UI updates
+
+**USER EXPERIENCE FLOW**:
+1. **Generate Insights** → Always lands on "For You" tab with 2 smartly-selected insights
+2. **Focused Attention** → Users see only most relevant content, reducing decision paralysis
+3. **Quick Actions** → Individual "Got it" buttons or bulk "Mark All as Read" options
+4. **Feedback Loop** → Thumbs up/down system trains AI for both personal and partner suggestions
+5. **History Access** → "View More" reveals chronological history when needed
+6. **Partner Context** → Separate tab shows recent suggestions per active relationship
+
+**FILES MODIFIED**:
+- `app/(protected)/insights/page.tsx` - Updated to use CleanInsightsLayout
+- `components/insights/CleanInsightsLayout.tsx` - Complete new component (571 lines)
+- `app/api/partner-suggestions/feedback/route.ts` - New feedback API
+- `app/api/partner-suggestions/mark-read/route.ts` - New individual read API
+- `app/api/insights/mark-all-read/route.ts` - New bulk read API for insights
+- `app/api/partner-suggestions/mark-all-read/route.ts` - New bulk read API for suggestions
+
+**RESULT**: Users now have a clean, focused insights experience that maximizes engagement with the 2 most relevant insights while maintaining full access to history and partner suggestions. The interface reduces cognitive load while enhancing functionality through smart bulk actions and unified feedback systems.
+
+### ✅ PHASE 6C COMPLETED - Clean Journal Page Redesign
+**Status**: 100% Complete ✅  
+**Achievement**: Complete journal page UX overhaul with decluttered interface and read-only entries
+**Goal**: Transform cluttered journal page into clean, focused interface that protects AI system integrity
+
+**UX PROBLEMS SOLVED**:
+- ❌ **Before**: ALL journal entries displayed in endless scrolling list with full content visible
+- ❌ **Before**: Complex inline editing allowed post-AI-analysis modifications (system integrity risk)
+- ❌ **Before**: UI noise from edit/delete buttons, tags, AI analysis boxes, private badges on every entry
+- ❌ **Before**: No clear focus on recent activity - users see months/years of entries at once
+
+**FEATURES IMPLEMENTED**:
+- ✅ **Clean Tab System** - "Personal" tab for non-relationship entries + one tab per relationship
+- ✅ **Most Recent Focus** - Shows only latest entry per tab with "View Older Entries" for history
+- ✅ **Write-Only Flow** - Removed ALL editing capabilities to protect AI analysis integrity
+- ✅ **No Delete Function** - Entries are permanent once posted (maintains data consistency)
+- ✅ **Minimal UI Elements** - Removed edit/delete buttons, tags, AI boxes, keeping only essential info
+- ✅ **Smart Tab Behavior** - Auto-switches to relationship tab after saving related entry
+- ✅ **Relationship Pre-selection** - New entry form pre-fills based on current tab context
+- ✅ **Performance Optimization** - Initial load limited to 50 recent entries
+
+**CRITICAL DESIGN DECISION - NO EDITING**:
+- **Why**: AI generates insights based on original journal content
+- **Risk**: Editing after analysis could invalidate insights and break system integrity
+- **Solution**: Write-only flow ensures AI analysis remains accurate
+- **User Benefit**: Cleaner interface without complex edit states
+
+**TECHNICAL IMPLEMENTATION**:
+- ✅ **Component**: `components/journal/CleanJournalLayout.tsx` - Complete redesign (526 lines)
+- ✅ **Page Update**: `app/(protected)/journal/page.tsx` - Simplified to 10 lines
+- ✅ **Removed Code**: ~700 lines of edit/update/delete functionality removed
+- ✅ **Preserved**: All AI analysis integration remains intact via unified-save-and-analyze
+
+**USER EXPERIENCE FLOW**:
+1. **View by Tab** → Personal reflections OR specific relationship entries
+2. **Write New** → Select relationship (optional) → Write → Save (permanent)
+3. **Most Recent** → See only latest entry per context (reduces overwhelm)
+4. **History Access** → "View Older Entries" when needed (progressive disclosure)
+
+**TAB STRUCTURE LOGIC**:
+- **"Personal" Tab**: Only entries with no relationship_id (true personal reflections)
+- **Relationship Tabs**: Only entries for that specific relationship_id
+- **Clear Separation**: Personal thoughts vs. relationship-specific thoughts
+- **Always Present**: Personal tab visible even with no relationships
+
+**FILES MODIFIED**:
+- `components/journal/CleanJournalLayout.tsx` - New clean component
+- `app/(protected)/journal/page.tsx` - Updated to use CleanJournalLayout
+
+**RESULT**: Users now have a clean, focused journaling experience that shows only relevant recent entries per relationship context. The write-only flow protects AI system integrity while dramatically reducing UI complexity. The interface went from 700+ lines with complex edit states to a clean 526-line read-only implementation.
+
+### 🎯 PHASE 6D - Advanced Analytics Enhancement (NEXT)
 **Status**: Scoped for Post-MVP 🔄
 **Goal**: Enhanced premium features with more sophisticated pattern recognition
 **Features**: 

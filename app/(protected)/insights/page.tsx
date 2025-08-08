@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
-import { EnhancedInsightsLayout } from '@/components/insights/EnhancedInsightsLayout'
+import { CleanInsightsLayout } from '@/components/insights/CleanInsightsLayout'
 
 export default function InsightsPage() {
   const [user, setUser] = useState<any>(null)
@@ -68,7 +68,7 @@ export default function InsightsPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Use the new EnhancedInsightsLayout component */}
         {user ? (
-          <EnhancedInsightsLayout 
+          <CleanInsightsLayout 
             user={user}
             onGenerateInsights={generateInsights}
             generatingInsights={generatingInsights}
