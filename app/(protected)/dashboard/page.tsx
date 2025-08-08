@@ -15,6 +15,9 @@ import { CleanRelationshipCards, useCleanRelationshipCards } from '@/components/
 import { CleanInsightsFeed, useCleanInsightsFeed } from '@/components/dashboard/clean-insights-feed'
 import { Database } from '@/lib/types/database'
 import { getUserNotificationPreferences, shouldShowPartnerSuggestions, shouldShowRelationshipInsights, shouldShowDailyReminders } from '@/lib/utils/notification-preferences'
+import { useRelationshipContext, useCurrentRelationshipType } from '@/lib/contexts/RelationshipContext'
+import { getConnectionIcon, getGrowthIcon } from '@/lib/ui/relationship-aware-icons'
+import { RelationshipContextWidget } from '@/components/ui/RelationshipContextSwitcher'
 
 // Use exact database types
 type RelationshipInsightRow = Database['public']['Tables']['relationship_insights']['Row']
@@ -316,7 +319,7 @@ const EnhancedScoreDisplay = ({
             label="Connection Quality" 
             value={scoreData.components.connection}
             color="from-brand-teal to-brand-dark-teal"
-            icon="💖"
+            icon="🤝"
           />
           <ComponentBar 
             label="Consistency" 
@@ -371,6 +374,10 @@ const EnhancedScoreDisplay = ({
 }
 
 export default function DashboardPage() {
+  // Phase 7.3: Relationship context for adaptive UI
+  const currentRelationshipType = useCurrentRelationshipType()
+  const { hasMultipleTypes, activeRelationship } = useRelationshipContext()
+  
   // State management
   const [connectionScore, setConnectionScore] = useState<number>(50)
   const [scoreLoading, setScoreLoading] = useState(true)
@@ -393,9 +400,9 @@ export default function DashboardPage() {
   const [generatingInsights, setGeneratingInsights] = useState(false)
   const [message, setMessage] = useState('')
   
-  // Relationship state
-  const [relationships, setRelationships] = useState<RelationshipWithMember[]>([])
-  const [activeRelationship, setActiveRelationship] = useState<RelationshipWithMember | null>(null)
+  // Legacy relationship state (keeping for compatibility with enhanced dashboard)
+  const [legacyRelationships, setLegacyRelationships] = useState<RelationshipWithMember[]>([])
+  const [legacyActiveRelationship, setLegacyActiveRelationship] = useState<RelationshipWithMember | null>(null)
   const [showSharedInsights, setShowSharedInsights] = useState(false)
   
   // Partner suggestions state
@@ -482,7 +489,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: userId,
-          relationshipId: activeRelationship?.id || null 
+          relationshipId: activeRelationship?.id || legacyActiveRelationship?.id || null 
         }),
       })
 
@@ -656,9 +663,9 @@ export default function DashboardPage() {
             relationship_type: r.relationships!.relationship_type,
             myRole: r.role
           }))
-        setRelationships(relationshipsList)
+        setLegacyRelationships(relationshipsList)
         if (relationshipsList.length > 0) {
-          setActiveRelationship(relationshipsList[0])
+          setLegacyActiveRelationship(relationshipsList[0])
         }
       }
     } catch (error) {
@@ -788,7 +795,12 @@ export default function DashboardPage() {
                 Welcome back! 👋
               </h1>
               <p className="text-brand-slate font-inter">
-                Here's what's happening in your relationship journey.
+                {activeRelationship ? 
+                  `Managing your ${activeRelationship.relationship_type} relationship with ${activeRelationship.name}` :
+                  hasMultipleTypes ?
+                    `Managing ${relationships.length} relationships across ${relationshipTypes.length} contexts` :
+                    "Here's what's happening in your relationship journey."
+                }
               </p>
             </div>
             
@@ -805,6 +817,13 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        
+        {/* Phase 7.3: Relationship Context Switcher - Only show for multi-relationship users */}
+        {hasMultipleTypes && (
+          <div className="mb-6 sm:mb-8">
+            <RelationshipContextWidget />
+          </div>
+        )}
 
         {/* Enhanced Connection Score Section - Only show in enhanced mode */}
         {!cleanDashboardMode && (
@@ -971,13 +990,23 @@ export default function DashboardPage() {
                 </div>
                 
                 {/* Premium Analytics Link */}
-                <div className="mt-4">
+                <div className="mt-4 space-y-2">
                   <Link href="/premium/analytics">
                     <Button
                       variant="outline"
                       className="w-full border-2 border-brand-coral-pink text-brand-coral-pink hover:bg-brand-coral-pink hover:text-white text-sm font-semibold"
                     >
                       👑 Premium Analytics
+                    </Button>
+                  </Link>
+                  
+                  {/* Phase 7.5: AI Context Switching Demo */}
+                  <Link href="/ai-context-demo">
+                    <Button
+                      variant="outline"
+                      className="w-full border-brand-teal/30 text-brand-teal hover:bg-brand-teal/10 text-sm"
+                    >
+                      🧠 AI Context Demo
                     </Button>
                   </Link>
                 </div>
@@ -993,10 +1022,10 @@ export default function DashboardPage() {
         {!cleanDashboardMode && (
           <>
             {/* Shared Insights Section */}
-            {showSharedInsights && activeRelationship && (
+            {showSharedInsights && (activeRelationship || legacyActiveRelationship) && (
               <div className="mb-6 sm:mb-8">
                 <SharedInsights 
-                  relationshipId={activeRelationship.id}
+                  relationshipId={(activeRelationship || legacyActiveRelationship)?.id || ''}
                   currentUserId={user?.id}
                   privacyLevel="patterns"
                 />
@@ -1004,7 +1033,7 @@ export default function DashboardPage() {
             )}
 
             {/* Partner Suggestions Section */}
-            {relationships.length > 0 && (
+            {legacyRelationships.length > 0 && (
           <div className="mb-6 sm:mb-8">
             <div className="bg-gradient-to-r from-brand-coral-pink/10 to-brand-teal/10 rounded-xl p-4 sm:p-6 border border-brand-coral-pink/30 mb-4 sm:mb-6 backdrop-blur-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -1064,7 +1093,7 @@ export default function DashboardPage() {
           <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4 sm:p-6 border border-brand-light-gray">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
               <h3 className="text-lg sm:text-xl font-bold text-brand-charcoal mb-2 sm:mb-0 font-heading">
-                {relationships.length > 0 ? 'Relationship Coach' : 'Personal Coach'}
+                {legacyRelationships.length > 0 ? 'Relationship Coach' : 'Personal Coach'}
               </h3>
               <Button 
                 onClick={generateInsights}
@@ -1089,7 +1118,7 @@ export default function DashboardPage() {
                   <span className="text-2xl">🧠</span>
                 </div>
                 <p className="text-brand-slate mb-4 font-inter">
-                  {relationships.length > 0 
+                  {legacyRelationships.length > 0 
                     ? 'No relationship insights yet. Generate your first AI coaching session!'
                     : 'No personal insights yet. Generate your first AI guidance!'
                   }
@@ -1148,7 +1177,7 @@ export default function DashboardPage() {
                     Cycle Tracker
                   </Button>
                 </Link>
-                {relationships.length === 0 ? (
+                {legacyRelationships.length === 0 ? (
                   <Link href="/relationships">
                     <Button className="w-full bg-brand-teal hover:bg-brand-dark-teal text-white text-xs sm:text-sm">
                       Connect Partner

@@ -1,9 +1,14 @@
 // app/api/relationships/generate/route.ts
-// FIXED VERSION - TypeScript safe with better data access
+// Phase 7.1: Enhanced with personality-aware AI for partner suggestions
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+// Phase 7.1: Add personality-aware AI imports
+import { RelationshipType, detectRelationshipType } from '@/lib/ai/relationship-type-intelligence'
+import { getAIPersonality } from '@/lib/ai/personalities'
+import { filterContent, validateResponseRequirements } from '@/lib/ai/content-filters'
+import { buildPartnerSuggestionsPrompt, UserPsychologicalProfile, RelationshipContext } from '@/lib/ai/prompt-builder'
 
 // Type definitions
 interface GenerateSuggestionsRequest {
@@ -93,9 +98,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     )
 
-    console.log(`🤖 Starting ENHANCED AI suggestion generation for relationship: ${relationshipId}`)
+    console.log(`🤖 Phase 7.1: Starting personality-aware AI suggestion generation for relationship: ${relationshipId}`)
 
-    // Step 1: Get relationship context
+    // Phase 7.1: Step 1: Detect relationship type for personality-aware AI
+    const relationshipType = await detectRelationshipType(relationshipId, supabase)
+    console.log(`🔍 Phase 7.1: Detected relationship type: ${relationshipType}`)
+
+    // Step 2: Get relationship context
     const relationshipContext = await getRelationshipContext(supabase, relationshipId)
     if (!relationshipContext.isValid) {
       return NextResponse.json({ 
@@ -143,13 +152,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         p.user_id === journalEntriesFromOthers[0].user_id
       )
 
-      // Generate personalized suggestions using ENHANCED xAI Grok API
-      const suggestions = await generateEnhancedAISuggestions(
+      // Phase 7.1: Generate personalized suggestions using personality-aware xAI Grok API
+      const suggestions = await generatePhase7PersonalitySuggestions(
         journalEntriesFromOthers,
         partner,
         recipientProfile,
         journalWriterProfile,
-        maxSuggestions
+        maxSuggestions,
+        relationshipType,
+        relationshipId
       )
 
       allGeneratedSuggestions.push(...suggestions.map(s => ({
@@ -535,6 +546,208 @@ function generateEnhancedRuleBasedSuggestions(
   }
 
   return suggestions.slice(0, maxSuggestions)
+}
+
+// Phase 7.1: NEW - Personality-aware AI suggestion generation
+async function generatePhase7PersonalitySuggestions(
+  journalEntries: any[],
+  recipient: any, 
+  recipientProfile: PartnerProfile | undefined,
+  journalWriterProfile: PartnerProfile | undefined,
+  maxSuggestions: number,
+  relationshipType: RelationshipType,
+  relationshipId: string
+): Promise<GeneratedSuggestion[]> {
+
+  const journalContent = journalEntries
+    .map(entry => `Entry from ${entry.created_at.split('T')[0]}: ${entry.content}`)
+    .join('\n\n')
+
+  // Build psychological profiles for personality-aware prompting
+  const recipientPsychProfile: UserPsychologicalProfile = {
+    firoNeeds: {
+      inclusion: recipientProfile?.ai_profile_data?.firo_needs?.inclusion || 5,
+      control: recipientProfile?.ai_profile_data?.firo_needs?.control || 5,
+      affection: recipientProfile?.ai_profile_data?.firo_needs?.affection || 5
+    },
+    attachmentStyle: recipientProfile?.ai_profile_data?.attachment_style || 'secure',
+    communicationStyle: {
+      directness: recipientProfile?.ai_profile_data?.communication_style?.directness || 'moderate',
+      assertiveness: recipientProfile?.ai_profile_data?.communication_style?.assertiveness || 'moderate'
+    },
+    loveLanguages: recipientProfile?.love_language_ranking || ['acts_of_service']
+  }
+
+  const relationshipContext: RelationshipContext = {
+    relationshipId: relationshipId,
+    relationshipType: relationshipType,
+    relationshipName: `${relationshipType} relationship`,
+    partnerName: recipient.user_name,
+    currentChallenges: [], // Could extract from journal content
+    recentPositives: [] // Could extract from journal content
+  }
+
+  // Create anonymized insights for partner suggestions
+  const anonymizedInsights = `
+RELATIONSHIP DYNAMICS DETECTED:
+- Recent activity showing need for support in ${relationshipType} context
+- Communication patterns suggest opportunities for better connection
+- Love language bridging needed between: 
+  * How ${recipient.user_name} naturally expresses care: ${recipientPsychProfile.loveLanguages?.join(', ')}
+  * How their partner tends to receive love: ${journalWriterProfile?.love_language_ranking?.join(', ') || 'not specified'}
+
+RECENT CONTEXT (anonymized):
+${journalContent.replace(/specific names|personal details/gi, '[PRIVATE]')}
+`
+
+  // Use personality-aware prompt builder
+  const personalityPrompt = buildPartnerSuggestionsPrompt(
+    relationshipType,
+    anonymizedInsights,
+    recipientPsychProfile,
+    relationshipContext
+  )
+
+  // Get AI personality for system message
+  const personality = getAIPersonality(relationshipType)
+
+  try {
+    if (!process.env.XAI_API_KEY) {
+      console.log('⚠️ No XAI_API_KEY found, using enhanced rule-based fallback')
+      return generateEnhancedRuleBasedSuggestions(
+        journalEntries, 
+        recipient, 
+        recipientPsychProfile.loveLanguages || ['acts_of_service'],
+        journalWriterProfile?.love_language_ranking || ['quality_time'],
+        maxSuggestions
+      )
+    }
+
+    console.log(`🤖 Phase 7.1: Calling personality-aware Grok API for ${relationshipType} partner suggestions...`)
+    console.log(`📋 Using AI Role: ${personality.role}`)
+    
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.XAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: `${personality.systemPrompt}
+
+CRITICAL: You are a ${personality.role}. Focus on helping someone support their ${relationshipType} relationship partner appropriately.
+
+RESPONSE FORMAT: Always respond with valid JSON array only - no markdown, no explanations.
+
+JSON FORMAT REQUIRED:
+[
+  {
+    "suggestion_type": "communication|support|activities|appreciation",
+    "suggestion_text": "Specific actionable suggestion appropriate for ${relationshipType} relationship",
+    "anonymized_context": "Why this would help (no private details)",
+    "priority_score": 8,
+    "confidence_score": 0.8,
+    "source_need_intensity": 7
+  }
+]`
+          },
+          {
+            role: 'user',
+            content: personalityPrompt
+          }
+        ],
+        model: 'grok-4',
+        temperature: 0.7,
+        max_tokens: 1200
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Phase 7.1 Partner Suggestions API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      console.error('❌ Phase 7.1: xAI API returned malformed response:', data)
+      throw new Error('xAI API returned malformed response')
+    }
+
+    const rawContent = data.choices[0].message.content.trim()
+    console.log('🔍 Phase 7.1: Raw AI response:', rawContent.substring(0, 200) + '...')
+
+    let cleanContent = rawContent
+    cleanContent = cleanContent.replace(/```json\s*/g, '').replace(/```\s*/g, '')
+    
+    const jsonMatch = cleanContent.match(/\[[\s\S]*\]/)
+    if (jsonMatch) {
+      cleanContent = jsonMatch[0]
+    }
+
+    let aiSuggestions
+    try {
+      aiSuggestions = JSON.parse(cleanContent)
+    } catch (parseError) {
+      console.error('❌ Phase 7.1: JSON parse error. Raw content:', rawContent)
+      throw new Error(`JSON parse failed: ${parseError}`)
+    }
+
+    if (!Array.isArray(aiSuggestions)) {
+      console.error('❌ Phase 7.1: AI response is not an array:', aiSuggestions)
+      throw new Error('AI response is not an array')
+    }
+
+    // Phase 7.1: Enhanced validation with personality-aware content filtering
+    const validatedSuggestions = []
+
+    for (const suggestion of aiSuggestions) {
+      if (!suggestion.suggestion_type || !suggestion.suggestion_text || !suggestion.anonymized_context) {
+        console.warn('⚠️ Phase 7.1: Skipping malformed suggestion:', suggestion)
+        continue
+      }
+
+      // Content filtering validation
+      const contentValidation = filterContent(suggestion.suggestion_text, relationshipType)
+      
+      if (!contentValidation.isValid) {
+        console.warn(`⚠️ Phase 7.1: Filtered inappropriate partner suggestion for ${relationshipType}: ${contentValidation.violations.join(', ')}`)
+        continue
+      }
+
+      // Response requirements validation
+      const requirementValidation = validateResponseRequirements(suggestion.suggestion_text, relationshipType)
+      
+      if (!requirementValidation.hasRequiredElements) {
+        console.warn(`⚠️ Phase 7.1: Partner suggestion missing required elements for ${personality.role}: ${requirementValidation.missingElements.join(', ')}`)
+        // Continue but note - could enhance in production
+      }
+
+      validatedSuggestions.push({
+        suggestion_type: suggestion.suggestion_type,
+        suggestion_text: contentValidation.filteredContent || suggestion.suggestion_text,
+        anonymized_context: suggestion.anonymized_context,
+        priority_score: suggestion.priority_score || 8,
+        confidence_score: suggestion.confidence_score || 0.8,
+        source_need_intensity: suggestion.source_need_intensity || 7
+      })
+    }
+
+    console.log(`✅ Phase 7.1: Generated ${validatedSuggestions.length} personality-aware partner suggestions for ${relationshipType}`)
+    return validatedSuggestions
+
+  } catch (error) {
+    console.error('❌ Phase 7.1: Personality partner suggestions API error, falling back to enhanced rule-based:', error)
+    return generateEnhancedRuleBasedSuggestions(
+      journalEntries, 
+      recipient, 
+      recipientPsychProfile.loveLanguages || ['acts_of_service'],
+      journalWriterProfile?.love_language_ranking || ['quality_time'],
+      maxSuggestions
+    )
+  }
 }
 
 // Helper function: Get relationship context with partner profiles

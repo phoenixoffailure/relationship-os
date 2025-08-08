@@ -1,14 +1,14 @@
 // app/(protected)/checkin/page.tsx
-// Updated with brand colors and typography
+// Phase 7.2: Relationship-specific check-in system with legacy compatibility
 
 'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { RelationshipCheckin } from '@/components/checkin/RelationshipCheckin'
 import { createBrowserClient } from '@supabase/ssr'
 import { 
   Heart, 
@@ -16,48 +16,46 @@ import {
   Calendar, 
   TrendingUp,
   Star,
-  ThumbsUp,
-  MessageCircle,
-  Target,
-  Zap,
-  BarChart3
+  Settings,
+  Sparkles,
+  BarChart3,
+  Users,
+  Briefcase,
+  Home
 } from 'lucide-react'
 
-interface CheckinData {
-  connection_score: number
-  mood_score: number
-  gratitude_note: string
-  challenge_note: string
-  improvement_note: string
+interface User {
+  id: string
+  email: string
+  full_name?: string
 }
 
-interface PreviousCheckin {
+interface Relationship {
   id: string
-  connection_score: number
-  mood_score: number
-  gratitude_note: string | null
-  challenge_note: string | null
-  improvement_note: string | null
+  name: string
+  relationship_type: string
   created_at: string
 }
 
+interface RecentCheckin {
+  id: string
+  relationship_id: string
+  relationship_type?: string
+  health_score?: number
+  created_at: string
+  relationships?: {
+    name: string
+    relationship_type: string
+  }
+}
+
 export default function CheckinPage() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [relationships, setRelationships] = useState<Relationship[]>([])
+  const [recentCheckins, setRecentCheckins] = useState<RecentCheckin[]>([])
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState('')
-  const [hasCheckedInToday, setHasCheckedInToday] = useState(false)
-  const [todaysCheckin, setTodaysCheckin] = useState<PreviousCheckin | null>(null)
-  const [recentCheckins, setRecentCheckins] = useState<PreviousCheckin[]>([])
-  const [streak, setStreak] = useState(0)
-  
-  const [checkinData, setCheckinData] = useState<CheckinData>({
-    connection_score: 5,
-    mood_score: 5,
-    gratitude_note: '',
-    challenge_note: '',
-    improvement_note: ''
-  })
+  const [checkinMode, setCheckinMode] = useState<'relationship-specific' | 'legacy'>('relationship-specific')
+  const [selectedRelationship, setSelectedRelationship] = useState<string | undefined>()
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,156 +63,143 @@ export default function CheckinPage() {
   )
 
   useEffect(() => {
-    const getUser = async () => {
+    const initialize = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUser(user)
         await Promise.all([
-          checkTodaysCheckin(user.id),
-          loadRecentCheckins(user.id),
-          calculateStreak(user.id)
+          loadUserRelationships(user.id),
+          loadRecentCheckins(user.id)
         ])
       }
       setLoading(false)
     }
-    getUser()
+    initialize()
   }, [])
 
-  const checkTodaysCheckin = async (userId: string) => {
+  const loadUserRelationships = async (userId: string) => {
     try {
-      const today = new Date().toISOString().split('T')[0]
-      
-      const { data, error } = await supabase
-        .from('daily_checkins')
-        .select('*')
+      const { data: memberData, error: memberError } = await supabase
+        .from('relationship_members')
+        .select(`
+          relationship_id,
+          relationships (
+            id,
+            name,
+            relationship_type,
+            created_at
+          )
+        `)
         .eq('user_id', userId)
-        .gte('created_at', `${today}T00:00:00`)
-        .lt('created_at', `${today}T23:59:59`)
-        .order('created_at', { ascending: false })
-        .limit(1)
 
-      if (error) throw error
+      if (memberError) throw memberError
 
-      if (data && data.length > 0) {
-        setHasCheckedInToday(true)
-        setTodaysCheckin(data[0])
+      const userRelationships = (memberData || [])
+        .map((member: any) => member.relationships)
+        .filter(Boolean)
+
+      setRelationships(userRelationships)
+      
+      // Auto-select first relationship if only one exists
+      if (userRelationships.length === 1) {
+        setSelectedRelationship(userRelationships[0].id)
       }
     } catch (error) {
-      console.error('Error checking today\'s check-in:', error)
+      console.error('Error loading relationships:', error)
     }
   }
 
   const loadRecentCheckins = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('daily_checkins')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(7)
+      // Load both relationship-specific and legacy check-ins
+      const [relationshipCheckinsResult, legacyCheckinsResult] = await Promise.all([
+        supabase
+          .from('relationship_health_scores')
+          .select(`
+            id,
+            relationship_id,
+            relationship_type,
+            health_score,
+            calculation_date,
+            relationships!inner (
+              name,
+              relationship_type
+            )
+          `)
+          .eq('user_id', userId)
+          .order('calculation_date', { ascending: false })
+          .limit(5),
+        
+        supabase
+          .from('daily_checkins')
+          .select(`
+            id,
+            relationship_id,
+            connection_score,
+            mood_score,
+            created_at,
+            relationships (
+              name,
+              relationship_type
+            )
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(5)
+      ])
 
-      if (error) throw error
+      const relationshipCheckins = relationshipCheckinsResult.data || []
+      const legacyCheckins = legacyCheckinsResult.data || []
 
-      setRecentCheckins(data || [])
+      // Combine and format check-ins
+      const allCheckins = [
+        ...relationshipCheckins.map(checkin => ({
+          id: checkin.id,
+          relationship_id: checkin.relationship_id,
+          relationship_type: checkin.relationship_type,
+          health_score: checkin.health_score,
+          created_at: checkin.calculation_date,
+          relationships: checkin.relationships
+        })),
+        ...legacyCheckins.map(checkin => ({
+          id: checkin.id,
+          relationship_id: checkin.relationship_id,
+          health_score: Math.round((checkin.connection_score + checkin.mood_score) * 5), // Convert to 100-point scale
+          created_at: checkin.created_at,
+          relationships: checkin.relationships
+        }))
+      ]
+
+      // Sort by date and remove duplicates
+      const uniqueCheckins = allCheckins
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 10)
+
+      setRecentCheckins(uniqueCheckins)
     } catch (error) {
       console.error('Error loading recent check-ins:', error)
     }
   }
 
-  const calculateStreak = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('daily_checkins')
-        .select('created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      if (!data || data.length === 0) {
-        setStreak(0)
-        return
-      }
-
-      let currentStreak = 0
-      const today = new Date()
-      
-      for (let i = 0; i < data.length; i++) {
-        const checkinDate = new Date(data[i].created_at)
-        const daysDiff = Math.floor((today.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24))
-        
-        if (daysDiff === currentStreak) {
-          currentStreak++
-        } else {
-          break
-        }
-      }
-
-      setStreak(currentStreak)
-    } catch (error) {
-      console.error('Error calculating streak:', error)
+  const getRelationshipIcon = (type: string) => {
+    switch (type) {
+      case 'romantic':
+        return <Heart className="w-4 h-4 text-pink-500" />
+      case 'work':
+        return <Briefcase className="w-4 h-4 text-blue-500" />
+      case 'family':
+        return <Home className="w-4 h-4 text-green-500" />
+      case 'friend':
+        return <Users className="w-4 h-4 text-orange-500" />
+      default:
+        return <Heart className="w-4 h-4 text-purple-500" />
     }
   }
 
-  const submitCheckin = async () => {
-    if (!user) return
-
-    setSubmitting(true)
-    setMessage('')
-
-    try {
-      const { data, error } = await supabase
-        .from('daily_checkins')
-        .insert([{
-          user_id: user.id,
-          connection_score: checkinData.connection_score,
-          mood_score: checkinData.mood_score,
-          gratitude_note: checkinData.gratitude_note.trim() || null,
-          challenge_note: checkinData.challenge_note.trim() || null,
-          improvement_note: checkinData.improvement_note.trim() || null
-        }])
-        .select()
-
-      if (error) throw error
-
-      setMessage('✅ Daily check-in completed successfully! 🎉')
-      setHasCheckedInToday(true)
-      setTodaysCheckin(data[0])
-      
-      // Reset form
-      setCheckinData({
-        connection_score: 5,
-        mood_score: 5,
-        gratitude_note: '',
-        challenge_note: '',
-        improvement_note: ''
-      })
-
-      // Reload data
-      await Promise.all([
-        loadRecentCheckins(user.id),
-        calculateStreak(user.id)
-      ])
-
-      setTimeout(() => setMessage(''), 5000)
-    } catch (error: any) {
-      console.error('Error submitting check-in:', error)
-      setMessage(`❌ Error submitting check-in: ${error.message}`)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const getConnectionIcon = (score: number) => {
-    if (score >= 8) return <Heart className="w-5 h-5 text-red-500" />
-    if (score >= 6) return <ThumbsUp className="w-5 h-5 text-brand-teal" />
-    return <MessageCircle className="w-5 h-5 text-brand-slate" />
-  }
-
-  const getMoodIcon = (score: number) => {
-    if (score >= 8) return <Star className="w-5 h-5 text-yellow-500" />
-    if (score >= 6) return <Zap className="w-5 h-5 text-brand-warm-peach" />
-    return <Target className="w-5 h-5 text-brand-slate" />
+  const getHealthScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600 bg-green-50 border-green-200'
+    if (score >= 60) return 'text-yellow-600 bg-yellow-50 border-yellow-200'
+    return 'text-red-600 bg-red-50 border-red-200'
   }
 
   const formatDate = (dateString: string) => {
@@ -223,14 +208,6 @@ export default function CheckinPage() {
       month: 'short',
       day: 'numeric'
     })
-  }
-
-  const getStreakMessage = (streak: number) => {
-    if (streak === 0) return "Start your check-in streak today! 🌱"
-    if (streak === 1) return "Great start! Keep it going! 🔥"
-    if (streak < 7) return `${streak} days strong! Building momentum! 💪`
-    if (streak < 30) return `Amazing ${streak}-day streak! You're on fire! 🚀`
-    return `Incredible ${streak}-day streak! You're a champion! 🏆`
   }
 
   if (loading) {
@@ -244,291 +221,246 @@ export default function CheckinPage() {
     )
   }
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">
+              Please log in to access your check-ins.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-warm-white to-brand-cool-gray">
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-teal to-brand-dark-teal rounded-2xl shadow-lg mb-4">
-              <CheckCircle className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-heading-xl font-bold text-brand-charcoal mb-2 font-heading">Daily Check-in</h1>
-            <p className="text-brand-slate font-inter">Track your relationship connection and personal wellbeing</p>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-teal to-brand-dark-teal rounded-2xl shadow-lg mb-4">
+            <Sparkles className="w-8 h-8 text-white" />
           </div>
+          <h1 className="text-heading-xl font-bold text-brand-charcoal mb-2 font-heading">
+            Relationship Check-in
+          </h1>
+          <p className="text-brand-slate font-inter max-w-2xl mx-auto">
+            Phase 7.2: Track your relationships with relationship-type-specific metrics that adapt to romantic, work, family, and friend connections
+          </p>
+        </div>
 
-          {/* Streak Display */}
-          <div className="bg-gradient-to-r from-brand-teal/10 to-brand-coral-pink/10 border border-brand-teal/30 rounded-xl p-4 mb-6">
-            <div className="flex items-center justify-center space-x-3">
-              <div className="text-2xl">🔥</div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-brand-teal font-heading">{streak}</div>
-                <div className="text-sm text-brand-dark-teal font-inter">Day Streak</div>
-              </div>
-              <div className="text-sm text-brand-slate font-inter max-w-xs">
-                {getStreakMessage(streak)}
-              </div>
-            </div>
+        {/* Mode Toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex items-center bg-white rounded-lg border border-brand-light-gray p-1">
+            <Button
+              variant={checkinMode === 'relationship-specific' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setCheckinMode('relationship-specific')}
+              className={checkinMode === 'relationship-specific' ? 'bg-brand-teal text-white' : ''}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Relationship-Specific
+              <Badge className="ml-2 bg-green-100 text-green-800 border-green-200">NEW</Badge>
+            </Button>
+            <Button
+              variant={checkinMode === 'legacy' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setCheckinMode('legacy')}
+              className={checkinMode === 'legacy' ? 'bg-brand-teal text-white' : ''}
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Universal
+              <Badge className="ml-2 bg-gray-100 text-gray-600 border-gray-200">Legacy</Badge>
+            </Button>
           </div>
         </div>
 
-        {/* Status Message */}
-        {message && (
-          <div className={`mb-6 p-4 rounded-xl border ${
-            message.includes('❌') || message.includes('Error')
-              ? 'bg-red-50 text-red-700 border-red-200' 
-              : 'bg-brand-teal/10 border-brand-teal/30 text-brand-dark-teal'
-          }`}>
-            <div className="flex items-center">
-              <span className="text-sm font-medium font-inter">{message}</span>
-            </div>
-          </div>
+        {/* Phase 7.2 Feature Highlight */}
+        {checkinMode === 'relationship-specific' && (
+          <Card className="mb-8 border-brand-teal/30 bg-gradient-to-r from-brand-teal/5 to-brand-coral-pink/5">
+            <CardContent className="pt-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-brand-teal rounded-lg flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-brand-charcoal font-heading mb-1">
+                    🎯 Phase 7.2: Relationship-Specific Metrics
+                  </h3>
+                  <p className="text-sm text-brand-slate font-inter leading-relaxed">
+                    Each relationship type now has appropriate metrics: <strong>Professional Rapport</strong> for work, 
+                    <strong> Family Harmony</strong> for family, <strong>Friendship Satisfaction</strong> for friends, 
+                    and <strong>Connection & Intimacy</strong> for romantic relationships. No more inappropriate suggestions!
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <Badge variant="outline" className="text-xs">
+                      💕 Romantic: Connection + Intimacy
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      💼 Work: Rapport + Collaboration
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      🏠 Family: Harmony + Boundaries
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      👫 Friends: Satisfaction + Energy
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Today's Check-in Status */}
-        {hasCheckedInToday && todaysCheckin ? (
-          <Card className="mb-8 border-green-200 bg-green-50/50">
-            <CardHeader>
-              <div className="flex items-center space-x-3">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-                <div>
-                  <CardTitle className="text-green-900 font-heading">Check-in Complete!</CardTitle>
-                  <CardDescription className="text-green-700 font-inter">
-                    You've already checked in today. Great job staying consistent!
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Check-in Form */}
+          <div className="lg:col-span-2">
+            {checkinMode === 'relationship-specific' ? (
+              <RelationshipCheckin preselectedRelationship={selectedRelationship} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Universal Check-in (Legacy)</CardTitle>
+                  <CardDescription>
+                    Traditional check-in system with universal connection and mood scores
                   </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="flex items-center justify-center mb-1">
-                    {getConnectionIcon(todaysCheckin.connection_score)}
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p className="mb-4">Legacy check-in system temporarily disabled.</p>
+                    <p className="text-sm">Please use the new relationship-specific check-ins above.</p>
                   </div>
-                  <div className="text-sm text-brand-slate font-inter">Connection</div>
-                  <div className="text-lg font-bold text-brand-charcoal font-heading">{todaysCheckin.connection_score}/10</div>
-                </div>
-                <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="flex items-center justify-center mb-1">
-                    {getMoodIcon(todaysCheckin.mood_score)}
-                  </div>
-                  <div className="text-sm text-brand-slate font-inter">Mood</div>
-                  <div className="text-lg font-bold text-brand-charcoal font-heading">{todaysCheckin.mood_score}/10</div>
-                </div>
-                <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="flex items-center justify-center mb-1">
-                    <Calendar className="w-5 h-5 text-brand-teal" />
-                  </div>
-                  <div className="text-sm text-brand-slate font-inter">Streak</div>
-                  <div className="text-lg font-bold text-brand-charcoal font-heading">{streak} days</div>
-                </div>
-                <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="flex items-center justify-center mb-1">
-                    <TrendingUp className="w-5 h-5 text-green-500" />
-                  </div>
-                  <div className="text-sm text-brand-slate font-inter">Status</div>
-                  <div className="text-sm font-bold text-green-600 font-inter">Complete</div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-              {todaysCheckin.gratitude_note && (
-                <div className="bg-white p-3 rounded-lg mb-3">
-                  <h4 className="font-medium text-brand-charcoal mb-1 font-inter">Today's Gratitude</h4>
-                  <p className="text-sm text-brand-slate font-inter">{todaysCheckin.gratitude_note}</p>
-                </div>
-              )}
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Relationships Overview */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Your Relationships
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {relationships.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <p className="mb-4">No relationships yet</p>
+                    <Link href="/relationships">
+                      <Button variant="outline" size="sm">
+                        Add Relationship
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {relationships.map((relationship) => (
+                      <div
+                        key={relationship.id}
+                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${
+                          selectedRelationship === relationship.id ? 'bg-brand-teal/10 border-brand-teal' : 'border-border'
+                        }`}
+                        onClick={() => setSelectedRelationship(relationship.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          {getRelationshipIcon(relationship.relationship_type)}
+                          <div>
+                            <p className="font-medium text-sm">{relationship.name}</p>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {relationship.relationship_type}
+                            </p>
+                          </div>
+                        </div>
+                        {selectedRelationship === relationship.id && (
+                          <CheckCircle className="w-4 h-4 text-brand-teal" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              <div className="flex space-x-3">
-                <Link href="/dashboard">
-                  <Button className="bg-brand-teal hover:bg-brand-dark-teal text-white">
-                    View Dashboard
-                  </Button>
-                </Link>
+            {/* Recent Check-ins */}
+            {recentCheckins.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Recent Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {recentCheckins.slice(0, 5).map((checkin) => (
+                      <div key={checkin.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {checkin.relationships && getRelationshipIcon(checkin.relationships.relationship_type)}
+                          <div>
+                            <p className="text-sm font-medium">
+                              {checkin.relationships?.name || 'Relationship'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(checkin.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                        {checkin.health_score && (
+                          <Badge variant="outline" className={`text-xs ${getHealthScoreColor(checkin.health_score)}`}>
+                            {checkin.health_score}%
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-4 border-t">
+                    <Link href="/dashboard">
+                      <Button variant="outline" size="sm" className="w-full">
+                        <BarChart3 className="w-4 h-4 mr-2" />
+                        View Full Analytics
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <Link href="/journal">
-                  <Button variant="outline" className="border-brand-coral-pink/30 text-brand-coral-pink hover:bg-brand-coral-pink/10">
+                  <Button variant="outline" className="w-full justify-start">
+                    <MessageCircle className="w-4 h-4 mr-2" />
                     Write in Journal
                   </Button>
                 </Link>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          /* Check-in Form */
-          <Card className="mb-8 border-brand-light-gray bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="font-heading text-brand-charcoal">How are you feeling today?</CardTitle>
-              <CardDescription className="font-inter">
-                Take a moment to reflect on your relationship and personal wellbeing
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Connection Score */}
-              <div>
-                <label className="block text-sm font-medium text-brand-charcoal mb-3 font-inter">
-                  Connection with your partner (1-10)
-                </label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={checkinData.connection_score}
-                    onChange={(e) => setCheckinData({ ...checkinData, connection_score: parseInt(e.target.value) })}
-                    className="flex-1 h-3 bg-brand-light-gray rounded-lg appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, #FF8A9B 0%, #4AB9B8 100%)`
-                    }}
-                  />
-                  <div className="flex items-center space-x-2 min-w-[80px]">
-                    {getConnectionIcon(checkinData.connection_score)}
-                    <span className="text-lg font-bold text-brand-charcoal font-heading">
-                      {checkinData.connection_score}/10
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between text-xs text-brand-slate mt-1 font-inter">
-                  <span>Distant</span>
-                  <span>Very Connected</span>
-                </div>
-              </div>
-
-              {/* Mood Score */}
-              <div>
-                <label className="block text-sm font-medium text-brand-charcoal mb-3 font-inter">
-                  Overall mood today (1-10)
-                </label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={checkinData.mood_score}
-                    onChange={(e) => setCheckinData({ ...checkinData, mood_score: parseInt(e.target.value) })}
-                    className="flex-1 h-3 bg-brand-light-gray rounded-lg appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, #FF8A9B 0%, #FFCB8A 50%, #4AB9B8 100%)`
-                    }}
-                  />
-                  <div className="flex items-center space-x-2 min-w-[80px]">
-                    {getMoodIcon(checkinData.mood_score)}
-                    <span className="text-lg font-bold text-brand-charcoal font-heading">
-                      {checkinData.mood_score}/10
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between text-xs text-brand-slate mt-1 font-inter">
-                  <span>Low</span>
-                  <span>Great</span>
-                </div>
-              </div>
-
-              {/* Gratitude Note */}
-              <div>
-                <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
-                  What are you grateful for today? ✨
-                </label>
-                <Textarea
-                  value={checkinData.gratitude_note}
-                  onChange={(e) => setCheckinData({ ...checkinData, gratitude_note: e.target.value })}
-                  placeholder="Express gratitude for something in your relationship or life..."
-                  rows={3}
-                  className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
-                />
-              </div>
-
-              {/* Challenge Note */}
-              <div>
-                <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
-                  Any challenges you're facing? 🤝
-                </label>
-                <Textarea
-                  value={checkinData.challenge_note}
-                  onChange={(e) => setCheckinData({ ...checkinData, challenge_note: e.target.value })}
-                  placeholder="Share any difficulties or concerns (optional)..."
-                  rows={3}
-                  className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
-                />
-              </div>
-
-              {/* Improvement Note */}
-              <div>
-                <label className="block text-sm font-medium text-brand-charcoal mb-2 font-inter">
-                  What could make tomorrow better? 🚀
-                </label>
-                <Textarea
-                  value={checkinData.improvement_note}
-                  onChange={(e) => setCheckinData({ ...checkinData, improvement_note: e.target.value })}
-                  placeholder="Ideas for improving your relationship or wellbeing..."
-                  rows={3}
-                  className="border-brand-light-gray focus:border-brand-teal focus:ring-brand-teal/20 resize-none"
-                />
-              </div>
-
-              <div className="pt-4">
-                <Button
-                  onClick={submitCheckin}
-                  disabled={submitting}
-                  className="w-full bg-brand-teal hover:bg-brand-dark-teal text-white text-lg py-3"
-                >
-                  {submitting ? (
-                    <div className="flex items-center justify-center">
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Submitting...
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Complete Daily Check-in
-                    </div>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Recent Check-ins */}
-        {recentCheckins.length > 0 && (
-          <Card className="border-brand-light-gray bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="font-heading text-brand-charcoal">Recent Check-ins</CardTitle>
-                <Link href="/dashboard">
-                  <Button variant="outline" size="sm" className="border-brand-teal/30 text-brand-teal hover:bg-brand-teal/10">
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    View Analytics
+                <Link href="/relationships">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Manage Relationships
                   </Button>
                 </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentCheckins.slice(0, 5).map((checkin) => (
-                  <div key={checkin.id} className="flex items-center justify-between p-3 bg-brand-cool-gray rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="text-sm font-medium text-brand-charcoal font-inter">
-                        {formatDate(checkin.created_at)}
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {getConnectionIcon(checkin.connection_score)}
-                        <span className="text-sm text-brand-slate font-inter">{checkin.connection_score}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {getMoodIcon(checkin.mood_score)}
-                        <span className="text-sm text-brand-slate font-inter">{checkin.mood_score}</span>
-                      </div>
-                    </div>
-                    {checkin.gratitude_note && (
-                      <div className="text-xs text-brand-teal bg-brand-teal/10 px-2 py-1 rounded-full font-inter">
-                        Gratitude
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                <Link href="/insights">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Star className="w-4 h-4 mr-2" />
+                    View Insights
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </main>
     </div>
   )

@@ -14,10 +14,16 @@ import {
   Shield,
   LogOut,
   X,
-  Calendar
+  Calendar,
+  MessageCircle,
+  BarChart3,
+  Briefcase,
+  Target
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
+import { useRelationshipContext, useCurrentRelationshipType } from '@/lib/contexts/RelationshipContext'
+import { getCheckinIcon, getRelationshipColors } from '@/lib/ui/relationship-aware-icons'
 
 // Import Supabase client directly
 import { createBrowserClient } from '@supabase/ssr'
@@ -36,15 +42,38 @@ interface NavItem {
 }
 
 // Main navigation items (always visible in bottom nav)
-const mainNavItems: NavItem[] = [
+// Note: Check-in icon will be dynamically determined based on relationship context
+const getMainNavItems = (relationshipType: string): NavItem[] => [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/journal', label: 'Journal', icon: BookOpen },
-  { href: '/checkin', label: 'Check-in', icon: Heart },
+  { 
+    href: '/checkin', 
+    label: 'Check-in', 
+    icon: getCheckinIconComponent(relationshipType) 
+  },
   { href: '/insights', label: 'Insights', icon: Lightbulb },
 ]
 
+// Helper function to get appropriate check-in icon based on relationship type
+function getCheckinIconComponent(relationshipType: string): React.ComponentType<{ className?: string }> {
+  switch (relationshipType) {
+    case 'romantic':
+      return Heart // Hearts appropriate for romantic relationships
+    case 'work':
+      return BarChart3 // Professional check-in icon
+    case 'family':
+      return MessageCircle // Family conversation icon
+    case 'friend':
+      return MessageCircle // Friendly conversation icon
+    case 'other':
+    default:
+      return MessageCircle // Neutral conversation icon
+  }
+}
+
 // Secondary items (shown in "More" menu)
 const secondaryNavItems: NavItem[] = [
+  { href: '/workflows', label: 'Workflows', icon: Target },
   { href: '/relationships', label: 'Relationships', icon: Users },
   { href: '/calendar', label: 'Calendar', icon: Calendar },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -54,6 +83,13 @@ export function MobileBottomNav({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname()
   const router = useRouter()
   const [isMoreOpen, setIsMoreOpen] = useState(false)
+  
+  // Phase 7.3: Use relationship context for adaptive icons
+  const { hasMultipleTypes, activeRelationshipType } = useRelationshipContext()
+  const currentRelationshipType = useCurrentRelationshipType()
+  
+  // Get context-aware navigation items
+  const mainNavItems = getMainNavItems(currentRelationshipType)
 
   // Check if current page is active
   const isActive = (href: string) => {
@@ -75,22 +111,32 @@ export function MobileBottomNav({ userEmail }: { userEmail?: string }) {
       {/* Bottom Navigation Bar - UPDATED: Brand colors */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-brand-teal/20 z-50 md:hidden shadow-lg">
         <div className="grid grid-cols-5 h-16">
-          {/* Main Navigation Items - UPDATED: Brand colors */}
+          {/* Main Navigation Items - UPDATED: Relationship-aware colors and icons */}
           {mainNavItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
+            
+            // Use relationship-aware colors for check-in item when active
+            const isCheckinItem = item.href === '/checkin'
+            const relationshipColors = getRelationshipColors(currentRelationshipType)
+            
+            const activeClasses = isCheckinItem && active && hasMultipleTypes
+              ? `${relationshipColors.primary} ${relationshipColors.bg}`
+              : 'text-brand-dark-teal bg-brand-teal/10'
+              
+            const hoverClasses = isCheckinItem && hasMultipleTypes
+              ? `text-gray-500 hover:${relationshipColors.primary} ${relationshipColors.hover}`
+              : 'text-gray-500 hover:text-brand-dark-teal hover:bg-brand-teal/5'
             
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`flex flex-col items-center justify-center space-y-1 transition-colors ${
-                  active
-                    ? 'text-brand-dark-teal bg-brand-teal/10'
-                    : 'text-gray-500 hover:text-brand-dark-teal hover:bg-brand-teal/5'
+                  active ? activeClasses : hoverClasses
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? 'text-brand-dark-teal' : ''}`} />
+                <Icon className={`w-5 h-5 ${active ? (isCheckinItem && hasMultipleTypes ? relationshipColors.primary : 'text-brand-dark-teal') : ''}`} />
                 <span className="text-xs font-medium">{item.label}</span>
               </Link>
             )

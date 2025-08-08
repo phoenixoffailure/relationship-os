@@ -5,6 +5,7 @@ import { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import { ResponsiveHeader } from '@/components/navigation/ResponsiveHeader'
 import { MobileBottomNav } from '@/components/navigation/MobileBottomNav'
+import { RelationshipProvider } from '@/lib/contexts/RelationshipContext'
 
 // Import Supabase client directly to avoid module issues
 import { createBrowserClient } from '@supabase/ssr'
@@ -91,17 +92,19 @@ export default function ProtectedLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-      {/* Responsive Header */}
-      <ResponsiveHeader userEmail={user.email} />
-      
-      {/* Main Content */}
-      <main className="min-h-[calc(100vh-4rem)] pb-16 md:pb-0">
-        {children}
-      </main>
-      
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav userEmail={user.email} />
-    </div>
+    <RelationshipProvider userId={user.id}>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+        {/* Responsive Header */}
+        <ResponsiveHeader userEmail={user.email} />
+        
+        {/* Main Content */}
+        <main className="min-h-[calc(100vh-4rem)] pb-16 md:pb-0">
+          {children}
+        </main>
+        
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav userEmail={user.email} />
+      </div>
+    </RelationshipProvider>
   )
 }

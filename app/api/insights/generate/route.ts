@@ -1,5 +1,5 @@
-// Enhanced Grok API with relationship context
-// Replace your existing app/api/insights/generate/route.ts with this enhanced version
+// Phase 7.1: Universal Relationship OS - True AI Behavioral Differentiation
+// Enhanced insights generation with relationship-specific AI personalities
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -19,6 +19,10 @@ import {
   detectContextFromJournalEntry,
   generateContextAwarePromptModifier
 } from '@/lib/ai/multi-relationship-context-switcher'
+// Phase 7.1: New imports for personality-driven AI
+import { getAIPersonality, buildPersonalityPrompt } from '@/lib/ai/personalities'
+import { filterContent, validateResponseRequirements } from '@/lib/ai/content-filters'
+import { buildInsightsPrompt, UserPsychologicalProfile, RelationshipContext } from '@/lib/ai/prompt-builder'
 
 // Phase 5: Smart 4-Pillar types
 type PillarType = 'pattern' | 'growth' | 'appreciation' | 'milestone'
@@ -706,7 +710,8 @@ async function generateRelationshipAwareInsights(
   
   try {
     // Call Grok 4 API with PHASE 3 relationship-type awareness
-    const grokResponse = await callPhase3GrokAPI(context, primaryRelationshipType)
+    // Phase 7.1: Use new personality-aware Grok API
+    const grokResponse = await callPhase7PersonalityGrokAPI(context, primaryRelationshipType)
     
     if (grokResponse && grokResponse.length > 0) {
       console.log('✅ PHASE 3 Grok returned', grokResponse.length, 'relationship-type aware insights')
@@ -1310,35 +1315,77 @@ function buildPhase3ContextForGrok(
   return context
 }
 
-async function callPhase3GrokAPI(context: any, relationshipType: RelationshipType) {
+// Phase 7.5: Memory-enhanced Grok API with context awareness
+async function callPhase7PersonalityGrokAPI(context: any, relationshipType: RelationshipType) {
   if (!process.env.XAI_API_KEY) {
-    console.log('⚠️ No XAI_API_KEY found, skipping Phase 3 Grok API call')
-    return null
+    console.log('⚠️ No XAI_API_KEY found, trying Phase 7.5 context-aware memory system...')
+    // Use memory-based AI even without API key
+    return await tryMemoryBasedInsights(context, relationshipType)
   }
 
-  // Get relationship configuration for tailored prompting
-  const config = getRelationshipConfig(relationshipType)
-  
-  // Build relationship-type aware prompt
-  let basePrompt = generatePhase3BasePrompt(context, config)
-  
-  // Apply relationship-type specific adaptations
-  const adaptedPrompt = adaptPromptForRelationshipType(
-    basePrompt,
-    relationshipType,
-    {
-      firoNeeds: {
-        inclusion: context.inclusionNeed || 8,
-        control: context.controlNeed || 7,
-        affection: context.affectionNeed || 8
-      },
-      attachmentStyle: context.attachmentStyle || 'disorganized',
-      communicationStyle: context.communicationStyle || 'direct_assertive'
+  // Build user psychological profile
+  const userPsychProfile: UserPsychologicalProfile = {
+    firoNeeds: {
+      inclusion: context.inclusionNeed || 8,
+      control: context.controlNeed || 7,
+      affection: context.affectionNeed || 8
+    },
+    attachmentStyle: context.attachmentStyle || 'disorganized',
+    communicationStyle: {
+      directness: context.communicationDirectness || 'direct',
+      assertiveness: context.communicationAssertiveness || 'assertive'
+    },
+    loveLanguages: context.loveLanguages || ['quality_time', 'words_of_affirmation']
+  }
+
+  // Build relationship context
+  const relationshipContext: RelationshipContext = {
+    relationshipId: context.primaryRelationshipId || '',
+    relationshipType: relationshipType,
+    relationshipName: context.relationshipName || `${relationshipType} relationship`,
+    partnerName: context.partnerName || 'their connection',
+    relationshipLength: context.relationshipLength,
+    currentChallenges: context.recentChallenges || [],
+    recentPositives: context.recentGratitudes || []
+  }
+
+  // Create journal content summary for insights
+  const journalContentSummary = `
+RECENT ACTIVITY SUMMARY:
+- Recent gratitudes: ${context.recentGratitudes?.join('; ') || 'None shared recently'}  
+- Recent challenges: ${context.recentChallenges?.join('; ') || 'None mentioned recently'}
+- Average mood: ${context.avgMoodFromCheckins || 'mixed'}/10
+- Relationship engagement: ${context.gratitudeCount || 0} gratitudes, ${context.challengeCount || 0} challenges
+- Partnership status: ${context.hasActivePartnership ? 'Active partnership' : 'Working on relationships'}
+`
+
+  // Phase 7.5: Try context-aware AI with memory first
+  try {
+    console.log('🧠 Phase 7.5: Attempting memory-enhanced context-aware insights...')
+    
+    const memoryInsights = await tryMemoryBasedInsights(context, relationshipType)
+    if (memoryInsights && memoryInsights.length > 0) {
+      console.log(`✅ Phase 7.5: Generated ${memoryInsights.length} memory-enhanced insights`)
+      return memoryInsights
     }
+  } catch (memoryError) {
+    console.warn('⚠️ Phase 7.5: Memory-based insights failed, falling back to API:', memoryError)
+  }
+
+  // Use new personality-based prompt builder
+  const personalityPrompt = buildInsightsPrompt(
+    relationshipType,
+    journalContentSummary,
+    userPsychProfile,
+    relationshipContext
   )
 
+  // Get AI personality for system message
+  const personality = getAIPersonality(relationshipType)
+
   try {
-    console.log(`🎯 Calling Phase 3 Grok API for ${relationshipType} relationship...`)
+    console.log(`🎯 Phase 7.5: Calling Memory-Enhanced Personality Grok API for ${relationshipType} relationship...`)
+    console.log(`📋 Using AI Role: ${personality.role}`)
     
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -1350,22 +1397,36 @@ async function callPhase3GrokAPI(context: any, relationshipType: RelationshipTyp
         messages: [
           {
             role: 'system',
-            content: `You are a warm, caring friend who adapts your communication style based on the relationship context. For ${config.displayName} relationships, you use a ${config.emotionalIntensity} emotional intensity with ${config.toneProfile.warmth}/10 warmth and ${config.toneProfile.formality}/10 formality. Always respond with valid JSON only.`
+            content: `${personality.systemPrompt}
+
+CRITICAL: You are a ${personality.role}. You must maintain this professional role and personality consistently. Never provide guidance outside your specialty area.
+
+RESPONSE FORMAT: Always respond with valid JSON array only - no markdown, no explanations, just the JSON array.
+
+JSON FORMAT REQUIRED:
+[
+  {
+    "type": "pattern",
+    "priority": "high|medium|low",
+    "title": "Brief insight title",
+    "description": "2-3 paragraph insight matching your ${personality.role} expertise and ${personality.communicationStyle.tone} tone"
+  }
+]`
           },
           {
-            role: 'user',
-            content: adaptedPrompt
+            role: 'user', 
+            content: personalityPrompt
           }
         ],
         model: 'grok-4',
         temperature: 0.7,
-        max_tokens: 1200,
+        max_tokens: 1500,
         stream: false
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Phase 3 Grok API error: ${response.status}`)
+      throw new Error(`Phase 7.5 Memory-Enhanced Grok API error: ${response.status} ${response.statusText}`)
     }
 
     const data = await response.json()
@@ -1374,6 +1435,7 @@ async function callPhase3GrokAPI(context: any, relationshipType: RelationshipTyp
       const content = data.choices[0].message.content.trim()
       
       try {
+        // Clean JSON extraction
         let jsonContent = content
         if (content.includes('```json')) {
           jsonContent = content.split('```json')[1].split('```')[0].trim()
@@ -1386,31 +1448,55 @@ async function callPhase3GrokAPI(context: any, relationshipType: RelationshipTyp
         const insights = JSON.parse(jsonContent)
         
         if (Array.isArray(insights) && insights.length >= 3) {
-          console.log('✅ Generated Phase 3 relationship-type aware insights:', insights.length)
+          console.log(`✅ Generated ${insights.length} memory-enhanced personality-aware insights for ${relationshipType}`)
           
-          // Validate insights are appropriate for relationship type
-          const validatedInsights = insights.filter(insight => {
-            const validation = validateSuggestionForRelationshipType(
+          // Phase 7.5: Enhanced validation with memory integration
+          const validatedInsights = []
+          
+          for (const insight of insights) {
+            // Content filtering validation
+            const contentValidation = filterContent(insight.description || '', relationshipType)
+            
+            if (!contentValidation.isValid) {
+              console.warn(`⚠️ Phase 7.5: Filtered inappropriate content for ${relationshipType}: ${contentValidation.violations.join(', ')}`)
+              continue
+            }
+
+            // Response requirements validation
+            const requirementValidation = validateResponseRequirements(insight.description || '', relationshipType)
+            
+            if (!requirementValidation.hasRequiredElements) {
+              console.warn(`⚠️ Phase 7.5: Insight missing required elements for ${personality.role}: ${requirementValidation.missingElements.join(', ')}`)
+              // Continue but note - in production might want to reject or enhance
+            }
+
+            // Legacy validation (keep for compatibility)
+            const legacyValidation = validateSuggestionForRelationshipType(
               insight.description || '',
               relationshipType
             )
-            if (!validation.isValid) {
-              console.warn(`⚠️ Filtered inappropriate insight: ${validation.reason}`)
+            
+            if (!legacyValidation.isValid) {
+              console.warn(`⚠️ Phase 7.5: Failed legacy validation: ${legacyValidation.reason}`)
+              continue
             }
-            return validation.isValid
-          })
+
+            validatedInsights.push({
+              type: validatePillarType(insight.type),
+              priority: insight.priority || 'medium',
+              title: insight.title || `${personality.role} Insight`,
+              description: contentValidation.filteredContent || insight.description,
+              relationship_id: context.primaryRelationshipId,
+              category: `phase75-${relationshipType}-memory-enhanced`
+            })
+          }
           
-          return validatedInsights.map((insight: any) => ({
-            type: validatePillarType(insight.type),
-            priority: insight.priority || 'medium',
-            title: insight.title || `${config.displayName} Insight`,
-            description: insight.description || 'Continue developing your relationship skills.',
-            relationship_id: context.primaryRelationshipId,
-            category: `phase3-${relationshipType}-grok-generated`
-          }))
+          console.log(`✅ Phase 7.5: Validated ${validatedInsights.length}/${insights.length} memory-enhanced insights for ${relationshipType}`)
+          return validatedInsights
         }
       } catch (parseError) {
-        console.error('❌ Failed to parse Phase 3 Grok response:', parseError)
+        console.error('❌ Phase 7.5: Failed to parse Memory-Enhanced Grok response:', parseError)
+        console.error('Raw content:', content)
         return null
       }
     }
@@ -1418,8 +1504,52 @@ async function callPhase3GrokAPI(context: any, relationshipType: RelationshipTyp
     return null
     
   } catch (error) {
-    console.error('❌ Phase 3 Grok API call failed:', error)
-    throw error
+    console.error('❌ Phase 7.5: Memory-Enhanced Grok API call failed, trying memory fallback:', error)
+    return await tryMemoryBasedInsights(context, relationshipType)
+  }
+}
+
+// Phase 7.5: Memory-based insights using the context-aware AI system
+async function tryMemoryBasedInsights(context: any, relationshipType: RelationshipType) {
+  try {
+    const { generateContextAwareInsight } = await import('@/lib/ai/context-aware-ai')
+    
+    // Build input from context
+    const inputContext = `
+Recent Activity Summary:
+- Gratitudes: ${context.recentGratitudes?.join(', ') || 'None'}
+- Challenges: ${context.recentChallenges?.join(', ') || 'None'}
+- Average mood: ${context.avgMoodFromCheckins}/10
+- Relationship status: ${context.hasActivePartnership ? 'Active partnership' : 'Working on relationships'}
+- Activity level: ${context.totalActivity} total entries
+`
+
+    const response = await generateContextAwareInsight(
+      context.userId || 'demo-user',
+      context.primaryRelationshipId || 'demo-relationship',
+      relationshipType,
+      inputContext
+    )
+
+    if (response && response.response) {
+      // Convert context-aware response to insights format
+      const insights = [{
+        type: 'pattern',
+        priority: 'medium',
+        title: `${relationshipType.charAt(0).toUpperCase() + relationshipType.slice(1)} Context Insight`,
+        description: response.response,
+        relationship_id: context.primaryRelationshipId,
+        category: `phase75-${relationshipType}-memory-based`
+      }]
+
+      console.log(`🧠 Phase 7.5: Generated ${insights.length} memory-based insights with ${response.memoryEntriesCreated.length} new memories`)
+      return insights
+    }
+
+    return null
+  } catch (error) {
+    console.error('❌ Phase 7.5: Memory-based insights failed:', error)
+    return null
   }
 }
 
