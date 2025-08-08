@@ -185,6 +185,71 @@ const { data: recentAnalysis, error: analysisError } = await supabase
 
     const journals = journalResponse.data || []
     const checkins = checkinResponse.data || []
+    
+    // 🎯 PHASE 8.2: Smart Triggering Logic - Check if insight generation should proceed
+    console.log('🧠 Phase 8.2: Checking triggering conditions for insight generation...')
+    
+    // Get user's most recent insight generation timestamp
+    const { data: lastInsight, error: insightError } = await supabase
+      .from('relationship_insights')
+      .select('created_at')
+      .eq('generated_for_user', user_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    
+    const lastInsightTime = lastInsight?.created_at ? new Date(lastInsight.created_at) : new Date(0)
+    console.log('📅 Last insight generated:', lastInsightTime.toISOString())
+    
+    // Check for new journal entries since last insight
+    const newJournals = journals.filter(journal => 
+      new Date(journal.created_at) > lastInsightTime
+    )
+    console.log('📝 New journal entries since last insight:', newJournals.length)
+    
+    // Check for at least one checkin today (any relationship)
+    const today = new Date().toDateString()
+    const todayCheckins = checkins.filter(checkin => 
+      new Date(checkin.created_at).toDateString() === today
+    )
+    console.log('✅ Today\'s checkins:', todayCheckins.length)
+    
+    // PHASE 8.2 Triggering Rules:
+    // 1. Must have new journal entry since last insight
+    // 2. Must have at least 1 checkin today (any relationship)
+    if (newJournals.length === 0) {
+      console.log('⚠️ Phase 8.2: No new journal entries since last insight - skipping generation')
+      return NextResponse.json({
+        success: false,
+        reason: 'no_new_content',
+        message: 'No new journal entries to analyze since last insight generation',
+        debug: {
+          lastInsightTime: lastInsightTime.toISOString(),
+          totalJournals: journals.length,
+          newJournals: newJournals.length,
+          todayCheckins: todayCheckins.length
+        }
+      })
+    }
+    
+    if (todayCheckins.length === 0) {
+      console.log('⚠️ Phase 8.2: No checkins today - skipping generation')
+      return NextResponse.json({
+        success: false,
+        reason: 'no_daily_checkin',
+        message: 'Please complete a daily checkin to unlock new insights',
+        debug: {
+          lastInsightTime: lastInsightTime.toISOString(),
+          totalJournals: journals.length,
+          newJournals: newJournals.length,
+          todayCheckins: todayCheckins.length
+        }
+      })
+    }
+    
+    console.log('✅ Phase 8.2: Triggering conditions met - proceeding with insight generation')
+    console.log(`📊 Analysis scope: ${newJournals.length} new journals, ${todayCheckins.length} today's checkins`)
+    
     const onboardingData = {
   // FIRO Theory data (from universal_user_profiles)
   inclusion_need: universalProfile?.inclusion_need || 5,
@@ -223,8 +288,9 @@ console.log('🔍 V2.0 Profile Integration:', {
     const { data: { user } } = await supabase.auth.getUser()
     console.log('🔍 DEBUG auth.uid():', user?.id)
 
-    // Analyze patterns from user data with relationship context
-    const patterns = analyzePatterns(journals, checkins, relationshipContext, onboardingData)
+    // 🎯 PHASE 8.2: Analyze patterns using NEW content since last insight (not all journals)
+    const patterns = analyzePatterns(newJournals, checkins, relationshipContext, onboardingData)
+    console.log('📊 Phase 8.2: Analyzing patterns from new journals only:', newJournals.length)
     console.log('📊 Patterns analyzed with relationship context:', patterns)
     
     // 🎯 PHASE 3: Determine relationship context for insights
@@ -281,10 +347,10 @@ console.log('🔍 V2.0 Profile Integration:', {
       }
     }
     
-    // Phase 5: Score 4 pillars for smart selection
-    console.log('📊 Phase 5: Scoring pillars for smart selection...')
+    // 🎯 PHASE 8.2: Score 4 pillars using NEW journals only for smart single insight generation
+    console.log('📊 Phase 8.2: Scoring pillars for single comprehensive insight...')
     const pillarScores = await scorePillars(
-      journals,
+      newJournals,
       checkins,
       onboardingData,
       primaryRelationshipType
@@ -292,21 +358,16 @@ console.log('🔍 V2.0 Profile Integration:', {
     
     console.log('📊 Pillar scores:', pillarScores.map(p => `${p.pillar}: ${p.score}`))
     
-    // Select top 1-2 pillars with score > 70
-    const selectedPillars = pillarScores
-      .filter(p => p.score > 70)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 2)
+    // 🎯 PHASE 8.2: Select PRIMARY pillar (highest score) + context pillars for single insight
+    const sortedPillars = pillarScores.sort((a, b) => b.score - a.score)
+    const primaryPillar = sortedPillars[0]
+    const contextPillars = sortedPillars.slice(1) // Use others as context, not separate insights
     
-    if (selectedPillars.length === 0) {
-      console.log('⚠️ No pillars met relevance threshold, selecting top pillar')
-      selectedPillars.push(pillarScores[0])
-    }
-    
-    console.log('✅ Selected pillars:', selectedPillars.map(p => p.pillar))
+    console.log('✅ Phase 8.2: Primary pillar:', primaryPillar.pillar, 'Score:', primaryPillar.score)
+    console.log('📚 Phase 8.2: Context pillars:', contextPillars.map(p => `${p.pillar}(${p.score})`).join(', '))
 
-    // Generate insights using PHASE 5 smart pillar system + PHASE 3 relationship-aware system
-    console.log('🤖 Generating PHASE 5 smart insights with relationship context...')
+    // 🎯 PHASE 8.2: Generate SINGLE comprehensive insight with pillar context
+    console.log('🤖 Phase 8.2: Generating single comprehensive insight with relationship context...')
     const insights = await generateRelationshipAwareInsights(
       patterns, 
       onboardingData, 
@@ -315,7 +376,8 @@ console.log('🔍 V2.0 Profile Integration:', {
       primaryRelationshipType,
       primaryRelationshipId,
       relationships,
-      selectedPillars // Phase 5: Pass selected pillars
+      primaryPillar, // Phase 8.2: Pass primary pillar instead of array
+      contextPillars // Phase 8.2: Pass context pillars separately
     )
     console.log('💡 Enhanced Grok insights generated:', insights.length)
     
@@ -613,8 +675,9 @@ function analyzePatterns(journals: any[], checkins: any[], relationshipContext: 
 }
 
 function validatePillarType(type: string): string {
-  const validTypes = ['pattern', 'suggestion', 'appreciation', 'milestone']
-  return validTypes.includes(type) ? type : 'suggestion'
+  // Phase 8.2: Add support for comprehensive insight type
+  const validTypes = ['pattern', 'suggestion', 'appreciation', 'milestone', 'comprehensive']
+  return validTypes.includes(type) ? type : 'comprehensive'
 }
 
 // STEP 2: Replace the getRelationshipStage function in app/api/insights/generate/route.ts
@@ -693,10 +756,13 @@ async function generateRelationshipAwareInsights(
   primaryRelationshipType: RelationshipType = 'other',
   primaryRelationshipId: string | null = null,
   allRelationships: Array<{id: string, name: string, relationship_type: RelationshipType}> = [],
-  selectedPillars: PillarScore[] = [] // Phase 5: Add selected pillars parameter
+  primaryPillar: PillarScore, // Phase 8.2: Primary pillar for main insight
+  contextPillars: PillarScore[] = [] // Phase 8.2: Context pillars for enrichment
 ) {
-  console.log('🎯 PHASE 3: Calling relationship-type aware Grok API...')
+  console.log('🎯 PHASE 8.2: Calling Grok API for single comprehensive insight...')
   console.log('🎯 Primary relationship type:', primaryRelationshipType)
+  console.log('🎯 Primary pillar:', primaryPillar.pillar, 'Score:', primaryPillar.score)
+  console.log('📚 Context pillars:', contextPillars.map(p => `${p.pillar}(${p.score})`).join(', '))
   
   // 🎯 PHASE 3: Create relationship-type aware context
   const context = buildPhase3ContextForGrok(
@@ -1395,19 +1461,23 @@ RECENT ACTIVITY SUMMARY:
             role: 'system',
             content: `${personality.systemPrompt}
 
+🎯 PHASE 8.2: SINGLE COMPREHENSIVE INSIGHT GENERATION
+
 CRITICAL: You are a ${personality.role}. You must maintain this professional role and personality consistently. Never provide guidance outside your specialty area.
 
-RESPONSE FORMAT: Always respond with valid JSON array only - no markdown, no explanations, just the JSON array.
+RESPONSE FORMAT: Always respond with valid JSON array containing EXACTLY ONE comprehensive insight - no markdown, no explanations, just the JSON array.
 
-JSON FORMAT REQUIRED:
+JSON FORMAT REQUIRED (EXACTLY ONE INSIGHT):
 [
   {
-    "type": "pattern",
+    "type": "comprehensive",
     "priority": "high|medium|low",
-    "title": "Brief insight title",
-    "description": "2-3 paragraph insight matching your ${personality.role} expertise and ${personality.communicationStyle.tone} tone"
+    "title": "Comprehensive insight title",
+    "description": "A comprehensive 3-4 paragraph insight that integrates pattern recognition, growth opportunities, appreciation/validation, and forward momentum all in one unified insight. This should be substantial and cover multiple aspects rather than being separate insights. Match your ${personality.role} expertise and ${personality.communicationStyle.tone} tone throughout."
   }
-]`
+]
+
+IMPORTANT: Return exactly ONE insight that comprehensively addresses all aspects, not multiple separate insights.`
           },
           {
             role: 'user', 
@@ -1443,10 +1513,10 @@ JSON FORMAT REQUIRED:
         
         const insights = JSON.parse(jsonContent)
         
-        if (Array.isArray(insights) && insights.length >= 3) {
-          console.log(`✅ Generated ${insights.length} memory-enhanced personality-aware insights for ${relationshipType}`)
+        if (Array.isArray(insights) && insights.length === 1) {
+          console.log(`✅ Phase 8.2: Generated 1 comprehensive insight for ${relationshipType}`)
           
-          // Phase 7.5: Enhanced validation with memory integration
+          // Phase 8.2: Enhanced validation for single comprehensive insight
           const validatedInsights = []
           
           for (const insight of insights) {
@@ -1478,16 +1548,16 @@ JSON FORMAT REQUIRED:
             }
 
             validatedInsights.push({
-              type: validatePillarType(insight.type),
+              type: insight.type === 'comprehensive' ? 'comprehensive' : validatePillarType(insight.type),
               priority: insight.priority || 'medium',
-              title: insight.title || `${personality.role} Insight`,
+              title: insight.title || `${personality.role} Comprehensive Insight`,
               description: contentValidation.filteredContent || insight.description,
               relationship_id: context.primaryRelationshipId,
-              category: `phase75-${relationshipType}-memory-enhanced`
+              category: `phase82-${relationshipType}-comprehensive`
             })
           }
           
-          console.log(`✅ Phase 7.5: Validated ${validatedInsights.length}/${insights.length} memory-enhanced insights for ${relationshipType}`)
+          console.log(`✅ Phase 8.2: Validated ${validatedInsights.length} comprehensive insight for ${relationshipType}`)
           return validatedInsights
         }
       } catch (parseError) {

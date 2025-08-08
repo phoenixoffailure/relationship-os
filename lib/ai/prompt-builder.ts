@@ -307,18 +307,18 @@ export function buildInsightsPrompt(
   userPsychProfile?: UserPsychologicalProfile,
   relationshipContext?: RelationshipContext
 ): string {
-  const basePrompt = `Analyze this journal content and generate 4 helpful insights for someone working on their ${relationshipType} relationship:
+  const basePrompt = `🎯 PHASE 8.2: Analyze this journal content and generate 1 COMPREHENSIVE insight for someone working on their ${relationshipType} relationship:
 
 JOURNAL CONTENT:
 ${journalContent}
 
-Generate insights that:
-1. Acknowledge what they're experiencing
-2. Provide specific, actionable guidance
-3. Validate their efforts and progress
-4. Offer hope and forward momentum
+Generate a SINGLE comprehensive insight that integrates:
+1. PATTERN RECOGNITION: Acknowledge what they're experiencing and any patterns you notice
+2. GROWTH OPPORTUNITIES: Provide specific, actionable guidance for improvement
+3. APPRECIATION & VALIDATION: Validate their efforts and progress
+4. FORWARD MOMENTUM: Offer hope and next steps
 
-Focus on patterns, growth opportunities, appreciation of efforts, and next steps that are appropriate for their ${relationshipType} relationship.`
+This should be ONE rich, multi-faceted insight that covers all aspects rather than separate insights. Focus on the most important elements that are appropriate for their ${relationshipType} relationship.`
 
   return buildRelationshipAwarePrompt(
     relationshipType,
