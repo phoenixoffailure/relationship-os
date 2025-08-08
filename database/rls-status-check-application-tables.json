@@ -1,0 +1,67 @@
+[
+  {
+    "schemaname": "public",
+    "tablename": "ai_conversation_history",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ai_memory_entries",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "communication_analysis_results",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "dashboard_cache",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_journal_analysis",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "firo_compatibility_results",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "memory_system_analytics",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "premium_analyses",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "premium_subscriptions",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_context_cache",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_health_scores",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_profiles",
+    "rls_enabled": true
+  },
+  {
+    "schemaname": "public",
+    "tablename": "universal_user_profiles",
+    "rls_enabled": true
+  }
+]

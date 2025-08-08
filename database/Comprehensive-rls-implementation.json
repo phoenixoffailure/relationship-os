@@ -1,0 +1,1212 @@
+[
+  {
+    "schemaname": "public",
+    "tablename": "admin_permissions",
+    "policyname": "Admins can manage permissions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() IN ( SELECT user_roles.user_id\n   FROM user_roles\n  WHERE (user_roles.role = 'admin'::text)))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "admin_permissions",
+    "policyname": "Users can view their own permissions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ai_conversation_history",
+    "policyname": "Service role can access all conversation history",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(CURRENT_USER = 'service_role'::name)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ai_conversation_history",
+    "policyname": "Users can access their own conversation history",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ai_memory_entries",
+    "policyname": "Service role can access all memory entries",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(CURRENT_USER = 'service_role'::name)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ai_memory_entries",
+    "policyname": "Users can access their own memory entries",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "batch_processing_log",
+    "policyname": "Service role can manage batch logs",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "batch_processing_log",
+    "policyname": "Users can view batch logs for their relationships",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(relationship_id IN ( SELECT rm.relationship_id\n   FROM relationship_members rm\n  WHERE (rm.user_id = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "beta_signups",
+    "policyname": "Anyone can insert beta signups",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "beta_signups",
+    "policyname": "Anyone can sign up for beta",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "beta_signups",
+    "policyname": "Service role can read beta signups",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "beta_signups",
+    "policyname": "Service role can update beta signups",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "beta_signups",
+    "policyname": "Users can view their own beta signup",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((user_id = auth.uid()) OR (user_id IS NULL))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "communication_analysis_results",
+    "policyname": "Service role can manage communication analysis",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "communication_analysis_results",
+    "policyname": "Users can view own communication analysis",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "connection_scores",
+    "policyname": "Users can insert connection scores for relationships they are i",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid())))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "connection_scores",
+    "policyname": "Users can update connection scores for relationships they are i",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "connection_scores",
+    "policyname": "Users can view connection scores for relationships they are mem",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cycle_insights",
+    "policyname": "Users can only access their own cycle insights.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "daily_checkins",
+    "policyname": "Users can only access their own daily checkins.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "dashboard_cache",
+    "policyname": "Users can manage own dashboard cache",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "dashboard_cache",
+    "policyname": "Users can view own dashboard cache",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_journal_analysis",
+    "policyname": "Users can manage their own analysis",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_onboarding_responses",
+    "policyname": "Service role can manage all enhanced data",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_onboarding_responses",
+    "policyname": "Users can insert own onboarding responses",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_onboarding_responses",
+    "policyname": "Users can insert their own enhanced onboarding responses",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_onboarding_responses",
+    "policyname": "Users can only see their own enhanced onboarding responses",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_onboarding_responses",
+    "policyname": "Users can update own onboarding responses",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_onboarding_responses",
+    "policyname": "Users can update their own enhanced onboarding responses",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_onboarding_responses",
+    "policyname": "Users can view own onboarding responses",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "enhanced_onboarding_responses",
+    "policyname": "Users can view their own enhanced onboarding responses",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "firo_compatibility_results",
+    "policyname": "Service role can manage FIRO compatibility",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "firo_compatibility_results",
+    "policyname": "Users can view compatibility for their relationships",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((user1_id = auth.uid()) OR (user2_id = auth.uid()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "insight_feedback",
+    "policyname": "Users can insert feedback on insights generated for them",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(insight_id IN ( SELECT relationship_insights.id\n   FROM relationship_insights\n  WHERE (relationship_insights.generated_for_user = auth.uid())))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "insight_feedback",
+    "policyname": "Users can update their own feedback",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(insight_id IN ( SELECT relationship_insights.id\n   FROM relationship_insights\n  WHERE (relationship_insights.generated_for_user = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "insight_feedback",
+    "policyname": "Users can view feedback on insights generated for them",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(insight_id IN ( SELECT relationship_insights.id\n   FROM relationship_insights\n  WHERE (relationship_insights.generated_for_user = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "journal_entries",
+    "policyname": "Users can only access their own journal entries.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "memory_system_analytics",
+    "policyname": "Service role can access all analytics",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(CURRENT_USER = 'service_role'::name)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "memory_system_analytics",
+    "policyname": "Users can access their own analytics",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "menstrual_cycles",
+    "policyname": "Users can only access their own menstrual cycle data.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_attunement_scores",
+    "policyname": "Users can insert own attunement scores",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_attunement_scores",
+    "policyname": "Users can view own attunement scores",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((auth.uid() = user_id) OR (auth.uid() = partner_user_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Service can create suggestions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Service can insert partner suggestions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Service role can manage partner suggestions",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Users can insert partner suggestions for relationships they are",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid())))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Users can update partner suggestions they received",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(recipient_user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Users can update their received suggestions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(recipient_user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Users can update their suggestion responses",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(recipient_user_id = auth.uid())",
+    "with_check": "(recipient_user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Users can view partner suggestions for relationships they are i",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((recipient_user_id = auth.uid()) OR (source_user_id = auth.uid()) OR (relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Users can view suggestions sent to them",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(recipient_user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Users can view their partner suggestions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(recipient_user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "partner_suggestions",
+    "policyname": "Users can view their suggestions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(recipient_user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "premium_analyses",
+    "policyname": "Service role can manage premium analyses",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "premium_analyses",
+    "policyname": "Users can view own premium analyses",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "premium_subscriptions",
+    "policyname": "Service role can manage premium subscriptions",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "premium_subscriptions",
+    "policyname": "Users can view own premium subscription",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "privacy_preserving_suggestions",
+    "policyname": "Users can view suggestions for them",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = target_user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "realtime_intelligence",
+    "policyname": "Users can insert own intelligence",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "realtime_intelligence",
+    "policyname": "Users can view own intelligence",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_checkins",
+    "policyname": "Users can delete their own relationship check-ins",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_checkins",
+    "policyname": "Users can insert their own relationship check-ins",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_checkins",
+    "policyname": "Users can update their own relationship check-ins",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_checkins",
+    "policyname": "Users can view their own relationship check-ins",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_context_cache",
+    "policyname": "Service role can access all context cache",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(CURRENT_USER = 'service_role'::name)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_context_cache",
+    "policyname": "Users can access their own context cache",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_health_scores",
+    "policyname": "Service role can manage health scores",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_health_scores",
+    "policyname": "System can insert/update relationship health scores",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_health_scores",
+    "policyname": "System can update relationship health scores",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_health_scores",
+    "policyname": "Users can update own relationship health scores",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_health_scores",
+    "policyname": "Users can view own relationship health scores",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_health_scores",
+    "policyname": "Users can view their own relationship health scores",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "Service role can insert insights",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "Service role can manage insights",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "Users can delete insights generated for them",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "(generated_for_user = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "Users can delete their own insights",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "((generated_for_user = auth.uid()) OR (relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "Users can insert insights for relationships they are in",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((generated_for_user = auth.uid()) OR (relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid()))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "Users can insert insights for themselves or their relationships",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((generated_for_user = auth.uid()) OR ((relationship_id IS NOT NULL) AND (relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid())))) OR ((relationship_id IS NULL) AND (generated_for_user = auth.uid())))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "Users can update insights generated for them",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(generated_for_user = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "Users can update their own insights",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "((generated_for_user = auth.uid()) OR (relationship_id IN ( SELECT relationship_members.relationship_id\n   FROM relationship_members\n  WHERE (relationship_members.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "insights_for_user",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(generated_for_user = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "insights_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "insights_system_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_insights",
+    "policyname": "insights_user_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(generated_for_user = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_interactions",
+    "policyname": "Users can insert own interactions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = responding_user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_interactions",
+    "policyname": "Users can view own interactions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((auth.uid() = responding_user_id) OR (auth.uid() = target_user_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_invitations",
+    "policyname": "Users can send relationship invitations",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(from_user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_invitations",
+    "policyname": "Users can update invitations they sent or received",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "((from_user_id = auth.uid()) OR (to_email = auth.email()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_invitations",
+    "policyname": "Users can view invitations they sent or received",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((from_user_id = auth.uid()) OR (to_email = auth.email()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_invitations",
+    "policyname": "invitations_create_policy",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(from_user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_invitations",
+    "policyname": "invitations_select_creator",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(from_user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_invitations",
+    "policyname": "invitations_select_recipient",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM users\n  WHERE ((users.id = auth.uid()) AND (users.email = relationship_invitations.to_email))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_invitations",
+    "policyname": "invitations_update_flexible",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "((from_user_id = auth.uid()) OR (status = 'pending'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_invitations",
+    "policyname": "invitations_view_policy",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((from_user_id = auth.uid()) OR ((status = 'pending'::text) AND (invite_code IS NOT NULL)))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_language_preferences",
+    "policyname": "Users can manage their own relationship language preferences",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_members",
+    "policyname": "members_delete_self_or_admin",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "((user_id = auth.uid()) OR (EXISTS ( SELECT 1\n   FROM relationship_members rm\n  WHERE ((rm.relationship_id = relationship_members.relationship_id) AND (rm.user_id = auth.uid()) AND (rm.role = 'admin'::text)))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_members",
+    "policyname": "members_development_policy",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_members",
+    "policyname": "members_insert_admin_only",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM relationship_members rm\n  WHERE ((rm.relationship_id = relationship_members.relationship_id) AND (rm.user_id = auth.uid()) AND (rm.role = 'admin'::text))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_members",
+    "policyname": "members_select_if_in_relationship",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "is_member_of(relationship_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_members",
+    "policyname": "members_select_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_members",
+    "policyname": "members_update_admin_only",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM relationship_members rm\n  WHERE ((rm.relationship_id = relationship_members.relationship_id) AND (rm.user_id = auth.uid()) AND (rm.role = 'admin'::text))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_profiles",
+    "policyname": "Users can insert own relationship profiles",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_profiles",
+    "policyname": "Users can update own relationship profiles",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_profiles",
+    "policyname": "Users can view own relationship profiles",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_trend_analysis",
+    "policyname": "Service role can manage relationship trends",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationship_trend_analysis",
+    "policyname": "Users can view trends for their relationships",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(relationship_id IN ( SELECT r.id\n   FROM (relationships r\n     JOIN relationship_members rm ON ((r.id = rm.relationship_id)))\n  WHERE (rm.user_id = auth.uid())))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationships",
+    "policyname": "relationships_development_policy",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "relationships",
+    "policyname": "relationships_select_if_member",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM relationship_members\n  WHERE ((relationship_members.relationship_id = relationships.id) AND (relationship_members.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "score_analytics",
+    "policyname": "Users can insert their own analytics",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "score_analytics",
+    "policyname": "Users can only access their own score analytics",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "score_analytics",
+    "policyname": "Users can view their own analytics",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "universal_user_profiles",
+    "policyname": "Users can insert own universal profile",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "universal_user_profiles",
+    "policyname": "Users can update own universal profile",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "universal_user_profiles",
+    "policyname": "Users can view own universal profile",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_availability",
+    "policyname": "Users can manage own availability",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_roles",
+    "policyname": "Admins can manage all roles",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM user_roles user_roles_1\n  WHERE ((user_roles_1.user_id = auth.uid()) AND (user_roles_1.role = 'admin'::text))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_roles",
+    "policyname": "Admins can manage user roles",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() IN ( SELECT user_roles_1.user_id\n   FROM user_roles user_roles_1\n  WHERE (user_roles_1.role = 'admin'::text)))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_roles",
+    "policyname": "Users can view their own roles",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "users",
+    "policyname": "Users can insert their own profile",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "users",
+    "policyname": "Users can update their own profile.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "users",
+    "policyname": "Users can view their own profile.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = id)",
+    "with_check": null
+  }
+]

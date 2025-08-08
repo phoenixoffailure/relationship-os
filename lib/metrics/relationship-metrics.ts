@@ -108,6 +108,13 @@ export const RELATIONSHIP_METRICS: Record<RelationshipType, RelationshipMetricCo
         required: true
       },
       {
+        id: 'future_alignment',
+        question: 'How aligned do you feel with your partner on future plans and goals?',
+        type: 'slider',
+        metric: 'future_alignment',
+        required: true
+      },
+      {
         id: 'gratitude_note',
         question: 'What are you grateful for in your relationship today?',
         type: 'text',

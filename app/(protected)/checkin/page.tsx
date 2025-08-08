@@ -21,7 +21,8 @@ import {
   BarChart3,
   Users,
   Briefcase,
-  Home
+  Home,
+  MessageCircle
 } from 'lucide-react'
 
 interface User {

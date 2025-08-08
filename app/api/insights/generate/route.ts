@@ -162,7 +162,7 @@ const { data: recentAnalysis, error: analysisError } = await supabase
     const [journalResponse, checkinResponse] = await Promise.all([
       supabase
         .from('journal_entries')
-        .select('mood_score, created_at')
+        .select('mood_score, created_at, content')
         .eq('user_id', user_id)
         .order('created_at', { ascending: false })
         .limit(10),
@@ -705,7 +705,8 @@ async function generateRelationshipAwareInsights(
     relationshipContext, 
     primaryRelationshipType,
     primaryRelationshipId,
-    allRelationships
+    allRelationships,
+    userId
   )
   
   try {
@@ -1260,7 +1261,8 @@ function buildPhase3ContextForGrok(
   relationshipContext: any, 
   primaryRelationshipType: RelationshipType,
   primaryRelationshipId: string | null,
-  allRelationships: Array<{id: string, name: string, relationship_type: RelationshipType}>
+  allRelationships: Array<{id: string, name: string, relationship_type: RelationshipType}>,
+  userId: string
 ) {
   // Get relationship configuration for primary relationship type
   const relationshipConfig = getRelationshipConfig(primaryRelationshipType)
@@ -1302,7 +1304,11 @@ function buildPhase3ContextForGrok(
     hasMultipleRelationships: allRelationships.length > 1,
     allRelationshipTypes: allRelationships.map(r => r.relationship_type),
     relationshipStage: patterns.relationshipStage,
-    hasActivePartnership: patterns.hasActivePartnership
+    hasActivePartnership: patterns.hasActivePartnership,
+    
+    // User ID for memory system
+    userId: userId,
+    primaryRelationshipId: primaryRelationshipId
   }
   
   console.log('🎯 Built Phase 3 context:', {
@@ -1320,7 +1326,7 @@ async function callPhase7PersonalityGrokAPI(context: any, relationshipType: Rela
   if (!process.env.XAI_API_KEY) {
     console.log('⚠️ No XAI_API_KEY found, trying Phase 7.5 context-aware memory system...')
     // Use memory-based AI even without API key
-    return await tryMemoryBasedInsights(context, relationshipType)
+    return await tryMemoryBasedInsights(context, relationshipType, context.userId || '')
   }
 
   // Build user psychological profile
@@ -1359,19 +1365,9 @@ RECENT ACTIVITY SUMMARY:
 - Partnership status: ${context.hasActivePartnership ? 'Active partnership' : 'Working on relationships'}
 `
 
-  // Phase 7.5: Try context-aware AI with memory first
-  try {
-    console.log('🧠 Phase 7.5: Attempting memory-enhanced context-aware insights...')
-    
-    const memoryInsights = await tryMemoryBasedInsights(context, relationshipType)
-    if (memoryInsights && memoryInsights.length > 0) {
-      console.log(`✅ Phase 7.5: Generated ${memoryInsights.length} memory-enhanced insights`)
-      return memoryInsights
-    }
-  } catch (memoryError) {
-    console.warn('⚠️ Phase 7.5: Memory-based insights failed, falling back to API:', memoryError)
-  }
-
+  // Phase 7.5: Skip memory-first approach, go straight to API if available
+  // Memory will be used as context within the API call, not as a replacement
+  
   // Use new personality-based prompt builder
   const personalityPrompt = buildInsightsPrompt(
     relationshipType,
@@ -1505,51 +1501,152 @@ JSON FORMAT REQUIRED:
     
   } catch (error) {
     console.error('❌ Phase 7.5: Memory-Enhanced Grok API call failed, trying memory fallback:', error)
-    return await tryMemoryBasedInsights(context, relationshipType)
+    return await tryMemoryBasedInsights(context, relationshipType, context.userId || '')
   }
 }
 
-// Phase 7.5: Memory-based insights using the context-aware AI system
-async function tryMemoryBasedInsights(context: any, relationshipType: RelationshipType) {
+// Phase 8: Memory-enhanced insights using database-connected memory system
+async function tryMemoryBasedInsights(context: any, relationshipType: RelationshipType, userId: string) {
   try {
-    const { generateContextAwareInsight } = await import('@/lib/ai/context-aware-ai')
+    console.log('🧠 Phase 8: Using database-connected memory system for insights...')
+    console.log('🔍 User ID for memory system:', userId)
     
-    // Build input from context
-    const inputContext = `
-Recent Activity Summary:
-- Gratitudes: ${context.recentGratitudes?.join(', ') || 'None'}
-- Challenges: ${context.recentChallenges?.join(', ') || 'None'}
-- Average mood: ${context.avgMoodFromCheckins}/10
-- Relationship status: ${context.hasActivePartnership ? 'Active partnership' : 'Working on relationships'}
-- Activity level: ${context.totalActivity} total entries
-`
-
-    const response = await generateContextAwareInsight(
-      context.userId || 'demo-user',
-      context.primaryRelationshipId || 'demo-relationship',
-      relationshipType,
-      inputContext
+    // Import memory integration functions
+    const { loadRelationshipMemories, buildMemoryContext, storeMemory } = await import('@/lib/ai/memory-integration')
+    const { getAIPersonality } = await import('@/lib/ai/personalities')
+    
+    // Get supabase client for memory access
+    const { createServerClient } = await import('@supabase/ssr')
+    const { cookies } = await import('next/headers')
+    
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch (error) {
+              // Ignore cookie errors in API routes
+            }
+          },
+        },
+      }
     )
-
-    if (response && response.response) {
-      // Convert context-aware response to insights format
-      const insights = [{
+    
+    // Load relationship memories
+    const memoryContext = await loadRelationshipMemories(
+      supabase,
+      userId,
+      context.primaryRelationshipId,
+      15 // Load 15 most relevant memories
+    )
+    
+    // Build memory-enhanced context
+    const memoryPromptAddition = buildMemoryContext(memoryContext, relationshipType)
+    
+    // Generate rule-based insights enhanced with memory
+    const memoryEnhancedInsights = []
+    
+    // Pattern insight based on memory
+    if (memoryContext.importantPatterns.length > 0) {
+      const pattern = memoryContext.importantPatterns[0]
+      memoryEnhancedInsights.push({
         type: 'pattern',
-        priority: 'medium',
-        title: `${relationshipType.charAt(0).toUpperCase() + relationshipType.slice(1)} Context Insight`,
-        description: response.response,
+        priority: 'high',
+        title: `Observed Pattern in ${relationshipType} Relationship`,
+        description: `${pattern.content}\\n\\nBased on your previous interactions, this pattern suggests focusing on ${getRelationshipSpecificAdvice(relationshipType, pattern.emotional_tone)}.`,
         relationship_id: context.primaryRelationshipId,
-        category: `phase75-${relationshipType}-memory-based`
-      }]
-
-      console.log(`🧠 Phase 7.5: Generated ${insights.length} memory-based insights with ${response.memoryEntriesCreated.length} new memories`)
-      return insights
+        category: `phase8-${relationshipType}-memory-pattern`
+      })
     }
+    
+    // Context-based insight using memory
+    if (context.recentGratitudes && context.recentGratitudes.length > 0) {
+      const advice = getPersonalityAppropriateAdvice(relationshipType, context, memoryContext)
+      memoryEnhancedInsights.push({
+        type: 'appreciation',
+        priority: 'medium',
+        title: `${relationshipType.charAt(0).toUpperCase() + relationshipType.slice(1)} Appreciation Insight`,
+        description: advice,
+        relationship_id: context.primaryRelationshipId,
+        category: `phase8-${relationshipType}-memory-context`
+      })
+    }
+    
+    // Store new memories about this interaction
+    if (userId && context.primaryRelationshipId) {
+      await storeMemory(supabase, userId, {
+        relationshipId: context.primaryRelationshipId,
+        relationshipType: relationshipType,
+        entryType: 'insight',
+        content: `Generated memory-enhanced insights based on recent activity patterns`,
+        context: { 
+          gratitudeCount: context.recentGratitudes?.length || 0,
+          challengeCount: context.recentChallenges?.length || 0,
+          mood: context.avgMoodFromCheckins
+        },
+        importance: 'medium',
+        emotionalTone: context.avgMoodFromCheckins > 6 ? 'positive' : 'neutral',
+        tags: ['insight_generation', relationshipType]
+      })
+    }
+    
+    console.log(`✅ Generated ${memoryEnhancedInsights.length} memory-enhanced insights for ${relationshipType}`)
+    return memoryEnhancedInsights
 
-    return null
   } catch (error) {
-    console.error('❌ Phase 7.5: Memory-based insights failed:', error)
-    return null
+    console.error('❌ Memory-based insights failed:', error)
+    
+    // Fallback to simple rule-based insights
+    const fallbackInsights = [{
+      type: 'pattern',
+      priority: 'medium',
+      title: `${relationshipType.charAt(0).toUpperCase() + relationshipType.slice(1)} Insight`,
+      description: `Based on your recent activity, continue focusing on positive communication and connection in your ${relationshipType} relationship.`,
+      relationship_id: context.primaryRelationshipId,
+      category: `phase8-${relationshipType}-fallback`
+    }]
+    
+    return fallbackInsights
+  }
+}
+
+// Helper functions for memory-enhanced insights
+function getRelationshipSpecificAdvice(relationshipType: RelationshipType, emotionalTone: string) {
+  switch (relationshipType) {
+    case 'romantic':
+      return emotionalTone === 'positive' ? 'building on this positive momentum with deeper intimacy' : 'gentle communication to address underlying concerns'
+    case 'work':
+      return emotionalTone === 'positive' ? 'maintaining professional collaboration while respecting boundaries' : 'clear, professional communication to resolve workplace issues'
+    case 'family':
+      return emotionalTone === 'positive' ? 'strengthening family bonds while respecting individual boundaries' : 'diplomatic communication that honors family relationships'
+    case 'friend':
+      return emotionalTone === 'positive' ? 'enjoying shared activities and mutual support' : 'honest but supportive conversation about friendship needs'
+    default:
+      return 'maintaining healthy communication and mutual respect'
+  }
+}
+
+function getPersonalityAppropriateAdvice(relationshipType: RelationshipType, context: any, memoryContext: any) {
+  const recentGratitude = context.recentGratitudes?.[0] || 'positive interactions'
+  
+  switch (relationshipType) {
+    case 'romantic':
+      return `Your recent appreciation for "${recentGratitude}" shows the deep care in your relationship. Consider expressing this gratitude directly to your partner - it strengthens emotional connection and intimacy. ${memoryContext.preferences.length > 0 ? `Based on what I remember about your preferences, this aligns with your values.` : ''}`
+    case 'work':
+      return `Your recognition of "${recentGratitude}" demonstrates professional awareness. Consider acknowledging this contribution in an appropriate professional setting - it builds positive workplace relationships while maintaining boundaries.`
+    case 'family':
+      return `Your gratitude for "${recentGratitude}" reflects the value you place on family connections. Sharing this appreciation can strengthen family bonds while respecting each person's individual space and perspective.`
+    case 'friend':
+      return `Your appreciation for "${recentGratitude}" shows how much this friendship means to you! Consider letting your friend know - genuine appreciation is the foundation of lasting friendships.`
+    default:
+      return `Your recognition of "${recentGratitude}" shows positive relationship awareness. Consider expressing this appreciation in a way that's appropriate for your relationship dynamic.`
   }
 }
 
@@ -1748,7 +1845,13 @@ async function scorePillars(
   const scores: PillarScore[] = []
   
   // Analyze content for patterns, issues, and achievements
-  const recentContent = journals?.map(j => j.content).join(' ') || ''
+  // Combine journal content and checkin notes for analysis
+  const journalContent = journals?.map(j => j.content || '').filter(Boolean).join(' ') || ''
+  const checkinContent = checkins?.map(c => 
+    `${c.gratitude_note || ''} ${c.challenge_note || ''}`
+  ).filter(Boolean).join(' ') || ''
+  const recentContent = `${journalContent} ${checkinContent}`
+  
   const recentMoods = journals?.map(j => j.mood_score).filter(Boolean) || []
   const avgMood = recentMoods.length > 0 ? 
     recentMoods.reduce((a, b) => a + b, 0) / recentMoods.length : 5
@@ -1758,7 +1861,7 @@ async function scorePillars(
   let patternContent = ''
   
   // Check for repetitive themes or behaviors
-  if (recentContent.includes('again') || recentContent.includes('always') || recentContent.includes('never')) {
+  if (recentContent && (recentContent.includes('again') || recentContent.includes('always') || recentContent.includes('never'))) {
     patternScore += 40
     patternContent = 'Behavioral patterns found'
   }
@@ -1772,10 +1875,18 @@ async function scorePillars(
     }
   }
   
+  // Fallback: If no content, use activity patterns
+  if (patternScore === 0) {
+    if (checkins?.length > 5 || journals?.length > 3) {
+      patternScore = 75 // Default score for consistent activity
+      patternContent = 'Consistent engagement pattern'
+    }
+  }
+  
   scores.push({
     pillar: 'pattern',
     score: Math.min(patternScore, 100),
-    relevantContent: patternContent
+    relevantContent: patternContent || 'Regular activity patterns'
   })
   
   // Growth Suggestions Scoring
@@ -1783,27 +1894,33 @@ async function scorePillars(
   let growthContent = ''
   
   // Check for challenges or struggles
-  if (recentContent.match(/struggle|difficult|hard|challenge|problem|issue/gi)) {
+  if (recentContent && recentContent.match(/struggle|difficult|hard|challenge|problem|issue/gi)) {
     growthScore += 40
     growthContent = 'Challenges present, growth opportunity identified'
   }
   
   // Check for questions or uncertainty
-  if (recentContent.includes('?') || recentContent.match(/don't know|unsure|confused/gi)) {
+  if (recentContent && (recentContent.includes('?') || recentContent.match(/don't know|unsure|confused/gi))) {
     growthScore += 30
     growthContent += ' Seeking guidance'
   }
   
   // Check if stuck in patterns (high FIRO needs not being met)
-  if (profile.inclusion_need > 7 && recentContent.match(/alone|isolated|disconnected/gi)) {
+  if (profile?.inclusion_need > 7 && recentContent && recentContent.match(/alone|isolated|disconnected/gi)) {
     growthScore += 30
     growthContent += ' Inclusion needs unmet'
+  }
+  
+  // Fallback: Always some growth opportunity
+  if (growthScore === 0) {
+    growthScore = 70 // Default score for growth opportunities
+    growthContent = 'Continuous growth opportunities available'
   }
   
   scores.push({
     pillar: 'growth',
     score: Math.min(growthScore, 100),
-    relevantContent: growthContent
+    relevantContent: growthContent || 'Growth and development focus'
   })
   
   // Appreciation/Context Scoring
@@ -1811,21 +1928,27 @@ async function scorePillars(
   let appreciationContent = ''
   
   // Check for self-criticism
-  if (recentContent.match(/should have|failed|mistake|wrong|bad at/gi)) {
+  if (recentContent && recentContent.match(/should have|failed|mistake|wrong|bad at/gi)) {
     appreciationScore += 50
     appreciationContent = 'Self-criticism detected, reframing needed'
   }
   
   // Check for unrecognized efforts
-  if (recentContent.match(/tried|effort|worked on|attempted/gi)) {
+  if (recentContent && recentContent.match(/tried|effort|worked on|attempted/gi)) {
     appreciationScore += 30
     appreciationContent += ' Efforts need acknowledgment'
+  }
+  
+  // Fallback: Always appreciate engagement
+  if (appreciationScore === 0) {
+    appreciationScore = 80 // Default score for appreciation
+    appreciationContent = 'Engagement and commitment deserve recognition'
   }
   
   scores.push({
     pillar: 'appreciation',
     score: Math.min(appreciationScore, 100),
-    relevantContent: appreciationContent
+    relevantContent: appreciationContent || 'Positive reinforcement opportunity'
   })
   
   // Milestone Celebrations Scoring
@@ -1833,22 +1956,30 @@ async function scorePillars(
   let milestoneContent = ''
   
   // Check for achievements or progress
-  if (recentContent.match(/finally|achieved|succeeded|managed to|proud|happy|better/gi)) {
+  if (recentContent && recentContent.match(/finally|achieved|succeeded|managed to|proud|happy|better/gi)) {
     milestoneScore += 60
     milestoneContent = 'Achievement detected'
   }
   
   // Check for relationship progress
-  if (recentContent.match(/closer|connected|understood|breakthrough|progress/gi)) {
+  if (recentContent && recentContent.match(/closer|connected|understood|breakthrough|progress/gi)) {
     milestoneScore += 40
     milestoneContent += ' Relationship progress made'
+  }
+  
+  // Check for consistency milestones
+  if (milestoneScore === 0 && (checkins?.length >= 7 || journals?.length >= 5)) {
+    milestoneScore = 50 // Milestone for consistent tracking
+    milestoneContent = 'Consistency milestone'
   }
   
   scores.push({
     pillar: 'milestone',
     score: Math.min(milestoneScore, 100),
-    relevantContent: milestoneContent
+    relevantContent: milestoneContent || 'Progress tracking'
   })
+  
+  console.log('📊 Pillar scoring complete:', scores.map(s => `${s.pillar}: ${s.score}`))
   
   return scores
 }

@@ -36,6 +36,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://relationshipos.ai'),
   title: {
     default: 'RelationshipOS - AI-Powered Relationship Intelligence',
     template: '%s | RelationshipOS'
