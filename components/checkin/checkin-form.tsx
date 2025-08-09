@@ -1,5 +1,4 @@
-{
-  ;`'use client'
+'use client'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -11,6 +10,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Database } from '@/lib/types/database'
 import { useEffect } from 'react'
+import { trackEvent } from '@/lib/analytics/events'
 
 type Relationship = Database['public']['Tables']['relationships']['Row']
 
@@ -22,6 +22,7 @@ export function CheckinForm() {
   const [selectedRelationship, setSelectedRelationship] = useState<string | undefined>(undefined)
   const [relationships, setRelationships] = useState<Relationship[]>([])
   const [loading, setLoading] = useState(false)
+  const [checkedInToday, setCheckedInToday] = useState<Set<string>>(new Set())
   const supabase = createClient()
 
   useEffect(() => {
@@ -51,8 +52,22 @@ export function CheckinForm() {
           toast.error(error.message)
         } else {
           setRelationships(data || [])
+          
+          // Check which relationships have been checked in today
+          const today = new Date().toISOString().split('T')[0]
+          const { data: controls } = await supabase
+            .from('generation_controls')
+            .select('relationship_id, checkin_date')
+            .eq('user_id', user.id)
+            .eq('checkin_date', today)
+          
+          const checkedIn = new Set(controls?.map(c => c.relationship_id) || [])
+          setCheckedInToday(checkedIn)
+          
+          // Select first unchecked relationship by default
           if (data && data.length > 0) {
-            setSelectedRelationship(data[0].id) // Select first relationship by default
+            const firstUnchecked = data.find(r => !checkedIn.has(r.id))
+            setSelectedRelationship(firstUnchecked?.id || data[0].id)
           }
         }
       }
@@ -77,6 +92,34 @@ export function CheckinForm() {
       return
     }
 
+    // Check if already checked in today
+    if (checkedInToday.has(selectedRelationship)) {
+      toast.error('You have already checked in for this relationship today. Come back tomorrow!')
+      
+      // Track blocked check-in attempt
+      trackEvent('checkin_blocked_daily_limit', {
+        user_id: user.id,
+        relationship_id: selectedRelationship
+      })
+      
+      setLoading(false)
+      return
+    }
+
+    // Check using database function for extra validation
+    const { data: canCheckin } = await supabase
+      .rpc('can_user_checkin', { 
+        p_user_id: user.id, 
+        p_relationship_id: selectedRelationship 
+      })
+    
+    if (!canCheckin) {
+      toast.error('You have already checked in for this relationship today. Check-ins are limited to once per day.')
+      setLoading(false)
+      return
+    }
+
+    // Insert the check-in
     const { error } = await supabase.from('daily_checkins').insert({
       user_id: user.id,
       relationship_id: selectedRelationship,
@@ -88,19 +131,54 @@ export function CheckinForm() {
 
     if (error) {
       toast.error(error.message)
-    } else {
-      toast.success('Daily check-in saved successfully!')
-      setConnectionScore(5)
-      setMoodScore(5)
-      setGratitudeNote('')
-      setChallengeNote('')
-      // Trigger score calculation (placeholder)
-      await fetch('/api/scores/calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ relationshipId: selectedRelationship }),
-      })
+      setLoading(false)
+      return
     }
+
+    // Record the check-in in generation_controls
+    console.log('🔧 DEBUG: Calling record_checkin function...', {
+      user_id: user.id,
+      relationship_id: selectedRelationship
+    })
+    
+    const { data: recordData, error: recordError } = await supabase
+      .rpc('record_checkin', { 
+        p_user_id: user.id, 
+        p_relationship_id: selectedRelationship 
+      })
+    
+    console.log('🔧 DEBUG: record_checkin result:', { recordData, recordError })
+    
+    if (recordError) {
+      console.error('❌ Failed to record check-in in generation_controls:', recordError)
+    } else {
+      console.log('✅ record_checkin completed successfully')
+    }
+
+    // Update local state to reflect the check-in
+    setCheckedInToday(prev => new Set([...prev, selectedRelationship]))
+    
+    // Track successful check-in
+    trackEvent('checkin_completed', {
+      user_id: user.id,
+      relationship_id: selectedRelationship,
+      connection_score: connectionScore,
+      mood_score: moodScore
+    })
+    
+    toast.success('Daily check-in saved successfully! You can now journal to unlock insights.')
+    setConnectionScore(5)
+    setMoodScore(5)
+    setGratitudeNote('')
+    setChallengeNote('')
+    
+    // Trigger score calculation
+    await fetch('/api/scores/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relationshipId: selectedRelationship }),
+    })
+    
     setLoading(false)
   }
 
@@ -114,12 +192,18 @@ export function CheckinForm() {
           </SelectTrigger>
           <SelectContent>
             {relationships.map((rel) => (
-              <SelectItem key={rel.id} value={rel.id}>
+              <SelectItem key={rel.id} value={rel.id} disabled={checkedInToday.has(rel.id)}>
                 {rel.name} ({rel.relationship_type})
+                {checkedInToday.has(rel.id) && ' ✓ Checked in today'}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {selectedRelationship && checkedInToday.has(selectedRelationship) && (
+          <p className="text-sm text-amber-600">
+            You've already checked in for this relationship today. Select another relationship or come back tomorrow!
+          </p>
+        )}
       </div>
 
       <div className="grid gap-2">
@@ -172,11 +256,15 @@ export function CheckinForm() {
         />
       </div>
 
-      <Button type="submit" className="bg-brand-teal hover:bg-calm-600" disabled={loading}>
-        {loading ? 'Submitting...' : 'Submit Daily Check-in'}
+      <Button 
+        type="submit" 
+        className="bg-brand-teal hover:bg-calm-600" 
+        disabled={loading || (!!selectedRelationship && checkedInToday.has(selectedRelationship))}
+      >
+        {loading ? 'Submitting...' : 
+         selectedRelationship && checkedInToday.has(selectedRelationship) ? 
+         'Already Checked In Today' : 'Submit Daily Check-in'}
       </Button>
     </form>
   )
-}
-`
 }

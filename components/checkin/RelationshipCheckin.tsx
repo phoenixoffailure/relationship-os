@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Database } from '@/lib/types/database'
 import { RelationshipType } from '@/lib/ai/relationship-type-intelligence'
+import { trackEvent } from '@/lib/analytics/events'
 import { 
   getRelationshipMetrics, 
   getRelationshipCheckInQuestions,
@@ -37,6 +38,8 @@ export function RelationshipCheckin({ preselectedRelationship }: RelationshipChe
   const [metricValues, setMetricValues] = useState<Record<string, number>>({})
   const [textResponses, setTextResponses] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+  // Phase 9: Track checked-in relationships today
+  const [checkedInToday, setCheckedInToday] = useState<Set<string>>(new Set())
   const supabase = createClient()
 
   useEffect(() => {
@@ -83,10 +86,30 @@ export function RelationshipCheckin({ preselectedRelationship }: RelationshipChe
         const typedRelationships = (data || []) as Relationship[]
         setRelationships(typedRelationships)
         
+        // Phase 9: Load check-in status for today
+        await loadCheckinStatus(user.id)
+        
         if (!preselectedRelationship && typedRelationships.length > 0) {
           setSelectedRelationship(typedRelationships[0].id)
         }
       }
+    }
+  }
+
+  // Phase 9: Load check-in status for today
+  const loadCheckinStatus = async (userId: string) => {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const { data: controls } = await supabase
+        .from('generation_controls')
+        .select('relationship_id, checkin_date')
+        .eq('user_id', userId)
+        .eq('checkin_date', today)
+      
+      const checkedIn = new Set(controls?.map(c => c.relationship_id) || [])
+      setCheckedInToday(checkedIn)
+    } catch (error) {
+      console.error('Error loading check-in status:', error)
     }
   }
 
@@ -117,6 +140,40 @@ export function RelationshipCheckin({ preselectedRelationship }: RelationshipChe
 
     if (!selectedRelationship) {
       toast.error('Please select a relationship for this check-in.')
+      setLoading(false)
+      return
+    }
+
+    // Phase 9: Check if already checked in today
+    if (checkedInToday.has(selectedRelationship)) {
+      toast.error('You have already checked in for this relationship today. Come back tomorrow!')
+      
+      // Track blocked check-in attempt
+      trackEvent('checkin_blocked_daily_limit', {
+        user_id: user.id,
+        relationship_id: selectedRelationship
+      })
+      
+      setLoading(false)
+      return
+    }
+
+    // Phase 9: Database function validation
+    const { data: canCheckin, error: checkError } = await supabase
+      .rpc('can_user_checkin', { 
+        p_user_id: user.id, 
+        p_relationship_id: selectedRelationship 
+      })
+    
+    if (checkError) {
+      console.error('Error calling can_user_checkin function:', checkError)
+      toast.error('Database error: ' + checkError.message)
+      setLoading(false)
+      return
+    }
+    
+    if (!canCheckin) {
+      toast.error('You have already checked in for this relationship today. Check-ins are limited to once per day.')
       setLoading(false)
       return
     }
@@ -168,7 +225,29 @@ export function RelationshipCheckin({ preselectedRelationship }: RelationshipChe
 
       await supabase.from('daily_checkins').insert([legacyData])
 
-      toast.success(`${getRelationshipMetrics(relationshipType).displayName} check-in saved successfully!`)
+      // Phase 9: Record the check-in in generation_controls
+      const { error: recordError } = await supabase
+        .rpc('record_checkin', { 
+          p_user_id: user.id, 
+          p_relationship_id: selectedRelationship 
+        })
+      
+      if (recordError) {
+        console.error('Failed to record check-in in generation_controls:', recordError)
+      } else {
+        console.log('✅ Check-in recorded in generation_controls')
+        // Update local state to reflect the check-in
+        setCheckedInToday(prev => new Set([...prev, selectedRelationship]))
+      }
+      
+      // Track successful check-in
+      trackEvent('checkin_completed', {
+        user_id: user.id,
+        relationship_id: selectedRelationship,
+        relationship_type: relationshipType
+      })
+
+      toast.success(`${getRelationshipMetrics(relationshipType).displayName} check-in saved successfully! You can now journal to unlock insights.`)
       
       // Reset form
       setMetricValues({})
@@ -231,11 +310,21 @@ export function RelationshipCheckin({ preselectedRelationship }: RelationshipChe
                   <SelectValue placeholder="Choose a relationship..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {relationships.map((relationship) => (
-                    <SelectItem key={relationship.id} value={relationship.id}>
-                      {relationship.name} ({relationship.relationship_type})
-                    </SelectItem>
-                  ))}
+                  {relationships.map((relationship) => {
+                    const isCheckedIn = checkedInToday.has(relationship.id)
+                    return (
+                      <SelectItem key={relationship.id} value={relationship.id}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{relationship.name} ({relationship.relationship_type})</span>
+                          {isCheckedIn && (
+                            <span className="text-green-600 text-xs ml-2 flex items-center">
+                              ✓ Checked in today
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -256,6 +345,29 @@ export function RelationshipCheckin({ preselectedRelationship }: RelationshipChe
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Phase 9: Check-in status indicator */}
+            {checkedInToday.has(selectedRelationship) ? (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center text-green-700">
+                  <span className="text-green-500 mr-2 text-lg">✓</span>
+                  <div>
+                    <p className="font-medium text-sm">Already checked in today!</p>
+                    <p className="text-xs text-green-600">You've completed your daily check-in for this relationship. Come back tomorrow for your next check-in.</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center text-blue-700">
+                  <span className="text-blue-500 mr-2 text-lg">📝</span>
+                  <div>
+                    <p className="font-medium text-sm">Ready for today's check-in!</p>
+                    <p className="text-xs text-blue-600">Complete this check-in to unlock AI insights when you journal.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-6">
               {questions.map((question) => (
                 <div key={question.id} className="space-y-3">
@@ -316,11 +428,25 @@ export function RelationshipCheckin({ preselectedRelationship }: RelationshipChe
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={loading}
+                disabled={loading || checkedInToday.has(selectedRelationship)}
                 size="lg"
               >
-                {loading ? 'Saving...' : `Save ${relationshipConfig.displayName} Check-in`}
+                {loading ? 'Saving...' : 
+                 checkedInToday.has(selectedRelationship) ? 
+                 'Already Checked In Today' : 
+                 `Save ${relationshipConfig.displayName} Check-in`}
               </Button>
+              
+              {/* Phase 9: Additional messaging for disabled state */}
+              {checkedInToday.has(selectedRelationship) && (
+                <div className="text-center text-sm text-gray-600 mt-3">
+                  <p>Check-ins are limited to once per relationship per day.</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This helps maintain consistent habits and prevents overwhelm. 
+                    <br/>Come back tomorrow to check in again!
+                  </p>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>

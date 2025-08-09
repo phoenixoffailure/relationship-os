@@ -9,8 +9,8 @@ CREATE TABLE public.admin_permissions (
   granted_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT admin_permissions_pkey PRIMARY KEY (id),
-  CONSTRAINT admin_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
-  CONSTRAINT admin_permissions_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES public.users(id)
+  CONSTRAINT admin_permissions_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES public.users(id),
+  CONSTRAINT admin_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.ai_conversation_history (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -32,8 +32,8 @@ CREATE TABLE public.ai_conversation_history (
   session_id uuid,
   sequence_number integer DEFAULT 1,
   CONSTRAINT ai_conversation_history_pkey PRIMARY KEY (id),
-  CONSTRAINT ai_conversation_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT ai_conversation_history_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
+  CONSTRAINT ai_conversation_history_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
+  CONSTRAINT ai_conversation_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.ai_memory_entries (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -54,8 +54,8 @@ CREATE TABLE public.ai_memory_entries (
   confidence_score numeric DEFAULT 0.80,
   created_at_index timestamp with time zone DEFAULT now(),
   CONSTRAINT ai_memory_entries_pkey PRIMARY KEY (id),
-  CONSTRAINT ai_memory_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT ai_memory_entries_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
+  CONSTRAINT ai_memory_entries_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
+  CONSTRAINT ai_memory_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.batch_processing_log (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -236,9 +236,9 @@ CREATE TABLE public.firo_compatibility_results (
   generated_at timestamp without time zone DEFAULT now(),
   expires_at timestamp without time zone DEFAULT (now() + '30 days'::interval),
   CONSTRAINT firo_compatibility_results_pkey PRIMARY KEY (id),
-  CONSTRAINT firo_compatibility_results_user1_id_fkey FOREIGN KEY (user1_id) REFERENCES auth.users(id),
+  CONSTRAINT firo_compatibility_results_user2_id_fkey FOREIGN KEY (user2_id) REFERENCES auth.users(id),
   CONSTRAINT firo_compatibility_results_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
-  CONSTRAINT firo_compatibility_results_user2_id_fkey FOREIGN KEY (user2_id) REFERENCES auth.users(id)
+  CONSTRAINT firo_compatibility_results_user1_id_fkey FOREIGN KEY (user1_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.insight_feedback (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -267,8 +267,8 @@ CREATE TABLE public.journal_entries (
   ready_for_batch_processing boolean DEFAULT true,
   batch_processed_at timestamp without time zone,
   CONSTRAINT journal_entries_pkey PRIMARY KEY (id),
-  CONSTRAINT journal_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
-  CONSTRAINT journal_entries_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
+  CONSTRAINT journal_entries_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
+  CONSTRAINT journal_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.memory_system_analytics (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -364,8 +364,8 @@ CREATE TABLE public.premium_analyses (
   generated_at timestamp without time zone DEFAULT now(),
   expires_at timestamp without time zone DEFAULT (now() + '90 days'::interval),
   CONSTRAINT premium_analyses_pkey PRIMARY KEY (id),
-  CONSTRAINT premium_analyses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT premium_analyses_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
+  CONSTRAINT premium_analyses_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
+  CONSTRAINT premium_analyses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.premium_subscriptions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -417,8 +417,8 @@ CREATE TABLE public.realtime_intelligence (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT realtime_intelligence_pkey PRIMARY KEY (id),
-  CONSTRAINT realtime_intelligence_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT realtime_intelligence_partner_user_id_fkey FOREIGN KEY (partner_user_id) REFERENCES auth.users(id)
+  CONSTRAINT realtime_intelligence_partner_user_id_fkey FOREIGN KEY (partner_user_id) REFERENCES auth.users(id),
+  CONSTRAINT realtime_intelligence_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.relationship_checkins (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -428,6 +428,7 @@ CREATE TABLE public.relationship_checkins (
   text_responses jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  relationship_type text CHECK (relationship_type = ANY (ARRAY['romantic'::text, 'work'::text, 'family'::text, 'friend'::text, 'other'::text])),
   CONSTRAINT relationship_checkins_pkey PRIMARY KEY (id),
   CONSTRAINT relationship_checkins_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
   CONSTRAINT relationship_checkins_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
@@ -460,9 +461,14 @@ CREATE TABLE public.relationship_health_scores (
   calculated_at timestamp without time zone DEFAULT now(),
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
+  relationship_type text CHECK (relationship_type = ANY (ARRAY['romantic'::text, 'work'::text, 'family'::text, 'friend'::text, 'other'::text])),
+  metric_scores jsonb DEFAULT '{}'::jsonb,
+  trend_data jsonb DEFAULT '{}'::jsonb,
+  calculation_date timestamp with time zone DEFAULT now(),
+  checkins_analyzed integer DEFAULT 0,
   CONSTRAINT relationship_health_scores_pkey PRIMARY KEY (id),
-  CONSTRAINT relationship_health_scores_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
-  CONSTRAINT relationship_health_scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT relationship_health_scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT relationship_health_scores_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
 );
 CREATE TABLE public.relationship_insights (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -481,8 +487,8 @@ CREATE TABLE public.relationship_insights (
   relevance_score integer DEFAULT 0 CHECK (relevance_score >= 0 AND relevance_score <= 100),
   psychological_factors jsonb,
   CONSTRAINT relationship_insights_pkey PRIMARY KEY (id),
-  CONSTRAINT relationship_insights_generated_for_user_fkey FOREIGN KEY (generated_for_user) REFERENCES public.users(id),
-  CONSTRAINT relationship_insights_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
+  CONSTRAINT relationship_insights_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
+  CONSTRAINT relationship_insights_generated_for_user_fkey FOREIGN KEY (generated_for_user) REFERENCES public.users(id)
 );
 CREATE TABLE public.relationship_interactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -501,8 +507,8 @@ CREATE TABLE public.relationship_interactions (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT relationship_interactions_pkey PRIMARY KEY (id),
-  CONSTRAINT relationship_interactions_target_user_id_fkey FOREIGN KEY (target_user_id) REFERENCES auth.users(id),
-  CONSTRAINT relationship_interactions_responding_user_id_fkey FOREIGN KEY (responding_user_id) REFERENCES auth.users(id)
+  CONSTRAINT relationship_interactions_responding_user_id_fkey FOREIGN KEY (responding_user_id) REFERENCES auth.users(id),
+  CONSTRAINT relationship_interactions_target_user_id_fkey FOREIGN KEY (target_user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.relationship_invitations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -538,8 +544,8 @@ CREATE TABLE public.relationship_members (
   role text DEFAULT 'member'::text CHECK (role = ANY (ARRAY['admin'::text, 'member'::text])),
   joined_at timestamp with time zone DEFAULT now(),
   CONSTRAINT relationship_members_pkey PRIMARY KEY (id),
-  CONSTRAINT relationship_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
-  CONSTRAINT relationship_members_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
+  CONSTRAINT relationship_members_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
+  CONSTRAINT relationship_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.relationship_profiles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -553,8 +559,8 @@ CREATE TABLE public.relationship_profiles (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT relationship_profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT relationship_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT relationship_profiles_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id)
+  CONSTRAINT relationship_profiles_relationship_id_fkey FOREIGN KEY (relationship_id) REFERENCES public.relationships(id),
+  CONSTRAINT relationship_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.relationship_trend_analysis (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -594,6 +600,27 @@ CREATE TABLE public.score_analytics (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT score_analytics_pkey PRIMARY KEY (id),
   CONSTRAINT score_analytics_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.stripe_customers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  stripe_customer_id text NOT NULL UNIQUE,
+  email text NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT stripe_customers_pkey PRIMARY KEY (id),
+  CONSTRAINT stripe_customers_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.subscription_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  stripe_subscription_id text NOT NULL,
+  event_type text NOT NULL CHECK (event_type = ANY (ARRAY['subscription_created'::text, 'subscription_updated'::text, 'subscription_cancelled'::text, 'subscription_reactivated'::text, 'payment_succeeded'::text, 'payment_failed'::text, 'invoice_payment_succeeded'::text, 'invoice_payment_failed'::text])),
+  event_data jsonb,
+  processed_at timestamp without time zone DEFAULT now(),
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT subscription_events_pkey PRIMARY KEY (id),
+  CONSTRAINT subscription_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.universal_user_profiles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

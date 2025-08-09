@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/lib/types/database'
+import { trackEvent, trackConversion } from '@/lib/analytics/events'
 
 // FIXED: Extended database types to include pillar_type
 type PartnerSuggestionRow = Database['public']['Tables']['partner_suggestions']['Row'] & {
@@ -150,6 +151,7 @@ export function PartnerSuggestions() {
   const [processingFeedback, setProcessingFeedback] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isPremium, setIsPremium] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,7 +163,24 @@ export function PartnerSuggestions() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUser(user)
-        await loadSuggestions(user.id)
+        
+        // Check premium status
+        const { data: subscription } = await supabase
+          .from('premium_subscriptions')
+          .select('subscription_status')
+          .eq('user_id', user.id)
+          .eq('subscription_status', 'active')
+          .single()
+        
+        const premium = !!subscription
+        setIsPremium(premium)
+        
+        // Only load suggestions if premium
+        if (premium) {
+          await loadSuggestions(user.id)
+        } else {
+          setLoading(false)
+        }
       }
     }
     getUser()
@@ -253,6 +272,45 @@ export function PartnerSuggestions() {
           <div className="h-4 bg-gray-200 rounded w-5/6 mb-2"></div>
           <div className="h-3 bg-gray-200 rounded w-2/3"></div>
         </div>
+      </div>
+    )
+  }
+
+  // Phase 9: Premium gate for partner suggestions
+  if (!isPremium) {
+    return (
+      <div className="text-center py-8 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border-2 border-purple-200">
+        <div className="mb-4">
+          <span className="text-4xl block mb-2">🔐</span>
+          <div className="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-medium mb-4">
+            <span className="mr-1">✨</span>
+            Premium Feature
+          </div>
+        </div>
+        <h3 className="font-semibold text-purple-800 mb-2">Partner Suggestions</h3>
+        <p className="text-purple-700 text-sm mb-4 max-w-sm mx-auto">
+          Get daily AI-generated suggestions to strengthen your relationships. Premium users receive personalized recommendations based on partner journals.
+        </p>
+        <Button 
+          onClick={() => {
+            // Track paywall interaction
+            trackEvent('paywall_click_suggestion_lock', {
+              user_id: user?.id,
+              source_component: 'partner_suggestions'
+            })
+            
+            // Track conversion attempt
+            trackConversion('suggestion_lock', user?.id, 'free')
+            
+            window.location.href = '/premium/pricing'
+          }}
+          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+        >
+          Upgrade to Premium
+        </Button>
+        <p className="text-xs text-gray-500 mt-3">
+          Already premium? Refresh the page to update.
+        </p>
       </div>
     )
   }

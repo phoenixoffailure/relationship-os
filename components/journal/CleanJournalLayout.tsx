@@ -54,6 +54,10 @@ export default function CleanJournalLayout() {
   const [activeTab, setActiveTab] = useState<string>('personal')
   const [showMoreEntries, setShowMoreEntries] = useState(false)
   
+  // Phase 9: Check-in status tracking
+  const [checkedInToday, setCheckedInToday] = useState<Set<string>>(new Set())
+  const [isPremium, setIsPremium] = useState(false)
+  
   // New entry form
   const [showNewEntryForm, setShowNewEntryForm] = useState(false)
   const [newEntry, setNewEntry] = useState({
@@ -75,7 +79,9 @@ export default function CleanJournalLayout() {
         setUser(user)
         await Promise.all([
           loadEntries(user.id),
-          loadUserRelationships(user.id)
+          loadUserRelationships(user.id),
+          loadCheckinStatus(user.id),
+          loadPremiumStatus(user.id)
         ])
       }
       setLoading(false)
@@ -119,6 +125,37 @@ export default function CleanJournalLayout() {
       }
     } catch (error) {
       console.error('Error loading relationships:', error)
+    }
+  }
+
+  const loadCheckinStatus = async (userId: string) => {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const { data: controls } = await supabase
+        .from('generation_controls')
+        .select('relationship_id, checkin_date')
+        .eq('user_id', userId)
+        .eq('checkin_date', today)
+      
+      const checkedIn = new Set(controls?.map(c => c.relationship_id) || [])
+      setCheckedInToday(checkedIn)
+    } catch (error) {
+      console.error('Error loading check-in status:', error)
+    }
+  }
+
+  const loadPremiumStatus = async (userId: string) => {
+    try {
+      const { data: subscription } = await supabase
+        .from('premium_subscriptions')
+        .select('subscription_status')
+        .eq('user_id', userId)
+        .eq('subscription_status', 'active')
+        .single()
+      
+      setIsPremium(!!subscription)
+    } catch (error) {
+      console.error('Error loading premium status:', error)
     }
   }
 
@@ -339,9 +376,44 @@ export default function CleanJournalLayout() {
                     {relationships.map(relationship => (
                       <option key={relationship.id} value={relationship.id}>
                         {relationship.name}
+                        {checkedInToday.has(relationship.id) ? ' ✓ Checked in' : ' (Check-in required for insights)'}
                       </option>
                     ))}
                   </select>
+                  
+                  {/* Phase 9: Insight eligibility messaging */}
+                  {newEntry.relationship_id && (
+                    <div className="mt-2 p-3 rounded-lg border">
+                      {checkedInToday.has(newEntry.relationship_id) ? (
+                        <div className="flex items-center text-green-700 bg-green-50 border-green-200 rounded p-2">
+                          <span className="text-green-500 mr-2">✓</span>
+                          <div>
+                            <p className="text-sm font-medium">Ready for insights!</p>
+                            <p className="text-xs">
+                              {isPremium 
+                                ? 'Premium: Every journal generates an insight'
+                                : 'Free: First journal today will generate an insight'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-amber-700 bg-amber-50 border-amber-200 rounded p-2">
+                          <span className="text-amber-500 mr-2">⚠️</span>
+                          <div>
+                            <p className="text-sm font-medium">Check-in required for insights</p>
+                            <p className="text-xs">Complete today's check-in to unlock AI insights for this relationship.</p>
+                            <button
+                              onClick={() => window.location.href = '/checkin'}
+                              className="text-xs text-amber-600 hover:text-amber-800 underline mt-1"
+                            >
+                              Go to check-in →
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -438,7 +510,7 @@ export default function CleanJournalLayout() {
               <button
                 key={relationship.id}
                 onClick={() => setActiveTab(relationship.id)}
-                className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+                className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 relative ${
                   activeTab === relationship.id
                     ? 'border-brand-teal text-brand-teal'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -446,6 +518,13 @@ export default function CleanJournalLayout() {
               >
                 {getRelationshipIcon(relationship.relationship_type)}
                 <span>{relationship.name}</span>
+                {/* Phase 9: Check-in status indicator */}
+                {checkedInToday.has(relationship.id) && (
+                  <div className="flex items-center ml-1">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span className="text-xs text-green-600 ml-1">✓</span>
+                  </div>
+                )}
               </button>
             ))}
         </div>

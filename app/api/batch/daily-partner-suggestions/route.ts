@@ -235,15 +235,33 @@ async function groupJournalsByRelationship(
   journals: BatchJournal[]
 ): Promise<RelationshipBatch[]> {
   
+  // Phase 9: First filter to only include journals from premium users
+  console.log('🔍 Phase 9: Filtering for premium users only...')
+  const userIds = [...new Set(journals.map(j => j.user_id))]
+  
+  // Get premium users
+  const { data: premiumUsers } = await supabase
+    .from('premium_subscriptions')
+    .select('user_id')
+    .eq('subscription_status', 'active')
+    .in('user_id', userIds)
+  
+  const premiumUserIds = new Set(premiumUsers?.map(p => p.user_id) || [])
+  
+  // Filter journals to only premium users
+  const premiumJournals = journals.filter(j => premiumUserIds.has(j.user_id))
+  
+  console.log(`📊 Phase 9: Filtered ${journals.length} journals to ${premiumJournals.length} from premium users`)
+  
   // Get unique relationship IDs (excluding null relationship_ids)
   const relationshipIds = [...new Set(
-    journals
+    premiumJournals
       .filter(j => j.relationship_id) 
       .map(j => j.relationship_id)
   )] as string[]
 
   if (relationshipIds.length === 0) {
-    console.log('ℹ️ No relationship-specific journals found for batching')
+    console.log('ℹ️ No relationship-specific journals found from premium users for batching')
     return []
   }
 
@@ -270,12 +288,12 @@ async function groupJournalsByRelationship(
     return []
   }
 
-  // Build relationship batches
+  // Build relationship batches (using premium journals only)
   const relationshipBatches: RelationshipBatch[] = relationships.map((rel: any) => ({
     relationship_id: rel.id,
     relationship_name: rel.name,
     relationship_type: rel.relationship_type,
-    journals: journals.filter(j => j.relationship_id === rel.id),
+    journals: premiumJournals.filter(j => j.relationship_id === rel.id),
     members: rel.relationship_members.map((member: any) => ({
       user_id: member.user_id,
       user_name: member.users?.full_name || member.users?.email || 'Unknown',

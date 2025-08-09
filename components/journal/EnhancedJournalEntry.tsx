@@ -7,13 +7,23 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
-import { useState } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { createBrowserClient } from '@supabase/ssr'
+import { trackEvent, trackConversion } from '@/lib/analytics/events'
+
+type Relationship = {
+  id: string
+  name: string
+  relationship_type: string
+}
 
 export function EnhancedJournalEntry() {
   const [content, setContent] = useState('')
   const [moodScore, setMoodScore] = useState(5)
+  const [selectedRelationship, setSelectedRelationship] = useState<string | undefined>(undefined)
+  const [relationships, setRelationships] = useState<Relationship[]>([])
   const [loading, setLoading] = useState(false)
   const [aiAnalysisStatus, setAiAnalysisStatus] = useState<'idle' | 'analyzing' | 'complete'>('idle')
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
@@ -22,6 +32,39 @@ export function EnhancedJournalEntry() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
+
+  useEffect(() => {
+    const fetchRelationships = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: members, error: membersError } = await supabase
+        .from('relationship_members')
+        .select('relationship_id')
+        .eq('user_id', user.id)
+
+      if (membersError) {
+        console.error('Error loading relationships:', membersError)
+        return
+      }
+
+      const relationshipIds = members?.map(m => m.relationship_id) || []
+
+      if (relationshipIds.length > 0) {
+        const { data, error } = await supabase
+          .from('relationships')
+          .select('*')
+          .in('id', relationshipIds)
+
+        if (error) {
+          console.error('Error loading relationships:', error)
+        } else {
+          setRelationships(data || [])
+        }
+      }
+    }
+    fetchRelationships()
+  }, [supabase])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,21 +88,48 @@ export function EnhancedJournalEntry() {
         body: JSON.stringify({
           content,
           mood_score: moodScore,
-          user_id: user.id
+          user_id: user.id,
+          relationship_id: selectedRelationship || null
         })
       })
 
       const result = await response.json()
 
       if (result.success) {
-        toast.success('Journal entry saved! AI analysis starting...')
+        toast.success(result.message || 'Journal entry saved!')
         setSavedEntryId(result.journalEntry.id)
         setContent('')
         setMoodScore(5)
+        setSelectedRelationship(undefined)
         
-        // Start monitoring AI analysis
-        setAiAnalysisStatus('analyzing')
-        monitorAIAnalysis(result.journalEntry.id)
+        // Only start monitoring if insights were triggered
+        if (result.personalInsightsTriggered) {
+          setAiAnalysisStatus('analyzing')
+          monitorAIAnalysis(result.journalEntry.id)
+        } else if (result.insightDenialReason === 'no_checkin') {
+          toast.info('Complete a check-in for this relationship to unlock insights!', {
+            action: {
+              label: 'Check-in',
+              onClick: () => window.location.href = '/checkin'
+            }
+          })
+        } else if (result.insightDenialReason === 'free_tier_limit') {
+          // Track paywall interaction for insight cap
+          trackEvent('paywall_click_insight_cap', {
+            user_id: user.id,
+            source_component: 'journal_insights'
+          })
+          
+          toast.info('Upgrade to premium for unlimited insights!', {
+            action: {
+              label: 'Upgrade',
+              onClick: () => {
+                trackConversion('insight_cap', user.id, 'free')
+                window.location.href = '/premium/pricing'
+              }
+            }
+          })
+        }
       } else {
         toast.error(result.error || 'Failed to save journal entry')
       }
@@ -127,6 +197,27 @@ export function EnhancedJournalEntry() {
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="grid gap-6">
+        {relationships.length > 0 && (
+          <div className="grid gap-2">
+            <Label htmlFor="relationship-select">About which relationship? (Optional)</Label>
+            <Select value={selectedRelationship} onValueChange={setSelectedRelationship}>
+              <SelectTrigger id="relationship-select">
+                <SelectValue placeholder="Select a relationship or leave blank for personal entry" />
+              </SelectTrigger>
+              <SelectContent>
+                {relationships.map((rel) => (
+                  <SelectItem key={rel.id} value={rel.id}>
+                    {rel.name} ({rel.relationship_type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-gray-500">
+              Select a relationship to get personalized insights. Requires daily check-in to unlock insights.
+            </p>
+          </div>
+        )}
+        
         <div className="grid gap-2">
           <Label htmlFor="journal-content">What's on your mind today?</Label>
           <Textarea

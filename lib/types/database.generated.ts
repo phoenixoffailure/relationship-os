@@ -464,6 +464,59 @@ export type Database = {
           analysis_version?: string | null
         }
       }
+      generation_controls: {
+        Row: {
+          id: string
+          user_id: string
+          relationship_id: string
+          last_checkin_at: string | null
+          checkins_today: number | null
+          checkin_date: string | null
+          last_insight_generated_at: string | null
+          insights_generated_today: number | null
+          insight_date: string | null
+          first_journal_after_checkin_today: boolean | null
+          last_suggestion_generated_at: string | null
+          suggestions_generated_today: number | null
+          suggestion_date: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          relationship_id: string
+          last_checkin_at?: string | null
+          checkins_today?: number | null
+          checkin_date?: string | null
+          last_insight_generated_at?: string | null
+          insights_generated_today?: number | null
+          insight_date?: string | null
+          first_journal_after_checkin_today?: boolean | null
+          last_suggestion_generated_at?: string | null
+          suggestions_generated_today?: number | null
+          suggestion_date?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          relationship_id?: string
+          last_checkin_at?: string | null
+          checkins_today?: number | null
+          checkin_date?: string | null
+          last_insight_generated_at?: string | null
+          insights_generated_today?: number | null
+          insight_date?: string | null
+          first_journal_after_checkin_today?: boolean | null
+          last_suggestion_generated_at?: string | null
+          suggestions_generated_today?: number | null
+          suggestion_date?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
       enhanced_onboarding_responses: {
         Row: {
           id: string
